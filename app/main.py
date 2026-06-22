@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 import uvicorn
 from fastapi import FastAPI
@@ -12,6 +13,21 @@ from app.services.embedding import warmup as warmup_embedding
 from app.services.llm import warmup as warmup_llm
 
 
+def _configure_logging() -> None:
+    """确保 app.* 日志在 F5 / uvicorn 下都能输出到终端。"""
+    level = logging.DEBUG if settings.debug else logging.INFO
+    if not logging.root.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(levelname)s:     %(name)s - %(message)s",
+        )
+    else:
+        logging.root.setLevel(level)
+    logging.getLogger("app").setLevel(level)
+
+
+_configure_logging()
+
 def _warmup() -> None:
     warmup_embedding()
     db = SessionLocal()
@@ -24,8 +40,9 @@ def _warmup() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    _warmup()
+    # Base.metadata.create_all(bind=engine)
+    # _warmup()
+    print(f"应用名称: {app.title}") 
     yield
 
 
@@ -49,7 +66,6 @@ async def root() -> dict[str, str]:
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
-
 
 
 if __name__ == "__main__":

@@ -17,12 +17,16 @@ app/
 
 ## 环境
 
-依赖统一装在 conda 环境 `cur_index` 下（不在项目目录里建 venv）：
+使用 [uv](https://docs.astral.sh/uv/) + Python 3.13（`D:\Program Files\Python\cpython-3.13.14-windows-x86_64-none`）：
 
 ```bash
-conda env create -f environment.yml   # 首次
-conda activate cur_index
-pip install -r requirements.txt       # 新增依赖后
+# 首次：创建 .venv 并安装依赖
+uv sync --python "D:\Program Files\Python\cpython-3.13.14-windows-x86_64-none\python.exe"
+
+# 新增依赖后
+uv add <package>
+# 或编辑 pyproject.toml 后
+uv sync
 ```
 
 数据库使用 PostgreSQL，连接串写在 `.env` 的 `DATABASE_URL`。
@@ -30,8 +34,9 @@ pip install -r requirements.txt       # 新增依赖后
 ## 启动
 
 ```bash
-conda activate cur_index
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
+# 或
+uv run python -m app.main
 ```
 
 访问 http://127.0.0.1:8000/docs 查看 API 文档。

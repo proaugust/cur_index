@@ -1,3 +1,6 @@
+from app.services.text_chunker import TextChunk
+
+
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -27,7 +30,7 @@ class DocumentImportService:
 
         vectors = embed_texts([chunk.content for chunk in chunks])
         rows = []
-        for chunk, vector in zip(chunks, vectors):
+        for chunk, vector in zip[tuple[TextChunk, list[float]]](chunks, vectors):
             rows.append(
                 {
                     "source_file": source_file,

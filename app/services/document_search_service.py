@@ -31,9 +31,8 @@ class DocumentSearchService:
         distance_expr = models.DocumentChunk.embedding.cosine_distance(query_vector).label(
             "distance"
         )
-        q = (
-            self.db.query(models.DocumentChunk, distance_expr)
-            .filter(models.DocumentChunk.embedding.isnot(None))
+        q = self.db.query(models.DocumentChunk, distance_expr).filter(
+            models.DocumentChunk.embedding.isnot(None)
         )
         if source_file:
             q = q.filter(models.DocumentChunk.source_file == source_file)
@@ -68,9 +67,7 @@ class DocumentSearchService:
         for index, chunk in enumerate(sources, start=1):
             header = chunk.section_title or chunk.section_path or "正文"
             source_label = f"{chunk.source_file} · {header}"
-            context_blocks.append(
-                f"[片段{index}] 来源: {source_label}\n{chunk.content}"
-            )
+            context_blocks.append(f"[片段{index}] 来源: {source_label}\n{chunk.content}")
             original_sources.append(
                 schemas.DocumentSearchPolishedSource(
                     snippet_index=index,
@@ -88,8 +85,7 @@ class DocumentSearchService:
 
         user_prompt = (
             f"用户问题：{query}\n\n"
-            f"共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n"
-            + "\n\n".join(context_blocks)
+            f"共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n" + "\n\n".join(context_blocks)
         )
         polished_answer = chat_completion(_SYSTEM_PROMPT, user_prompt, temperature=0.5)
 

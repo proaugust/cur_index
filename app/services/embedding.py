@@ -17,13 +17,13 @@ def warmup() -> None:
     embed_query("warmup")
 
 
-def _encode(texts: list[str]) -> list[list[float]]:
+def _encode(texts: list[str], *, show_progress: bool = False) -> list[list[float]]:
     if not texts:
         return []
     vectors = _get_model().encode(
         texts,
         normalize_embeddings=True,
-        show_progress_bar=False,
+        show_progress_bar=show_progress and len(texts) > 1,
     )
     return [vector.tolist() for vector in vectors]
 
@@ -40,8 +40,8 @@ def embed_query(text: str) -> list[float]:
     return _encode([payload])[0]
 
 
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    return _encode(texts)
+def embed_texts(texts: list[str], *, show_progress: bool = False) -> list[list[float]]:
+    return _encode(texts, show_progress=show_progress)
 
 
 def mean_vector(vectors: list[list[float]]) -> list[float]:

@@ -13,13 +13,13 @@ class Settings(BaseSettings):
 
     app_name: str = "FastAPI App"
     debug: bool = False
-    database_url: str = "postgresql://postgres:postgres@localhost:5435/callmind"
+    database_url: str = "postgresql://postgres:postgres@localhost:5435/ai_test"
     embedding_model_name: str = "BAAI/bge-small-zh-v1.5"
     embedding_dim: int = 512
     embedding_query_instruction: str = "为这个句子生成表示以用于检索相关文章："
     llm_api_base: str = "https://api.deepseek.com/v1"
     llm_api_key: str = ""
-    llm_model: str = "deepseek-chat"
+    llm_model: str = "deepseek-v4-flash"
 
 
 settings = Settings()
