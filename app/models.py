@@ -1,8 +1,10 @@
+from datetime import datetime
+
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.config import settings
 from app.database import Base
 
 
@@ -33,7 +35,7 @@ class ComplaintCategory(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
     seed_phrases: Mapped[str] = mapped_column(Text, default="")
-    embedding: Mapped[list[float] | None] = mapped_column(ARRAY(Float), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
 
     complaints: Mapped[list["Complaint"]] = relationship(back_populates="category")
 
@@ -42,13 +44,35 @@ class Complaint(Base):
     __tablename__ = "complaints"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    content: Mapped[str] = mapped_column(Text)
-    embedding: Mapped[list[float] | None] = mapped_column(ARRAY(Float), nullable=True)
-    category_id: Mapped[int | None] = mapped_column(
-        ForeignKey("complaint_categories.id"),
-        nullable=True,
-        index=True,
-    )
+    complaint_text: Mapped[str] = mapped_column(Text)
+    address: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    complaint_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("complaint_categories.id"), nullable=True, index=True)
     similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     category: Mapped["ComplaintCategory | None"] = relationship(back_populates="complaints")
+
+
+class AttendancePerson(Base):
+    __tablename__ = "attendance_persons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    face_descriptor: Mapped[str] = mapped_column(Text)
+    reference_image: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reference_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    punches: Mapped[list["AttendancePunch"]] = relationship(back_populates="person")
+
+
+class AttendancePunch(Base):
+    __tablename__ = "attendance_punches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(ForeignKey("attendance_persons.id"), index=True)
+    punched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+    person: Mapped["AttendancePerson"] = relationship(back_populates="punches")

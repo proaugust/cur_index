@@ -1,0 +1,212 @@
+from fastapi import HTTPException
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableBranch, RunnableLambda, RunnablePassthrough
+from langchain_openai import ChatOpenAI
+
+from app.core.config import settings
+from app.services.agent_common import (
+    GENERATE_SYSTEM,
+    REFLECTION_MAX_ROUNDS,
+    REFLECTION_PASS_SCORE,
+    REVISE_SYSTEM,
+    REVIEW_SYSTEM,
+    ROUTE_SYSTEM,
+    SEQUENTIAL_AGENTS,
+    SINGLE_ANSWER_SYSTEM,
+    SPECIALISTS,
+    AgentMode,
+    AgentStepData,
+    build_sequential_context,
+    parse_reflection_score,
+    parse_route_category,
+    prepare_single_run,
+)
+
+
+def _make_llm(*, temperature: float) -> ChatOpenAI:
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=503, detail="未配置 OPENAI_API_KEY，无法调用大模型")
+    return ChatOpenAI(
+        model=settings.llm_model,
+        api_key=settings.openai_api_key,
+        base_url=settings.llm_api_base.rstrip("/"),
+        temperature=temperature,
+    )
+
+
+def _chain(system_prompt: str, llm: ChatOpenAI):
+    prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("user", "{input}")])
+    return prompt | llm | StrOutputParser()
+
+
+def run_single(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    steps, user_prompt, used_tool = prepare_single_run(question)
+    llm = _make_llm(temperature=temperature)
+    answer = _chain(SINGLE_ANSWER_SYSTEM, llm).invoke({"input": user_prompt})
+    steps.append(
+        AgentStepData(
+            agent="回答 Agent (LangChain)",
+            role="基于工具结果生成答复" if used_tool else "ChatPromptTemplate | ChatOpenAI | StrOutputParser",
+            input=user_prompt,
+            output=answer,
+            meta="used_tool=calc" if used_tool else "direct",
+        )
+    )
+    return steps, answer
+
+
+def run_sequential(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    llm = _make_llm(temperature=temperature)
+    steps: list[AgentStepData] = []
+    context = f"原始问题：{question}"
+    last_output = ""
+
+    for i, agent in enumerate(SEQUENTIAL_AGENTS):
+        user_input = question if i == 0 else context
+        chain = _chain(agent["prompt"], llm)
+        output = chain.invoke({"input": user_input})
+        steps.append(
+            AgentStepData(
+                agent=f"{agent['name']} (LangChain)",
+                role=agent["role"],
+                input=context,
+                output=output,
+            )
+        )
+        context = build_sequential_context(question, i, output, context)
+        last_output = output
+
+    return steps, last_output
+
+
+def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    llm_route = _make_llm(temperature=min(temperature, 0.2))
+    llm_answer = _make_llm(temperature=temperature)
+
+    route_chain = _chain(ROUTE_SYSTEM, llm_route)
+    tech_chain = _chain(SPECIALISTS["技术"]["prompt"], llm_answer)
+    biz_chain = _chain(SPECIALISTS["业务"]["prompt"], llm_answer)
+    general_chain = _chain(SPECIALISTS["通用"]["prompt"], llm_answer)
+
+    def _pick_category(payload: dict) -> dict:
+        category = parse_route_category(payload["route_raw"])
+        specialist = SPECIALISTS[category]
+        return {**payload, "category": category, "specialist_name": specialist["name"]}
+
+    router = RunnableBranch(
+        (
+            lambda x: x["category"] == "技术",
+            RunnableLambda(lambda x: tech_chain.invoke({"input": x["question"]})),
+        ),
+        (
+            lambda x: x["category"] == "业务",
+            RunnableLambda(lambda x: biz_chain.invoke({"input": x["question"]})),
+        ),
+        RunnableLambda(lambda x: general_chain.invoke({"input": x["question"]})),
+    )
+
+    pipeline = (
+        RunnablePassthrough.assign(route_raw=route_chain)
+        | RunnableLambda(_pick_category)
+        | RunnablePassthrough.assign(answer=router)
+    )
+    result = pipeline.invoke({"input": question, "question": question})
+
+    category = result["category"]
+    specialist_name = result["specialist_name"]
+    answer = result["answer"]
+
+    steps = [
+        AgentStepData(
+            agent="路由 Agent (LangChain)",
+            role="RunnableBranch 路由分发",
+            input=question,
+            output=f"路由结果：{category}",
+            meta=f"选中 {specialist_name}",
+        ),
+        AgentStepData(
+            agent=f"{specialist_name} (LangChain)",
+            role="领域专家作答",
+            input=question,
+            output=answer,
+        ),
+    ]
+    return steps, answer
+
+
+def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    llm = _make_llm(temperature=temperature)
+    llm_review = _make_llm(temperature=min(temperature, 0.3))
+
+    generate_chain = _chain(GENERATE_SYSTEM, llm)
+    review_chain = _chain(REVIEW_SYSTEM, llm_review)
+    revise_chain = _chain(REVISE_SYSTEM, llm)
+
+    steps: list[AgentStepData] = []
+    draft = generate_chain.invoke({"input": question})
+    steps.append(
+        AgentStepData(
+            agent="生成 Agent (LangChain)",
+            role="第 1 轮初稿",
+            input=question,
+            output=draft,
+        )
+    )
+
+    for round_num in range(1, REFLECTION_MAX_ROUNDS + 1):
+        review = review_chain.invoke({"input": f"用户问题：{question}\n\n草稿：\n{draft}"})
+        steps.append(
+            AgentStepData(
+                agent="评审 Agent (LangChain)",
+                role=f"第 {round_num} 轮评审",
+                input=draft,
+                output=review,
+            )
+        )
+
+        score = parse_reflection_score(review)
+        if score >= REFLECTION_PASS_SCORE or round_num == REFLECTION_MAX_ROUNDS:
+            steps.append(
+                AgentStepData(
+                    agent="最终输出 (LangChain)",
+                    role="评审通过" if score >= REFLECTION_PASS_SCORE else "达到最大轮次",
+                    input=review,
+                    output=draft,
+                    meta=f"评分 {score}/10",
+                )
+            )
+            return steps, draft
+
+        old_draft = draft
+        draft = revise_chain.invoke(
+            {"input": f"用户问题：{question}\n\n当前草稿：\n{draft}\n\n评审意见：\n{review}"}
+        )
+        steps.append(
+            AgentStepData(
+                agent="修订 Agent (LangChain)",
+                role=f"第 {round_num} 轮修订",
+                input=f"{old_draft}\n\n评审意见：\n{review}",
+                output=draft,
+            )
+        )
+
+    return steps, draft
+
+
+_RUNNERS = {
+    "single": run_single,
+    "sequential": run_sequential,
+    "routing": run_routing,
+    "reflection": run_reflection,
+}
+
+
+def run_agent_langchain(mode: AgentMode, question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    text = question.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="问题不能为空")
+    runner = _RUNNERS.get(mode)
+    if runner is None:
+        raise HTTPException(status_code=400, detail=f"不支持的 mode: {mode}")
+    return runner(text, temperature=temperature)

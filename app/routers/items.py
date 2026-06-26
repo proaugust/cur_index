@@ -13,8 +13,5 @@ def list_items(db: Session = Depends(get_db)) -> list[schemas.ItemRead]:
 
 
 @router.post("/", response_model=schemas.ItemRead)
-def create_item(
-    item: schemas.ItemCreate,
-    db: Session = Depends(get_db),
-) -> schemas.ItemRead:
+def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)) -> schemas.ItemRead:
     return crud.create_item(db, item)

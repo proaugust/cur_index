@@ -5,8 +5,8 @@ SECTION_SEP = re.compile(r"^=+\s*$", re.MULTILINE)
 TITLE_PATTERN = re.compile(r"^【(.+?)】\s*$")
 PUNCT_PATTERN = re.compile(r"([，。！？；：、,.!?;:])")
 
-SMALL_PIECE_LEN = 20
-CHUNK_LEN = 50
+SMALL_PIECE_LEN = 30
+CHUNK_LEN = 100
 
 
 @dataclass
@@ -66,11 +66,7 @@ def parse_sections(text: str) -> list[TextSection]:
 
         content = ""
         if index + 1 < len(blocks):
-            content = "".join(
-                line.strip()
-                for line in blocks[index + 1].splitlines()
-                if line.strip()
-            )
+            content = "".join(line.strip() for line in blocks[index + 1].splitlines() if line.strip())
             index += 2
         else:
             index += 1
@@ -118,10 +114,7 @@ def split_to_small_pieces(text: str, target_len: int = SMALL_PIECE_LEN) -> list[
     return [p for p in pieces if p]
 
 
-def merge_to_chunks(
-    pieces: list[str],
-    chunk_len: int = CHUNK_LEN,
-) -> list[str]:
+def merge_to_chunks(pieces: list[str], chunk_len: int = CHUNK_LEN) -> list[str]:
     """将小块合并为 chunk_len 左右的 chunk。"""
     if not pieces:
         return []
@@ -162,22 +155,26 @@ def merge_to_chunks(
     return chunks
 
 
-def chunk_section(section: TextSection) -> list[TextChunk]:
-    pieces = split_to_small_pieces(section.content)
-    merged = merge_to_chunks(pieces)
+def chunk_section(
+    section: TextSection,
+    *,
+    min_chunk_len: int = SMALL_PIECE_LEN,
+    max_chunk_len: int = CHUNK_LEN,
+) -> list[TextChunk]:
+    pieces = split_to_small_pieces(section.content, target_len=min_chunk_len)
+    merged = merge_to_chunks(pieces, chunk_len=max_chunk_len)
     return [
-        TextChunk(
-            section_title=section.title,
-            section_path=section.path,
-            chunk_index=index,
-            content=content,
-        )
-        for index, content in enumerate(merged)
+        TextChunk(section_title=section.title, section_path=section.path, chunk_index=index, content=content) for index, content in enumerate(merged)
     ]
 
 
-def chunk_document(text: str) -> list[TextChunk]:
+def chunk_document(
+    text: str,
+    *,
+    min_chunk_len: int = SMALL_PIECE_LEN,
+    max_chunk_len: int = CHUNK_LEN,
+) -> list[TextChunk]:
     chunks: list[TextChunk] = []
     for section in parse_sections(text):
-        chunks.extend(chunk_section(section))
+        chunks.extend(chunk_section(section, min_chunk_len=min_chunk_len, max_chunk_len=max_chunk_len))
     return chunks

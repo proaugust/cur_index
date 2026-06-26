@@ -40,3 +40,8 @@ uv run python -m app.main
 ```
 
 访问 http://127.0.0.1:8000/docs 查看 API 文档。
+
+## 启动前端
+cd d:\code\py\demo\cur_index\vue-manage-system-master
+npm install
+npm run dev

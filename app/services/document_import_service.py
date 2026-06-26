@@ -1,6 +1,3 @@
-from app.services.text_chunker import TextChunk
-
-
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -8,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.services.embedding import embed_texts
-from app.services.text_chunker import chunk_document, parse_sections
+from app.services.text_chunker import CHUNK_LEN, SMALL_PIECE_LEN, chunk_document, parse_sections
 
 
 class DocumentImportService:
@@ -20,8 +17,15 @@ class DocumentImportService:
         text: str,
         source_file: str,
         replace_existing: bool = True,
+        min_chunk_len: int = SMALL_PIECE_LEN,
+        max_chunk_len: int = CHUNK_LEN,
     ) -> schemas.DocumentImportResult:
-        chunks = chunk_document(text)
+        if min_chunk_len < 10:
+            raise HTTPException(status_code=400, detail="min_chunk_len 不能小于 10")
+        if max_chunk_len < min_chunk_len:
+            raise HTTPException(status_code=400, detail="max_chunk_len 不能小于 min_chunk_len")
+
+        chunks = chunk_document(text, min_chunk_len=min_chunk_len, max_chunk_len=max_chunk_len)
         if not chunks:
             raise HTTPException(status_code=400, detail="未解析到有效文本块")
 
@@ -30,7 +34,7 @@ class DocumentImportService:
 
         vectors = embed_texts([chunk.content for chunk in chunks])
         rows = []
-        for chunk, vector in zip[tuple[TextChunk, list[float]]](chunks, vectors):
+        for chunk, vector in zip(chunks, vectors):
             rows.append(
                 {
                     "source_file": source_file,
@@ -45,11 +49,7 @@ class DocumentImportService:
 
         created = crud.bulk_create_document_chunks(self.db, rows)
 
-        return schemas.DocumentImportResult(
-            source_file=source_file,
-            sections=len(parse_sections(text)),
-            chunks=len(created),
-        )
+        return schemas.DocumentImportResult(source_file=source_file, sections=len(parse_sections(text)), chunks=len(created))
 
     def import_file(self, file_path: str, replace_existing: bool = True) -> schemas.DocumentImportResult:
         path = Path(file_path)

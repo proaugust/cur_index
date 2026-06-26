@@ -1,14 +1,18 @@
 from functools import lru_cache
-
-from sentence_transformers import SentenceTransformer
+from typing import TYPE_CHECKING
 
 from app.core.config import settings
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
 
 EMBEDDING_DIM = settings.embedding_dim
 
 
 @lru_cache(maxsize=1)
-def _get_model() -> SentenceTransformer:
+def _get_model() -> "SentenceTransformer":
+    from sentence_transformers import SentenceTransformer
+
     return SentenceTransformer(settings.embedding_model_name)
 
 
@@ -20,11 +24,7 @@ def warmup() -> None:
 def _encode(texts: list[str], *, show_progress: bool = False) -> list[list[float]]:
     if not texts:
         return []
-    vectors = _get_model().encode(
-        texts,
-        normalize_embeddings=True,
-        show_progress_bar=show_progress and len(texts) > 1,
-    )
+    vectors = _get_model().encode(texts, normalize_embeddings=True, show_progress_bar=show_progress and len(texts) > 1)
     return [vector.tolist() for vector in vectors]
 
 

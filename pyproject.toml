@@ -15,6 +15,8 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "notebook>=7.6.0",
     "requests>=2.34.2",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
 ]
 
 [tool.uv]
@@ -22,10 +24,10 @@ package = false
 
 
 [tool.black]
-line-length = 100
+line-length = 130
 
 [tool.ruff]
-line-length = 100
+line-length = 130
 
 [tool.ruff.format]
-line-length = 100
+skip-magic-trailing-comma = true
