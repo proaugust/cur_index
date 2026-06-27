@@ -3,13 +3,19 @@
         <el-card shadow="hover">
             <template #header>
                 <div class="page-header">
-                    <span class="page-title">智能路由</span>
-                    <span class="page-subtitle">根据一句话判断应调用哪条后端接口（仅路由展示，不执行业务）</span>
+                    <span class="page-title">{{ t('pages.smartRoute.title') }}</span>
+                    <FeatureIntroIcon
+                        page-key="smart-route"
+                        section-key="page"
+                        :intros="intros"
+                        :title="t('pages.smartRoute.title')"
+                        @saved="setIntro"
+                    />
                 </div>
             </template>
 
             <div class="quick-section">
-                <div class="section-label">快捷提问</div>
+                <div class="section-label">{{ t('pages.smartRoute.quickAsk') }}</div>
                 <div class="quick-buttons">
                     <el-button
                         v-for="item in quickQuestions"
@@ -23,34 +29,49 @@
             </div>
 
             <div class="input-section">
-                <div class="section-label">自定义问题</div>
+                <div class="section-label">{{ t('pages.smartRoute.customQuestion') }}</div>
                 <el-input
                     v-model="question"
                     type="textarea"
                     :rows="3"
-                    placeholder="输入一句话，例如：明天会下雨吗？"
+                    :placeholder="t('pages.smartRoute.placeholder')"
                     :disabled="loading"
                     @keydown.ctrl.enter="handleDispatch"
                 />
                 <div class="action-bar">
                     <el-button type="primary" :loading="loading" :disabled="!question.trim()" @click="handleDispatch">
-                        路由判断
+                        {{ t('pages.smartRoute.dispatch') }}
                     </el-button>
-                    <el-button :disabled="loading || !question" @click="handleClear">清空</el-button>
+                    <el-button :disabled="loading || !question" @click="handleClear">{{ t('common.clear') }}</el-button>
                 </div>
             </div>
 
             <el-divider />
 
             <div class="output-section">
-                <div class="section-label">路由结果</div>
+                <div class="section-label">{{ t('pages.smartRoute.result') }}</div>
                 <div v-if="routeMessage" class="result-box">
                     <el-tag v-if="routeIntent" :type="intentTagType" size="small" class="intent-tag">
                         {{ intentLabel }}
                     </el-tag>
                     <span class="route-message">{{ routeMessage }}</span>
                 </div>
-                <el-empty v-else description="路由结论将显示在这里" :image-size="80" />
+                <div v-if="routeEmployees.length" class="employee-list">
+                    <div v-for="item in routeEmployees" :key="item.user_id" class="employee-card">
+                        <el-avatar :size="72" :src="getEmployeePhotoUrl(item)" class="employee-avatar">
+                            {{ item.user_id.slice(0, 1) }}
+                        </el-avatar>
+                        <div class="employee-info">
+                            <div class="employee-name">{{ item.user_id }}</div>
+                            <div class="employee-meta">{{ t('pages.smartRoute.registeredAt') }}{{ formatDateTime(item.created_at) }}</div>
+                            <div class="employee-meta">{{ t('pages.smartRoute.punchCount') }}{{ item.punch_count }}</div>
+                            <div class="employee-meta">
+                                {{ t('pages.smartRoute.lastPunch') }}{{ item.last_punch_at ? formatDateTime(item.last_punch_at) : t('common.none') }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <el-empty v-if="!routeMessage && !routeEmployees.length" :description="t('pages.smartRoute.empty')" :image-size="80" />
             </div>
         </el-card>
     </div>
@@ -58,29 +79,56 @@
 
 <script setup lang="ts" name="demo-smart-route">
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import { smartRouteDispatch } from '@/api';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
+import { getAttendancePersonPhotoUrl, smartRouteDispatch } from '@/api';
 
-const quickQuestions = [
-    '今天天气怎么样？',
-    '查询员工张三的信息',
-    '帮我发邮件',
-];
+const { t, tm, locale } = useI18n();
+const { intros, setIntro } = useFeatureIntros('smart-route');
+
+interface SmartRouteEmployee {
+    user_id: string;
+    created_at: string;
+    punch_count: number;
+    has_reference_image: boolean;
+    photo_url: string | null;
+    last_punch_at: string | null;
+}
+
+const quickQuestions = computed(() => tm('pages.smartRoute.quickQuestions') as string[]);
 
 const question = ref('');
 const routeMessage = ref('');
 const routeIntent = ref('');
+const routeEmployees = ref<SmartRouteEmployee[]>([]);
 const loading = ref(false);
 
-const intentMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'info' | 'danger' }> = {
-    weather: { label: '天气', type: 'success' },
-    employee: { label: '员工', type: 'warning' },
-    email: { label: '邮件', type: 'info' },
-    unknown: { label: '兜底', type: 'danger' },
+const intentMap = computed(() => ({
+    weather: { label: t('pages.smartRoute.intentWeather'), type: 'success' as const },
+    employee: { label: t('pages.smartRoute.intentEmployee'), type: 'warning' as const },
+    email: { label: t('pages.smartRoute.intentEmail'), type: 'info' as const },
+    unknown: { label: t('pages.smartRoute.intentUnknown'), type: 'danger' as const },
+}));
+
+const intentLabel = computed(() => intentMap.value[routeIntent.value as keyof typeof intentMap.value]?.label ?? routeIntent.value);
+const intentTagType = computed(() => intentMap.value[routeIntent.value as keyof typeof intentMap.value]?.type ?? 'info');
+
+void locale;
+
+const formatDateTime = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
-const intentLabel = computed(() => intentMap[routeIntent.value]?.label ?? routeIntent.value);
-const intentTagType = computed(() => intentMap[routeIntent.value]?.type ?? 'info');
+const getEmployeePhotoUrl = (item: SmartRouteEmployee) => {
+    if (!item.has_reference_image) return '';
+    if (item.photo_url) {
+        return item.photo_url.startsWith('/api') ? item.photo_url : `/api${item.photo_url}`;
+    }
+    return getAttendancePersonPhotoUrl(item.user_id);
+};
 
 const handleDispatch = async () => {
     const q = question.value.trim();
@@ -89,10 +137,17 @@ const handleDispatch = async () => {
     loading.value = true;
     routeMessage.value = '';
     routeIntent.value = '';
+    routeEmployees.value = [];
     try {
         const res = await smartRouteDispatch({ question: q });
-        routeMessage.value = res.data.message;
-        routeIntent.value = res.data.intent;
+        const data = res.data as {
+            message?: string;
+            intent?: string;
+            employees?: SmartRouteEmployee[];
+        };
+        routeMessage.value = data.message ?? '';
+        routeIntent.value = data.intent ?? '';
+        routeEmployees.value = Array.isArray(data.employees) ? data.employees : [];
     } catch (err: unknown) {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(typeof msg === 'string' ? msg : '路由判断失败，请稍后重试');
@@ -110,24 +165,19 @@ const handleClear = () => {
     question.value = '';
     routeMessage.value = '';
     routeIntent.value = '';
+    routeEmployees.value = [];
 };
 </script>
 
 <style scoped>
 .smart-route-page .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .smart-route-page .page-title {
     font-size: 16px;
     font-weight: 600;
-}
-
-.smart-route-page .page-subtitle {
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
 }
 
 .section-label {
@@ -166,5 +216,37 @@ const handleClear = () => {
 
 .route-message {
     font-weight: 500;
+}
+
+.employee-list {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.employee-card {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 8px;
+    background: var(--el-fill-color-blank);
+}
+
+.employee-avatar {
+    flex-shrink: 0;
+}
+
+.employee-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.employee-meta {
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.6;
 }
 </style>

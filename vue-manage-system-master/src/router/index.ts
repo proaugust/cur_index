@@ -18,6 +18,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/dashboard',
                 name: 'dashboard',
                 meta: {
+                    titleKey: 'route.dashboard',
                     title: '系统首页',
                 },
                 component: () => import(/* webpackChunkName: "dashboard" */ '../views/dashboard.vue'),
@@ -26,6 +27,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-complaints',
                 name: 'demo-complaints',
                 meta: {
+                    titleKey: 'route.demoComplaints',
                     title: '投诉归类演示',
                     permiss: '81',
                 },
@@ -35,6 +37,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-rag',
                 name: 'demo-rag',
                 meta: {
+                    titleKey: 'route.demoRag',
                     title: 'RAG 检索演示',
                     permiss: '82',
                 },
@@ -44,6 +47,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-ai-chat',
                 name: 'demo-ai-chat',
                 meta: {
+                    titleKey: 'route.demoAiChat',
                     title: 'AI训练提问',
                     permiss: '83',
                 },
@@ -53,6 +57,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-agent',
                 name: 'demo-agent',
                 meta: {
+                    titleKey: 'route.demoAgent',
                     title: 'Agent 展示',
                     permiss: '84',
                 },
@@ -62,6 +67,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-meeting',
                 name: 'demo-meeting',
                 meta: {
+                    titleKey: 'route.demoMeeting',
                     title: '会议整理',
                     permiss: '85',
                 },
@@ -71,6 +77,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-smart-route',
                 name: 'demo-smart-route',
                 meta: {
+                    titleKey: 'route.demoSmartRoute',
                     title: '智能路由',
                     permiss: '86',
                 },
@@ -80,6 +87,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/demo-attendance',
                 name: 'demo-attendance',
                 meta: {
+                    titleKey: 'route.demoAttendance',
                     title: '人脸打卡',
                     permiss: '87',
                 },
@@ -162,6 +170,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/ucenter',
                 name: 'ucenter',
                 meta: {
+                    titleKey: 'route.ucenter',
                     title: '个人中心',
                 },
                 component: () => import(/* webpackChunkName: "ucenter" */ '../views/pages/ucenter.vue'),
@@ -206,6 +215,7 @@ const routes: RouteRecordRaw[] = [
                 path: '/theme',
                 name: 'theme',
                 meta: {
+                    titleKey: 'route.theme',
                     title: '主题设置',
                     permiss: '7',
                 },
@@ -288,6 +298,7 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/login',
         meta: {
+            titleKey: 'route.login',
             title: '登录',
             noAuth: true,
         },

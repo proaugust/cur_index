@@ -25,8 +25,9 @@ _LLM_DESC = (
 async def import_document(
     file: UploadFile = File(..., description="待导入的 UTF-8 文本文档"),
     replace_existing: bool = Form(True, description="是否覆盖同文件名的已有切块"),
-    min_chunk_len: int = Form(30, ge=10, le=500, description="最小切块长度（字符数，标点切分后的合并下限）"),
-    max_chunk_len: int = Form(100, ge=20, le=2000, description="最大切块长度（字符数，合并后的块上限）"),
+    max_chunk_len: int = Form(300, ge=50, le=2000, description="最大切块长度（字符数上限，建议300-500）"),
+    chunk_overlap: int = Form(50, ge=0, le=500, description="前后切块重叠的字符数（建议50左右）"),
+    min_chunk_len: int = Form(10, ge=5, le=200, description="最小切块长度下限"),
     service: DocumentImportService = Depends(get_document_import_service),
 ) -> schemas.DocumentImportResult:
     if not file.filename:
@@ -47,6 +48,7 @@ async def import_document(
         replace_existing=replace_existing,
         min_chunk_len=min_chunk_len,
         max_chunk_len=max_chunk_len,
+        chunk_overlap=chunk_overlap,
     )
 
 

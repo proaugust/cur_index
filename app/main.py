@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import attendance, auth, chat, complaints, documents, items, meeting, my_agent, smart_route
+from app.routers import attendance, auth, chat, complaints, documents, feature_intros, items, meeting, my_agent, smart_route
 
 
 def _configure_logging() -> None:
@@ -62,9 +62,10 @@ app.include_router(documents.router)
 app.include_router(complaints.router)
 app.include_router(chat.router)
 app.include_router(meeting.router)
-app.include_router(smart_route.router)
+app.include_router(smart_route.router)  # 智能路由：天气/员工/邮件分发
 app.include_router(attendance.router)
 app.include_router(my_agent.router)
+app.include_router(feature_intros.router)
 
 
 @app.get("/")

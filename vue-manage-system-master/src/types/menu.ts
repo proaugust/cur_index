@@ -3,7 +3,7 @@ export interface Menus {
     pid?: string;
     icon?: string;
     index: string;
-    title: string;
+    titleKey: string;
     permiss?: string;
     children?: Menus[];
 }

@@ -3,7 +3,7 @@
         <!-- 折叠按钮 -->
         <div class="header-left">
             <img class="logo" src="../assets/img/logo.svg" alt="" />
-            <div class="web-title">AI功能演示</div>
+            <div class="web-title">{{ t('header.appTitle') }}</div>
             <div class="collapse-btn" @click="collapseChage">
                 <el-icon v-if="sidebar.collapse">
                     <Expand />
@@ -15,15 +15,27 @@
         </div>
         <div class="header-right">
             <div class="header-user-con">
+                <el-dropdown class="lang-switch" trigger="click" @command="setLocale">
+                    <span class="lang-link">
+                        {{ localeStore.locale === 'zh-CN' ? t('header.langZh') : t('header.langJa') }}
+                        <el-icon class="el-icon--right"><arrow-down /></el-icon>
+                    </span>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+                            <el-dropdown-item command="ja-JP">日本語</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
                 <div class="btn-icon" @click="router.push('/theme')">
-                    <el-tooltip effect="dark" content="设置主题" placement="bottom">
+                    <el-tooltip effect="dark" :content="t('header.theme')" placement="bottom">
                         <i class="el-icon-lx-skin"></i>
                     </el-tooltip>
                 </div>
                 <div class="btn-icon" @click="router.push('/ucenter')">
                     <el-tooltip
                         effect="dark"
-                        :content="message ? `有${message}条未读消息` : `消息中心`"
+                        :content="message ? t('header.unreadMessages', { count: message }) : t('header.messageCenter')"
                         placement="bottom"
                     >
                         <i class="el-icon-lx-notice"></i>
@@ -31,7 +43,7 @@
                     <span class="btn-bell-badge" v-if="message"></span>
                 </div>
                 <div class="btn-icon" @click="setFullScreen">
-                    <el-tooltip effect="dark" content="全屏" placement="bottom">
+                    <el-tooltip effect="dark" :content="t('header.fullscreen')" placement="bottom">
                         <i class="el-icon-lx-full"></i>
                     </el-tooltip>
                 </div>
@@ -47,8 +59,8 @@
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item command="user">个人中心</el-dropdown-item>
-                            <el-dropdown-item divided command="loginout">退出登录</el-dropdown-item>
+                            <el-dropdown-item command="user">{{ t('header.userCenter') }}</el-dropdown-item>
+                            <el-dropdown-item divided command="loginout">{{ t('header.logout') }}</el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
                 </el-dropdown>
@@ -58,17 +70,26 @@
 </template>
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useSidebarStore } from '../store/sidebar';
+import { useLocaleStore } from '../store/locale';
 import { useRouter } from 'vue-router';
+import type { AppLocale } from '@/i18n';
 import imgurl from '../assets/img/img.jpg';
+
+const { t } = useI18n();
+const localeStore = useLocaleStore();
 
 const username: string | null = localStorage.getItem('vuems_name');
 const message: number = 2;
 
 const sidebar = useSidebarStore();
-// 侧边栏折叠
 const collapseChage = () => {
     sidebar.handleCollapse();
+};
+
+const setLocale = (command: string) => {
+    localeStore.setLocale(command as AppLocale);
 };
 
 onMounted(() => {
@@ -77,7 +98,6 @@ onMounted(() => {
     }
 });
 
-// 用户名下拉菜单选择事件
 const router = useRouter();
 const handleCommand = (command: string) => {
     if (command == 'loginout') {
@@ -168,6 +188,19 @@ const setFullScreen = () => {
     color: var(--header-text-color);
     margin: 0 5px;
     font-size: 20px;
+}
+
+.lang-switch {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.lang-link {
+    display: inline-flex;
+    align-items: center;
+    color: var(--header-text-color);
+    font-size: 14px;
+    white-space: nowrap;
 }
 
 .btn-bell-badge {

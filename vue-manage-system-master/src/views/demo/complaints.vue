@@ -4,47 +4,55 @@
             <template #header>
                 <div class="stats-header">
                     <div>
-                        <div class="content-title">投诉样本查询</div>
-                        <p class="stats-desc">按地区、投诉时间、正文关键词检索</p>
+                        <div class="content-title-row">
+                            <span class="content-title">{{ t('pages.complaints.samplesTitle') }}</span>
+                            <FeatureIntroIcon
+                                page-key="complaints"
+                                section-key="samples"
+                                :intros="intros"
+                                :title="t('pages.complaints.samplesTitle')"
+                                @saved="setIntro"
+                            />
+                        </div>
                     </div>
-                    <el-button type="primary" :loading="samplesLoading" @click="searchSamples">查询</el-button>
+                    <el-button type="primary" :loading="samplesLoading" @click="searchSamples">{{ t('common.query') }}</el-button>
                 </div>
             </template>
 
             <el-form :inline="true" class="samples-form" @submit.prevent="searchSamples">
-                <el-form-item label="地区">
-                    <el-input v-model="sampleQuery.address" placeholder="模糊匹配地址" clearable style="width: 160px" />
+                <el-form-item :label="t('pages.complaints.region')">
+                    <el-input v-model="sampleQuery.address" :placeholder="t('pages.complaints.regionPh')" clearable style="width: 160px" />
                 </el-form-item>
-                <el-form-item label="投诉时间">
+                <el-form-item :label="t('pages.complaints.complaintTime')">
                     <el-date-picker
                         v-model="sampleQuery.dateRange"
                         type="daterange"
-                        range-separator="至"
-                        start-placeholder="开始日期"
-                        end-placeholder="结束日期"
+                        :range-separator="t('pages.complaints.dateSep')"
+                        :start-placeholder="t('pages.complaints.dateStart')"
+                        :end-placeholder="t('pages.complaints.dateEnd')"
                         value-format="YYYY-MM-DD"
                         style="width: 260px"
                     />
                 </el-form-item>
-                <el-form-item label="正文">
-                    <el-input v-model="sampleQuery.text" placeholder="模糊匹配投诉内容" clearable style="width: 220px" />
+                <el-form-item :label="t('pages.complaints.body')">
+                    <el-input v-model="sampleQuery.text" :placeholder="t('pages.complaints.bodyPh')" clearable style="width: 220px" />
                 </el-form-item>
-                <el-form-item label="分类">
-                    <el-input v-model="sampleQuery.category_name" placeholder="可选" clearable style="width: 140px" />
+                <el-form-item :label="t('pages.complaints.category')">
+                    <el-input v-model="sampleQuery.category_name" :placeholder="t('pages.complaints.optional')" clearable style="width: 140px" />
                 </el-form-item>
             </el-form>
 
-            <el-table :data="sampleRows" stripe size="small" empty-text="暂无数据，点击「查询」加载">
+            <el-table :data="sampleRows" stripe size="small" :empty-text="t('pages.complaints.tableEmpty')">
                 <el-table-column prop="id" label="ID" width="70" />
-                <el-table-column prop="address" label="地区" width="100" show-overflow-tooltip />
-                <el-table-column label="投诉时间" width="170">
+                <el-table-column prop="address" :label="t('pages.complaints.colRegion')" width="100" show-overflow-tooltip />
+                <el-table-column :label="t('pages.complaints.colTime')" width="170">
                     <template #default="{ row }">
                         {{ formatComplaintTime(row.complaint_time) }}
                     </template>
                 </el-table-column>
-                <el-table-column prop="category_name" label="分类" width="120" show-overflow-tooltip />
-                <el-table-column prop="complaint_text" label="投诉内容" min-width="260" show-overflow-tooltip />
-                <el-table-column label="相似度" width="90" align="right">
+                <el-table-column prop="category_name" :label="t('pages.complaints.colCategory')" width="120" show-overflow-tooltip />
+                <el-table-column prop="complaint_text" :label="t('pages.complaints.colContent')" min-width="260" show-overflow-tooltip />
+                <el-table-column :label="t('pages.complaints.colSimilarity')" width="90" align="right">
                     <template #default="{ row }">
                         {{ row.similarity != null ? row.similarity.toFixed(4) : '—' }}
                     </template>
@@ -69,14 +77,13 @@
             <template #header>
                 <div class="stats-header">
                     <div>
-                        <div class="content-title">投诉多维统计</div>
-                        <p class="stats-desc">按投诉类型、地区、投诉时间实时聚合</p>
+                        <div class="content-title">{{ t('pages.complaints.statsTitle') }}</div>
                     </div>
-                    <el-button type="primary" :loading="loading" @click="loadStats">刷新统计</el-button>
+                    <el-button type="primary" :loading="loading" @click="loadStats">{{ t('pages.complaints.refreshStats') }}</el-button>
                 </div>
             </template>
 
-            <el-empty v-if="!stats && !loading" description="点击「刷新统计」加载数据" />
+            <el-empty v-if="!stats && !loading" :description="t('pages.complaints.statsEmpty')" />
 
             <template v-if="stats">
                 <el-row :gutter="20" class="summary-row">
@@ -90,17 +97,17 @@
                 </el-row>
 
                 <div class="overview-block">
-                    <div class="section-title">三维度概览</div>
+                    <div class="section-title">{{ t('pages.complaints.overview') }}</div>
                     <el-row :gutter="16">
                         <el-col v-for="section in dimensionSections" :key="section.key" :xs="24" :lg="8">
                             <div class="overview-panel">
                                 <div class="overview-head">
                                     <span class="overview-name">{{ section.title }}</span>
-                                    <el-tag size="small" type="info">{{ section.items.length }} 项</el-tag>
+                                    <el-tag size="small" type="info">{{ section.items.length }} {{ t('common.items') }}</el-tag>
                                 </div>
                                 <div v-if="section.topItem" class="overview-top">
-                                    TOP：<strong>{{ section.topItem.label }}</strong>
-                                    <span>{{ section.topItem.count }} 条 · {{ section.topItem.percentage }}%</span>
+                                    {{ t('pages.complaints.topPrefix') }}<strong>{{ section.topItem.label }}</strong>
+                                    <span>{{ section.topItem.count }} {{ t('common.records') }} · {{ section.topItem.percentage }}%</span>
                                 </div>
                                 <component
                                     :is="VChart"
@@ -115,30 +122,41 @@
                 </div>
 
                 <div class="detail-block">
-                    <div class="section-title">维度明细</div>
+                    <div class="section-title">{{ t('pages.complaints.detail') }}</div>
                     <el-tabs v-model="activeDimension" type="border-card">
                         <el-tab-pane
                             v-for="section in dimensionSections"
                             :key="section.key"
-                            :label="section.title"
                             :name="section.key"
                         >
+                            <template #label>
+                                <span class="tab-label-with-intro">
+                                    {{ section.title }}
+                                    <FeatureIntroIcon
+                                        page-key="complaints"
+                                        :section-key="section.key"
+                                        :intros="intros"
+                                        :title="section.title"
+                                        @saved="setIntro"
+                                    />
+                                </span>
+                            </template>
                             <el-row :gutter="16" class="dimension-metrics">
                                 <el-col :xs="24" :sm="8">
-                                    <el-statistic title="分组数量" :value="section.items.length" />
+                                    <el-statistic :title="t('pages.complaints.groupCount')" :value="section.items.length" />
                                 </el-col>
                                 <el-col :xs="24" :sm="8">
                                     <el-statistic
                                         v-if="section.topItem"
-                                        title="最高项"
+                                        :title="t('pages.complaints.topItem')"
                                         :value="section.topItem.count"
-                                        :suffix="`条 · ${section.topItem.label}`"
+                                        :suffix="`${t('common.records')} · ${section.topItem.label}`"
                                     />
                                 </el-col>
                                 <el-col :xs="24" :sm="8">
                                     <el-statistic
                                         v-if="section.topItem"
-                                        title="最高占比"
+                                        :title="t('pages.complaints.topRate')"
                                         :value="section.topItem.percentage"
                                         suffix="%"
                                     />
@@ -150,8 +168,8 @@
                                     <el-table :data="section.items" stripe size="small" max-height="380">
                                         <el-table-column type="index" label="#" width="50" />
                                         <el-table-column prop="label" :label="section.columnLabel" min-width="120" />
-                                        <el-table-column prop="count" label="数量" width="90" align="right" sortable />
-                                        <el-table-column label="占比" min-width="160">
+                                        <el-table-column prop="count" :label="t('pages.complaints.colCount')" width="90" align="right" sortable />
+                                        <el-table-column :label="t('pages.complaints.colRate')" min-width="160">
                                             <template #default="{ row }">
                                                 <div class="pct-cell">
                                                     <el-progress
@@ -196,9 +214,17 @@
 
 <script setup lang="ts" name="demo-complaints">
 import { computed, onMounted, ref, shallowRef, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import countup from '@/components/countup.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { getComplaintStats, getComplaintSamples } from '@/api';
+
+const { t, locale } = useI18n();
+const { intros, setIntro } = useFeatureIntros('complaints');
+
+void locale;
 
 type EChartsGraphic = typeof import('echarts/core').graphic;
 let echartsGraphic: EChartsGraphic | null = null;
@@ -291,15 +317,24 @@ const classifiedRate = computed(() => {
 const summaryCards = computed(() => {
     if (!stats.value) return [];
     return [
-        { key: 'total', label: '投诉总数', value: stats.value.total, bg: 'bg-total', extra: '全部明细记录' },
-        { key: 'classified', label: '已归类', value: stats.value.classified, bg: 'bg-classified', extra: `归类率 ${classifiedRate.value}%` },
-        { key: 'unclassified', label: '未归类', value: stats.value.unclassified, bg: 'bg-unclassified', extra: '待向量归类' },
+        { key: 'total', label: t('pages.complaints.total'), value: stats.value.total, bg: 'bg-total', extra: t('pages.complaints.allRecords') },
+        {
+            key: 'classified',
+            label: t('pages.complaints.classified'),
+            value: stats.value.classified,
+            bg: 'bg-classified',
+            extra: t('pages.complaints.classifyRate', { rate: classifiedRate.value }),
+        },
+        { key: 'unclassified', label: t('pages.complaints.unclassified'), value: stats.value.unclassified, bg: 'bg-unclassified', extra: t('pages.complaints.pendingClassify') },
         {
             key: 'categories',
-            label: '投诉类型数',
+            label: t('pages.complaints.typeCount'),
             value: stats.value.by_category.length,
             bg: 'bg-types',
-            extra: `地区 ${stats.value.by_address.length} · 日期 ${stats.value.by_time.length}`,
+            extra: t('pages.complaints.regionDateSummary', {
+                addr: stats.value.by_address.length,
+                time: stats.value.by_time.length,
+            }),
         },
     ];
 });
@@ -416,8 +451,8 @@ const dimensionSections = computed(() => {
     }> = [
         {
             key: 'category',
-            title: '按投诉类型',
-            columnLabel: '类型',
+            title: t('pages.complaints.dimCategory'),
+            columnLabel: t('pages.complaints.colType'),
             items: stats.value.by_category,
             color: DIMENSION_COLORS.category,
             horizontalBar: true,
@@ -426,8 +461,8 @@ const dimensionSections = computed(() => {
         },
         {
             key: 'address',
-            title: '按地区',
-            columnLabel: '地区',
+            title: t('pages.complaints.dimAddress'),
+            columnLabel: t('pages.complaints.colRegion'),
             items: stats.value.by_address,
             color: DIMENSION_COLORS.address,
             horizontalBar: false,
@@ -435,8 +470,8 @@ const dimensionSections = computed(() => {
         },
         {
             key: 'time',
-            title: '按时间（天）',
-            columnLabel: '日期',
+            title: t('pages.complaints.dimTime'),
+            columnLabel: t('pages.complaints.colDate'),
             items: stats.value.by_time,
             color: DIMENSION_COLORS.time,
             horizontalBar: false,
@@ -536,10 +571,14 @@ function onSamplePageSizeChange(size: number) {
     gap: 16px;
 }
 
-.stats-desc {
-    margin: 6px 0 0;
-    color: #909399;
-    font-size: 13px;
+.content-title-row {
+    display: inline-flex;
+    align-items: center;
+}
+
+.tab-label-with-intro {
+    display: inline-flex;
+    align-items: center;
 }
 
 .content-title {

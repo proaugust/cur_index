@@ -4,24 +4,23 @@
             <el-tab-pane
                 v-for="item in tabs.list"
                 :key="item.path"
-                :label="item.title"
+                :label="tabLabel(item)"
                 :name="item.path"
-                @click="setTags(item)"
             ></el-tab-pane>
         </el-tabs>
         <div class="Tabs-close-box">
             <el-dropdown @command="handleTags">
                 <el-button size="small" type="primary" plain>
-                    标签选项
+                    {{ t('tabs.options') }}
                     <el-icon class="el-icon--right">
                         <arrow-down />
                     </el-icon>
                 </el-button>
                 <template #dropdown>
                     <el-dropdown-menu size="small">
-                        <el-dropdown-item command="other">关闭其他</el-dropdown-item>
-                        <el-dropdown-item command="current">关闭当前</el-dropdown-item>
-                        <el-dropdown-item command="all">关闭所有</el-dropdown-item>
+                        <el-dropdown-item command="other">{{ t('tabs.closeOthers') }}</el-dropdown-item>
+                        <el-dropdown-item command="current">{{ t('tabs.closeCurrent') }}</el-dropdown-item>
+                        <el-dropdown-item command="all">{{ t('tabs.closeAll') }}</el-dropdown-item>
                     </el-dropdown-menu>
                 </template>
             </el-dropdown>
@@ -31,23 +30,31 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useTabsStore } from '../store/tabs';
 import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router';
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const activePath = ref(route.fullPath);
 const tabs = useTabsStore();
-// 设置标签
-const setTags = (route: any) => {
+
+const tabLabel = (item: { titleKey?: string; title?: string }) => {
+    if (item.titleKey) return t(item.titleKey);
+    return item.title ?? '';
+};
+
+const setTags = (routeItem: typeof route) => {
     const isExist = tabs.list.some((item) => {
-        return item.path === route.fullPath;
+        return item.path === routeItem.fullPath;
     });
     if (!isExist) {
         tabs.setTabsItem({
-            name: route.name,
-            title: route.meta.title,
-            path: route.fullPath,
+            name: routeItem.name as string,
+            titleKey: routeItem.meta.titleKey as string | undefined,
+            title: routeItem.meta.title as string | undefined,
+            path: routeItem.fullPath,
         });
     }
 };
@@ -56,12 +63,10 @@ onBeforeRouteUpdate((to) => {
     setTags(to);
 });
 
-// 关闭全部标签
 const closeAll = () => {
     tabs.clearTabs();
     router.push('/');
 };
-// 关闭其他标签
 const closeOther = () => {
     const curItem = tabs.list.filter((item) => {
         return item.path === route.fullPath;
@@ -71,7 +76,6 @@ const closeOther = () => {
 const handleTags = (command: string) => {
     switch (command) {
         case 'current':
-            // 关闭当前页面的标签页
             tabs.closeCurrentTag({
                 $router: router,
                 $route: route,
@@ -99,7 +103,7 @@ const closeTabs = (path: string) => {
 
 watch(
     () => route.fullPath,
-    (newVal, oldVal) => {
+    (newVal) => {
         activePath.value = newVal;
     }
 );

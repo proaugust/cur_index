@@ -3,7 +3,8 @@ import { defineStore } from 'pinia';
 interface ListItem {
 	name: string;
 	path: string;
-	title: string;
+	titleKey?: string;
+	title?: string;
 }
 
 export const useTabsStore = defineStore('tabs', {

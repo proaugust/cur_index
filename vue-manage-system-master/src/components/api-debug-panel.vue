@@ -9,6 +9,14 @@
                                 {{ ep.method }}
                             </el-tag>
                             <span>{{ ep.name }}</span>
+                            <FeatureIntroIcon
+                                v-if="introPageKey"
+                                :page-key="introPageKey"
+                                :section-key="ep.id"
+                                :intros="intros"
+                                :title="ep.name"
+                                @saved="onIntroSaved"
+                            />
                         </span>
                     </template>
 
@@ -55,6 +63,7 @@
                                     v-model="formState[ep.id].query[param.name] as number"
                                     :min="param.min"
                                     :max="param.max"
+                                    :step="param.step ?? 1"
                                     style="width: 200px"
                                 />
                                 <el-switch
@@ -302,11 +311,28 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import type { AxiosError } from 'axios';
 import request from '@/utils/request';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
 import type { ApiEndpoint, ApiParam } from '@/config/api-endpoints';
 
-const props = defineProps<{
-    endpoints: ApiEndpoint[];
+const props = withDefaults(
+    defineProps<{
+        endpoints: ApiEndpoint[];
+        introPageKey?: string;
+        intros?: FeatureIntroMap;
+    }>(),
+    {
+        intros: () => ({}),
+    },
+);
+
+const emit = defineEmits<{
+    'intro-saved': [sectionKey: string, content: string];
 }>();
+
+const onIntroSaved = (sectionKey: string, content: string) => {
+    emit('intro-saved', sectionKey, content);
+};
 
 type FormValue = string | number | boolean | File | null;
 

@@ -93,10 +93,17 @@ export const listAttendancePunches = (params?: {
     user_id?: string;
     page?: number;
     page_size?: number;
-}) => request.get('/attendance/punches', { params });
+}) =>
+    request.get('/attendance/punches', {
+        params: { ...params, _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache' },
+    });
 
 export const listAttendancePersons = (params?: { user_id?: string }) =>
-    request.get('/attendance/persons', { params });
+    request.get('/attendance/persons', {
+        params: { ...params, _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache' },
+    });
 
 export const deleteAttendancePunch = (punchId: number) =>
     request.delete(`/attendance/punches/${punchId}`);
@@ -105,7 +112,7 @@ export const deleteAttendancePerson = (personId: number) =>
     request.delete(`/attendance/persons/${personId}`);
 
 export const getAttendancePersonPhotoUrl = (userId: string, version = 0) =>
-    `/api/attendance/persons/${userId}/photo?v=${version}`;
+    `/api/attendance/persons/${encodeURIComponent(userId)}/photo?v=${version}`;
 
 // --- agent ---
 export const runAgent = (data: {
@@ -122,6 +129,26 @@ export const askChat = (data: {
     history?: { role: 'user' | 'assistant'; content: string }[];
     temperature?: number;
 }) => request.post('/chat/ask', data);
+
+// --- feature intros ---
+export interface FeatureIntroRow {
+    page_key: string;
+    section_key: string;
+    title: string;
+    content: string;
+    updated_at: string;
+}
+
+export const getFeatureIntros = (pageKey?: string) =>
+    request.get<FeatureIntroRow[]>('/feature-intros/', { params: pageKey ? { page_key: pageKey } : {} });
+
+export const upsertFeatureIntro = (
+    pageKey: string,
+    sectionKey: string,
+    data: { title?: string; content: string },
+) => request.put(`/feature-intros/${pageKey}/${sectionKey}`, data);
+
+export const seedFeatureIntros = () => request.post('/feature-intros/seed');
 
 // --- items ---
 export const listItems = () => request.get('/items/');

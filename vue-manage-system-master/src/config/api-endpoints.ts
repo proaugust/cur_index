@@ -8,6 +8,7 @@ export interface ApiParam {
     placeholder?: string;
     min?: number;
     max?: number;
+    step?: number;
     required?: boolean;
 }
 
@@ -164,22 +165,31 @@ export const documentEndpoints: ApiEndpoint[] = [
             { name: 'file', label: '文档文件', type: 'file', required: true },
             { name: 'replace_existing', label: '覆盖同名文件', type: 'boolean', default: true },
             {
-                name: 'min_chunk_len',
-                label: '最小块长度',
-                type: 'number',
-                default: 30,
-                min: 10,
-                max: 500,
-                placeholder: '标点切分后合并的下限（字符）',
-            },
-            {
                 name: 'max_chunk_len',
                 label: '最大块长度',
                 type: 'number',
-                default: 100,
-                min: 20,
+                default: 300,
+                min: 50,
                 max: 2000,
-                placeholder: '合并后单块上限（字符）',
+                placeholder: '合并后单块上限（字符，建议300-500）',
+            },
+            {
+                name: 'chunk_overlap',
+                label: '块重叠长度',
+                type: 'number',
+                default: 50,
+                min: 0,
+                max: 500,
+                placeholder: '前后切块重叠的字符数（建议50左右）',
+            },
+            {
+                name: 'min_chunk_len',
+                label: '最小块长度',
+                type: 'number',
+                default: 10,
+                min: 5,
+                max: 200,
+                placeholder: '标点切分后合并的下限（字符）',
             },
         ],
     },
@@ -220,7 +230,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         path: '/documents/search',
         description: 'BGE 向量语义检索 top-k 片段',
         queryParams: [
-            { name: 'q', label: '查询文本', type: 'string', required: true, placeholder: '例如：退货流程是什么？' },
+            { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：退货流程是什么？' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
             {
                 name: 'min_similarity',
@@ -229,6 +239,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 default: 0.55,
                 min: 0,
                 max: 1,
+                step: 0.1,
                 placeholder: '0～1，低于此值的结果丢弃',
             },
         ],
@@ -253,7 +264,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         path: '/documents/search_and_llm',
         description: '向量检索 + 大模型润色，返回回答与原始出处',
         queryParams: [
-            { name: 'q', label: '查询文本', type: 'string', required: true },
+            { name: 'q', label: '查询文本', type: 'string' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
             {
                 name: 'min_similarity',
@@ -262,6 +273,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 default: 0.55,
                 min: 0,
                 max: 1,
+                step: 0.1,
                 placeholder: '0～1，低于此值的结果丢弃',
             },
         ],

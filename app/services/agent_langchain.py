@@ -1,7 +1,6 @@
 from fastapi import HTTPException
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableBranch, RunnableLambda, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
@@ -12,15 +11,20 @@ from app.services.agent_common import (
     REVISE_SYSTEM,
     REVIEW_SYSTEM,
     ROUTE_SYSTEM,
+    ROUTING_ANSWER_WITH_TOOL_SYSTEM,
     SEQUENTIAL_AGENTS,
     SINGLE_ANSWER_SYSTEM,
     SPECIALISTS,
     AgentMode,
     AgentStepData,
+    build_routing_user_prompt,
     build_sequential_context,
+    detect_weather_tool,
+    extract_weather_city,
     parse_reflection_score,
     parse_route_category,
     prepare_single_run,
+    run_weather_tool,
 )
 
 
@@ -83,39 +87,12 @@ def run_sequential(question: str, *, temperature: float) -> tuple[list[AgentStep
 def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
     llm_route = _make_llm(temperature=min(temperature, 0.2))
     llm_answer = _make_llm(temperature=temperature)
+    use_weather = detect_weather_tool(question)
 
     route_chain = _chain(ROUTE_SYSTEM, llm_route)
-    tech_chain = _chain(SPECIALISTS["技术"]["prompt"], llm_answer)
-    biz_chain = _chain(SPECIALISTS["业务"]["prompt"], llm_answer)
-    general_chain = _chain(SPECIALISTS["通用"]["prompt"], llm_answer)
-
-    def _pick_category(payload: dict) -> dict:
-        category = parse_route_category(payload["route_raw"])
-        specialist = SPECIALISTS[category]
-        return {**payload, "category": category, "specialist_name": specialist["name"]}
-
-    router = RunnableBranch(
-        (
-            lambda x: x["category"] == "技术",
-            RunnableLambda(lambda x: tech_chain.invoke({"input": x["question"]})),
-        ),
-        (
-            lambda x: x["category"] == "业务",
-            RunnableLambda(lambda x: biz_chain.invoke({"input": x["question"]})),
-        ),
-        RunnableLambda(lambda x: general_chain.invoke({"input": x["question"]})),
-    )
-
-    pipeline = (
-        RunnablePassthrough.assign(route_raw=route_chain)
-        | RunnableLambda(_pick_category)
-        | RunnablePassthrough.assign(answer=router)
-    )
-    result = pipeline.invoke({"input": question, "question": question})
-
-    category = result["category"]
-    specialist_name = result["specialist_name"]
-    answer = result["answer"]
+    route_raw = route_chain.invoke({"input": question})
+    category = parse_route_category(route_raw)
+    specialist = SPECIALISTS[category]
 
     steps = [
         AgentStepData(
@@ -123,15 +100,44 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
             role="RunnableBranch 路由分发",
             input=question,
             output=f"路由结果：{category}",
-            meta=f"选中 {specialist_name}",
+            meta=f"选中 {specialist['name']}" + (" + weather 工具" if use_weather else ""),
         ),
+    ]
+
+    if use_weather:
+        city = extract_weather_city(question)
+        tool_output = run_weather_tool(city)
+        steps.append(
+            AgentStepData(
+                agent="工具 Agent (LangChain)",
+                role=f"调用 weather 查询 {city} 天气",
+                input=city,
+                output=tool_output,
+                meta="builtin:weather",
+            )
+        )
+        user_prompt = build_routing_user_prompt(question, tool_output)
+        answer = _chain(ROUTING_ANSWER_WITH_TOOL_SYSTEM, llm_answer).invoke({"input": user_prompt})
+        steps.append(
+            AgentStepData(
+                agent=f"{specialist['name']} (LangChain)",
+                role="基于天气数据作答",
+                input=user_prompt,
+                output=answer,
+            )
+        )
+        return steps, answer
+
+    specialist_chain = _chain(specialist["prompt"], llm_answer)
+    answer = specialist_chain.invoke({"input": question})
+    steps.append(
         AgentStepData(
-            agent=f"{specialist_name} (LangChain)",
+            agent=f"{specialist['name']} (LangChain)",
             role="领域专家作答",
             input=question,
             output=answer,
-        ),
-    ]
+        )
+    )
     return steps, answer
 
 

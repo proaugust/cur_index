@@ -210,10 +210,44 @@ class SmartRouteRequest(BaseModel):
     question: str = Field(min_length=1, description="用户一句话提问")
 
 
+class SmartRouteEmployee(BaseModel):
+    user_id: str
+    created_at: datetime
+    punch_count: int = 0
+    has_reference_image: bool = False
+    photo_url: str | None = None
+    last_punch_at: datetime | None = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> datetime:
+        return _as_utc_aware(value)
+
+    @field_serializer("last_punch_at")
+    def serialize_last_punch_at(self, value: datetime | None) -> datetime | None:
+        return _as_utc_aware(value) if value is not None else None
+
+
 class SmartRouteResponse(BaseModel):
     question: str
     intent: Literal["weather", "employee", "email", "unknown"]
     message: str = Field(description="路由展示文案，如：调用了天气查询接口")
+    employees: list[SmartRouteEmployee] = Field(default_factory=list, description="员工查询结果")
+
+
+class EmployeeProfileRead(BaseModel):
+    user_id: str
+    created_at: datetime
+    punch_count: int = 0
+    has_reference_image: bool = False
+    last_punch_at: datetime | None = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> datetime:
+        return _as_utc_aware(value)
+
+    @field_serializer("last_punch_at")
+    def serialize_last_punch_at(self, value: datetime | None) -> datetime | None:
+        return _as_utc_aware(value) if value is not None else None
 
 
 AgentMode = Literal["single", "sequential", "routing", "reflection"]
@@ -284,6 +318,25 @@ class AttendancePunchesPage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FeatureIntroRead(BaseModel):
+    page_key: str
+    section_key: str
+    title: str
+    content: str
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> datetime:
+        return _as_utc_aware(value)
+
+
+class FeatureIntroUpsert(BaseModel):
+    title: str = ""
+    content: str = ""
 
 
 class AttendancePersonRead(BaseModel):

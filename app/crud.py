@@ -215,3 +215,77 @@ def search_complaints(
         .all()
     )
     return rows, total
+
+
+def list_feature_intros(db: Session, page_key: str | None = None) -> list[models.FeatureIntro]:
+    query = db.query(models.FeatureIntro)
+    if page_key:
+        query = query.filter(models.FeatureIntro.page_key == page_key)
+    return query.order_by(models.FeatureIntro.page_key, models.FeatureIntro.section_key).all()
+
+
+def upsert_feature_intro(
+    db: Session, page_key: str, section_key: str, data: schemas.FeatureIntroUpsert
+) -> models.FeatureIntro:
+    row = (
+        db.query(models.FeatureIntro)
+        .filter(models.FeatureIntro.page_key == page_key, models.FeatureIntro.section_key == section_key)
+        .first()
+    )
+    if row:
+        row.title = data.title
+        row.content = data.content
+    else:
+        row = models.FeatureIntro(
+            page_key=page_key,
+            section_key=section_key,
+            title=data.title,
+            content=data.content,
+        )
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+DEFAULT_FEATURE_INTROS: list[tuple[str, str, str]] = [
+    ("complaints", "samples", "投诉样本查询"),
+    ("complaints", "category", "按投诉类型"),
+    ("complaints", "address", "按地区"),
+    ("complaints", "time", "按时间（天）"),
+    ("rag", "page", "RAG 检索"),
+    ("rag", "import", "导入文档"),
+    ("rag", "listByFile", "按文件名查"),
+    ("rag", "search", "向量检索"),
+    ("rag", "search-and-llm", "搜索+LLM"),
+    ("ai-chat", "page", "AI 训练提问"),
+    ("agent", "single", "单智能体"),
+    ("agent", "sequential", "顺序模式"),
+    ("agent", "routing", "路由模式"),
+    ("agent", "reflection", "循环/反思模式"),
+    ("meeting", "page", "会议整理"),
+    ("smart-route", "page", "智能路由"),
+    ("attendance", "punch", "人脸打卡"),
+    ("attendance", "history", "打卡历史"),
+    ("attendance", "persons", "已登记人员"),
+]
+
+
+def seed_feature_intros(db: Session) -> list[models.FeatureIntro]:
+    created: list[models.FeatureIntro] = []
+    for page_key, section_key, title in DEFAULT_FEATURE_INTROS:
+        exists = (
+            db.query(models.FeatureIntro)
+            .filter(models.FeatureIntro.page_key == page_key, models.FeatureIntro.section_key == section_key)
+            .first()
+        )
+        if exists:
+            continue
+        row = models.FeatureIntro(page_key=page_key, section_key=section_key, title=title, content="")
+        db.add(row)
+        created.append(row)
+    if created:
+        db.commit()
+        for row in created:
+            db.refresh(row)
+    return created

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
@@ -66,6 +66,18 @@ class AttendancePerson(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     punches: Mapped[list["AttendancePunch"]] = relationship(back_populates="person")
+
+
+class FeatureIntro(Base):
+    __tablename__ = "feature_intros"
+    __table_args__ = (UniqueConstraint("page_key", "section_key", name="uq_feature_intros_page_section"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    page_key: Mapped[str] = mapped_column(String(50), index=True)
+    section_key: Mapped[str] = mapped_column(String(50))
+    title: Mapped[str] = mapped_column(String(200), default="")
+    content: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class AttendancePunch(Base):

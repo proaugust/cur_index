@@ -3,13 +3,19 @@
         <el-card shadow="hover" class="demo-card">
             <template #header>
                 <div class="page-header">
-                    <span class="page-title">AI 训练提问</span>
-                    <span class="page-subtitle">点击示例体验四种 LLM 调用方式，下方可继续调试原始接口</span>
+                    <span class="page-title">{{ t('pages.aiChat.title') }}</span>
+                    <FeatureIntroIcon
+                        page-key="ai-chat"
+                        section-key="page"
+                        :intros="intros"
+                        :title="t('pages.aiChat.title')"
+                        @saved="setIntro"
+                    />
                 </div>
             </template>
 
             <div class="scenario-section">
-                <div class="section-label">示例场景（点一下即发送）</div>
+                <div class="section-label">{{ t('pages.aiChat.scenarios') }}</div>
                 <div class="scenario-buttons">
                     <el-button
                         v-for="item in scenarios"
@@ -27,18 +33,18 @@
 
             <div class="params-section">
                 <el-collapse v-model="paramsExpanded">
-                    <el-collapse-item title="当前调用参数（随场景变化）" name="params">
+                    <el-collapse-item :title="t('pages.aiChat.params')" name="params">
                         <el-form label-width="100px" class="params-form">
-                            <el-form-item label="系统提示词">
+                            <el-form-item :label="t('pages.aiChat.systemPrompt')">
                                 <el-input
                                     v-model="systemPrompt"
                                     type="textarea"
                                     :rows="2"
-                                    placeholder="留空使用后端默认提示词"
+                                    :placeholder="t('pages.aiChat.systemPromptPh')"
                                     :disabled="loading"
                                 />
                             </el-form-item>
-                            <el-form-item label="温度">
+                            <el-form-item :label="t('pages.aiChat.temperature')">
                                 <div class="temp-row">
                                     <el-slider
                                         v-model="temperature"
@@ -50,7 +56,7 @@
                                     />
                                     <span class="temp-value">{{ temperature.toFixed(1) }}</span>
                                 </div>
-                                <div class="temp-hint">越低越稳定，越高越发散</div>
+                                <div class="temp-hint">{{ t('pages.aiChat.tempHint') }}</div>
                             </el-form-item>
                         </el-form>
                     </el-collapse-item>
@@ -58,7 +64,7 @@
             </div>
 
             <div class="chat-section">
-                <div class="section-label">对话记录</div>
+                <div class="section-label">{{ t('pages.aiChat.chatLog') }}</div>
                 <div ref="chatBoxRef" class="chat-box">
                     <div
                         v-for="(msg, idx) in displayMessages"
@@ -67,29 +73,29 @@
                         :class="msg.role"
                     >
                         <div class="chat-bubble">
-                            <span class="chat-role">{{ msg.role === 'user' ? '用户' : '助手' }}</span>
+                            <span class="chat-role">{{ msg.role === 'user' ? t('pages.aiChat.roleUser') : t('pages.aiChat.roleAssistant') }}</span>
                             <div class="chat-content">{{ msg.content }}</div>
                         </div>
                     </div>
-                    <el-empty v-if="!displayMessages.length" description="选择上方示例或自行输入问题" :image-size="64" />
+                    <el-empty v-if="!displayMessages.length" :description="t('pages.aiChat.chatEmpty')" :image-size="64" />
                 </div>
             </div>
 
             <div class="input-section">
-                <div class="section-label">输入问题</div>
+                <div class="section-label">{{ t('pages.aiChat.inputQuestion') }}</div>
                 <el-input
                     v-model="question"
                     type="textarea"
                     :rows="3"
-                    placeholder="输入你的问题，或点击上方示例自动填入并发送"
+                    :placeholder="t('pages.aiChat.inputPh')"
                     :disabled="loading"
                     @keydown.ctrl.enter="handleSend"
                 />
                 <div class="action-bar">
                     <el-button type="primary" :loading="loading" :disabled="!question.trim()" @click="handleSend">
-                        发送
+                        {{ t('common.send') }}
                     </el-button>
-                    <el-button :disabled="loading" @click="handleClear">清空对话</el-button>
+                    <el-button :disabled="loading" @click="handleClear">{{ t('pages.aiChat.clearChat') }}</el-button>
                 </div>
             </div>
         </el-card>
@@ -99,10 +105,16 @@
 </template>
 
 <script setup lang="ts" name="demo-ai-chat">
-import { nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { askChat } from '@/api';
+
+const { t, locale } = useI18n();
+const { intros, setIntro } = useFeatureIntros('ai-chat');
 
 type ChatRole = 'user' | 'assistant';
 type ChatMessage = { role: ChatRole; content: string };
@@ -119,68 +131,68 @@ interface Scenario {
     temperature: number;
 }
 
-const scenarios: Scenario[] = [
+const scenarios = computed<Scenario[]>(() => [
     {
         id: 'direct',
-        label: '直接问 LLM',
-        tag: '单轮',
+        label: t('pages.aiChat.scenarioDirect'),
+        tag: t('pages.aiChat.tagSingle'),
         tagType: 'success',
-        hint: '默认系统提示词 + 空历史，最基础的单次问答。',
-        question: '用一句话解释什么是大语言模型。',
+        hint: t('pages.aiChat.hintDirect'),
+        question: t('pages.aiChat.qDirect'),
         system_prompt: '',
         history: [],
         temperature: 0.7,
     },
     {
         id: 'persona',
-        label: '定制人设',
-        tag: 'system_prompt',
+        label: t('pages.aiChat.scenarioPersona'),
+        tag: t('pages.aiChat.tagSystemPrompt'),
         tagType: 'warning',
-        hint: '通过 system_prompt 训练回答风格——同一问题，人设不同，回答完全不同。',
-        question: '请介绍一下你自己。',
-        system_prompt: '你是一位江湖侠客，说话带古风，每句末尾加「是也」或「耳」，绝不使用现代网络用语。',
+        hint: t('pages.aiChat.hintPersona'),
+        question: t('pages.aiChat.qPersona'),
+        system_prompt: t('pages.aiChat.personaSystem'),
         history: [],
         temperature: 0.7,
     },
     {
         id: 'multi',
-        label: '多轮对话',
-        tag: 'history',
+        label: t('pages.aiChat.scenarioMulti'),
+        tag: t('pages.aiChat.tagHistory'),
         tagType: 'info',
-        hint: '请求会带上 history，模型能记住前文——试试问「我刚才说我叫什么」。',
-        question: '我刚才说我叫什么名字？在哪个城市工作？',
+        hint: t('pages.aiChat.hintMulti'),
+        question: t('pages.aiChat.qMulti'),
         system_prompt: '',
         history: [
-            { role: 'user', content: '我叫小明，在成都做后端开发。' },
-            { role: 'assistant', content: '你好小明！成都是一座很棒的城市。后端开发有什么我可以帮你的吗？' },
+            { role: 'user', content: t('pages.aiChat.historyUser') },
+            { role: 'assistant', content: t('pages.aiChat.historyAssistant') },
         ],
         temperature: 0.7,
     },
     {
         id: 'random-low',
-        label: '随机性 · 低',
-        tag: 'temp≈0.1',
+        label: t('pages.aiChat.scenarioRandomLow'),
+        tag: t('pages.aiChat.tagTempLow'),
         tagType: '',
-        hint: '低温度：同一问题每次回答更稳定、更接近。',
-        question: '给一家奶茶店起 3 个有创意的名字。',
+        hint: t('pages.aiChat.hintRandomLow'),
+        question: t('pages.aiChat.qRandom'),
         system_prompt: '',
         history: [],
         temperature: 0.1,
     },
     {
         id: 'random-high',
-        label: '随机性 · 高',
-        tag: 'temp≈1.5',
+        label: t('pages.aiChat.scenarioRandomHigh'),
+        tag: t('pages.aiChat.tagTempHigh'),
         tagType: 'danger',
-        hint: '高温度：同一问题回答更发散、更有意外感——可与「随机性·低」对比。',
-        question: '给一家奶茶店起 3 个有创意的名字。',
+        hint: t('pages.aiChat.hintRandomHigh'),
+        question: t('pages.aiChat.qRandom'),
         system_prompt: '',
         history: [],
         temperature: 1.5,
     },
-];
+]);
 
-const question = ref(scenarios[0].question);
+const question = ref('');
 const systemPrompt = ref('');
 const temperature = ref(0.7);
 const history = ref<ChatMessage[]>([]);
@@ -206,6 +218,23 @@ const applyScenario = (item: Scenario) => {
     history.value = [...item.history];
     displayMessages.value = [...item.history];
 };
+
+watch(
+    scenarios,
+    (list) => {
+        if (list.length) {
+            applyScenario(list[0]);
+        }
+    },
+    { immediate: true },
+);
+
+watch(locale, () => {
+    const current = scenarios.value.find((item) => item.id === activeScenario.value) ?? scenarios.value[0];
+    if (current) {
+        applyScenario(current);
+    }
+});
 
 const handleScenario = async (item: Scenario) => {
     applyScenario(item);
@@ -236,7 +265,7 @@ const handleSend = async () => {
     } catch (err: unknown) {
         displayMessages.value.pop();
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        ElMessage.error(typeof msg === 'string' ? msg : '提问失败，请稍后重试');
+        ElMessage.error(typeof msg === 'string' ? msg : t('pages.aiChat.askFailed'));
     } finally {
         loading.value = false;
     }
@@ -251,8 +280,6 @@ const handleClear = () => {
     activeScenario.value = '';
     activeHint.value = '';
 };
-
-applyScenario(scenarios[0]);
 </script>
 
 <style scoped>
@@ -263,19 +290,14 @@ applyScenario(scenarios[0]);
 }
 
 .demo-card .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
 }
 
 .demo-card .page-title {
     font-size: 16px;
     font-weight: 600;
-}
-
-.demo-card .page-subtitle {
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
 }
 
 .section-label {

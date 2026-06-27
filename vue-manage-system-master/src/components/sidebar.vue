@@ -15,7 +15,7 @@
                             <el-icon>
                                 <component :is="item.icon"></component>
                             </el-icon>
-                            <span>{{ item.title }}</span>
+                            <span>{{ menuTitle(item) }}</span>
                         </template>
                         <template v-for="subItem in item.children">
                             <el-sub-menu
@@ -24,17 +24,17 @@
                                 :key="subItem.index"
                                 v-permiss="item.id"
                             >
-                                <template #title>{{ subItem.title }}</template>
+                                <template #title>{{ menuTitle(subItem) }}</template>
                                 <el-menu-item
                                     v-for="(threeItem, i) in subItem.children"
                                     :key="i"
                                     :index="threeItem.index"
                                 >
-                                    {{ threeItem.title }}
+                                    {{ menuTitle(threeItem) }}
                                 </el-menu-item>
                             </el-sub-menu>
                             <el-menu-item v-else :index="subItem.index" v-permiss="item.id">
-                                {{ subItem.title }}
+                                {{ menuTitle(subItem) }}
                             </el-menu-item>
                         </template>
                     </el-sub-menu>
@@ -44,7 +44,7 @@
                         <el-icon>
                             <component :is="item.icon"></component>
                         </el-icon>
-                        <template #title>{{ item.title }}</template>
+                        <template #title>{{ menuTitle(item) }}</template>
                     </el-menu-item>
                 </template>
             </template>
@@ -54,9 +54,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useSidebarStore } from '../store/sidebar';
 import { useRoute } from 'vue-router';
 import { menuData } from '@/components/menu';
+import type { Menus } from '@/types/menu';
+
+const { t } = useI18n();
+
+const menuTitle = (item: Menus) => {
+    if (item.titleKey === '403' || item.titleKey === '404') return item.titleKey;
+    return t(item.titleKey);
+};
 
 const route = useRoute();
 const onRoutes = computed(() => {

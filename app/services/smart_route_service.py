@@ -1,9 +1,12 @@
 import logging
 
+from sqlalchemy.orm import Session
+
 from fastapi import HTTPException
 
 from app.core.config import settings
 from app.services.llm import chat_completion
+from app.services.smart_route_handlers import query_employee, query_weather
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +62,18 @@ def _classify_by_llm(question: str) -> str:
         return _classify_by_keywords(question)
 
 
-def route_question(question: str) -> tuple[str, str]:
-    """根据用户问题判断意图，返回 (intent, 展示文案)。仅路由展示，不执行业务。"""
+def route_question(question: str, db: Session) -> tuple[str, str, list]:
+    """根据用户问题判断意图，返回 (intent, 展示文案, 员工列表)。"""
     text = question.strip()
     if not text:
         raise HTTPException(status_code=400, detail="问题不能为空")
 
     intent = _classify_by_llm(text)
-    message = _INTENT_MESSAGES[intent]
-    return intent, message
+    employees: list = []
+    if intent == "weather":
+        message = query_weather(text)
+    elif intent == "employee":
+        message, employees = query_employee(text, db)
+    else:
+        message = _INTENT_MESSAGES[intent]
+    return intent, message, employees

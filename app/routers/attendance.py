@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,8 @@ from app.services import attendance_service
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
+_NO_STORE_HEADERS = {"Cache-Control": "no-store"}
+
 
 @router.post("/punch", response_model=schemas.AttendancePunchResponse)
 def punch_attendance(body: schemas.AttendancePunchRequest, db: Session = Depends(get_db)) -> schemas.AttendancePunchResponse:
@@ -16,19 +18,23 @@ def punch_attendance(body: schemas.AttendancePunchRequest, db: Session = Depends
 
 @router.get("/punches", response_model=schemas.AttendancePunchesPage)
 def list_attendance_punches(
+    response: Response,
     user_id: str | None = Query(default=None, description="按用户 ID 筛选"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
 ) -> schemas.AttendancePunchesPage:
+    response.headers.update(_NO_STORE_HEADERS)
     return attendance_service.list_punches(db, user_id=user_id, page=page, page_size=page_size)
 
 
 @router.get("/persons", response_model=list[schemas.AttendancePersonRead])
 def list_attendance_persons(
+    response: Response,
     user_id: str | None = Query(default=None, description="按用户 ID 筛选"),
     db: Session = Depends(get_db),
 ) -> list[schemas.AttendancePersonRead]:
+    response.headers.update(_NO_STORE_HEADERS)
     return attendance_service.list_persons(db, user_id=user_id)
 
 

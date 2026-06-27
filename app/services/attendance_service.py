@@ -11,6 +11,16 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.core.config import settings
 
+PRESET_EMPLOYEE_NAMES: tuple[str, ...] = ("张三", "李四")
+_PLACEHOLDER_JPEG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
+    "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIy"
+    "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAB"
+    "AAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAA"
+    "AAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMB"
+    "AAIRAxEAPwCwAA8A/9k="
+)
+
 def _euclidean_distance(a: list[float], b: list[float]) -> float:
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
 
@@ -20,6 +30,10 @@ def _parse_descriptor(raw: str) -> list[float]:
 
 
 def _next_user_id(db: Session) -> str:
+    used = {row[0] for row in db.query(models.AttendancePerson.user_id).all()}
+    for name in PRESET_EMPLOYEE_NAMES:
+        if name not in used:
+            return name
     max_id = db.query(func.max(models.AttendancePerson.id)).scalar() or 0
     return f"U{max_id + 1:04d}"
 
@@ -257,6 +271,67 @@ def list_persons(db: Session, user_id: str | None = None) -> list[schemas.Attend
         )
         for person in rows
     ]
+
+
+def get_employee_profiles(
+    db: Session,
+    *,
+    names: list[str] | None = None,
+) -> list[schemas.EmployeeProfileRead]:
+    """按姓名查询打卡员工档案（含最近打卡时间与头像状态）。"""
+    ensure_attendance_tables(db)
+    query = db.query(models.AttendancePerson)
+    if names:
+        query = query.filter(models.AttendancePerson.user_id.in_(names))
+    rows = query.order_by(models.AttendancePerson.id).all()
+
+    count_rows = (
+        db.query(models.AttendancePunch.person_id, func.count(models.AttendancePunch.id))
+        .group_by(models.AttendancePunch.person_id)
+        .all()
+    )
+    punch_counts = {person_id: count for person_id, count in count_rows}
+
+    profiles: list[schemas.EmployeeProfileRead] = []
+    for person in rows:
+        last_punch = _get_last_punch(db, person.id)
+        profiles.append(
+            schemas.EmployeeProfileRead(
+                user_id=person.user_id,
+                created_at=person.created_at,
+                punch_count=punch_counts.get(person.id, 0),
+                has_reference_image=bool(person.reference_image),
+                last_punch_at=last_punch.punched_at if last_punch else None,
+            )
+        )
+    return profiles
+
+
+def ensure_demo_employees(db: Session) -> None:
+    """确保演示员工张三、李四存在（无打卡记录时写入占位档案与头像）。"""
+    ensure_attendance_tables(db)
+    now = datetime.utcnow()
+    changed = False
+    for name in PRESET_EMPLOYEE_NAMES:
+        person = db.query(models.AttendancePerson).filter(models.AttendancePerson.user_id == name).first()
+        if person:
+            continue
+        filename = f"{name}.jpg"
+        image_path = settings.attendance_faces_dir / filename
+        if not image_path.is_file():
+            image_path.write_bytes(_PLACEHOLDER_JPEG)
+        person = models.AttendancePerson(
+            user_id=name,
+            face_descriptor=json.dumps([0.0] * 128),
+            reference_image=filename,
+            reference_score=0.0,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(person)
+        changed = True
+    if changed:
+        db.commit()
 
 
 def get_person_photo_path(db: Session, user_id: str) -> Path:

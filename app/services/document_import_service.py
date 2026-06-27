@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.services.embedding import embed_texts
-from app.services.text_chunker import CHUNK_LEN, SMALL_PIECE_LEN, chunk_document, parse_sections
+from app.services.text_chunker import CHUNK_LEN, CHUNK_OVERLAP, SMALL_PIECE_LEN, chunk_document, parse_sections
 
 
 class DocumentImportService:
@@ -19,13 +19,19 @@ class DocumentImportService:
         replace_existing: bool = True,
         min_chunk_len: int = SMALL_PIECE_LEN,
         max_chunk_len: int = CHUNK_LEN,
+        chunk_overlap: int = CHUNK_OVERLAP,
     ) -> schemas.DocumentImportResult:
-        if min_chunk_len < 10:
-            raise HTTPException(status_code=400, detail="min_chunk_len 不能小于 10")
+        if min_chunk_len < 5:
+            raise HTTPException(status_code=400, detail="min_chunk_len 不能小于 5")
         if max_chunk_len < min_chunk_len:
             raise HTTPException(status_code=400, detail="max_chunk_len 不能小于 min_chunk_len")
 
-        chunks = chunk_document(text, min_chunk_len=min_chunk_len, max_chunk_len=max_chunk_len)
+        chunks = chunk_document(
+            text,
+            min_chunk_len=min_chunk_len,
+            max_chunk_len=max_chunk_len,
+            chunk_overlap=chunk_overlap,
+        )
         if not chunks:
             raise HTTPException(status_code=400, detail="未解析到有效文本块")
 

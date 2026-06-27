@@ -5,12 +5,18 @@
                 <el-card shadow="hover" class="camera-card">
                     <template #header>
                         <div class="card-header">
-                            <div>
-                                <div class="page-title">人脸打卡</div>
-                                <div class="page-subtitle">检测到人脸后自动打卡，可调整识别频率与去重策略</div>
+                            <div class="page-title-row">
+                                <div class="page-title">{{ t('pages.attendance.punchTitle') }}</div>
+                                <FeatureIntroIcon
+                                    page-key="attendance"
+                                    section-key="punch"
+                                    :intros="intros"
+                                    :title="t('pages.attendance.punchTitle')"
+                                    @saved="setIntro"
+                                />
                             </div>
                             <el-tag :type="cameraOn ? 'success' : 'info'" size="small">
-                                {{ cameraOn ? '摄像头已开启' : '摄像头未开启' }}
+                                {{ cameraOn ? t('pages.attendance.cameraOn') : t('pages.attendance.cameraOff') }}
                             </el-tag>
                         </div>
                     </template>
@@ -18,16 +24,16 @@
                     <div class="video-wrap">
                         <video ref="videoRef" class="video" autoplay muted playsinline />
                         <canvas ref="canvasRef" class="overlay" />
-                        <div v-if="modelsLoading" class="video-mask">正在加载识别模型…</div>
-                        <div v-else-if="!cameraOn" class="video-mask">点击「打开摄像头」开始打卡</div>
+                        <div v-if="modelsLoading" class="video-mask">{{ t('pages.attendance.loadingModels') }}</div>
+                        <div v-else-if="!cameraOn" class="video-mask">{{ t('pages.attendance.openCameraHint') }}</div>
                     </div>
 
                     <div class="tuning-panel">
                         <div class="tuning-head">
-                            <span>摄像头分辨率</span>
+                            <span>{{ t('pages.attendance.resolution') }}</span>
                             <span class="tuning-hint">
                                 {{ currentResolution.hint }}
-                                <template v-if="actualResolution"> · 实际 {{ actualResolution }}</template>
+                                <template v-if="actualResolution"> · {{ t('pages.attendance.actual') }} {{ actualResolution }}</template>
                             </span>
                         </div>
                         <el-select
@@ -47,7 +53,7 @@
 
                     <div class="tuning-panel">
                         <div class="tuning-head">
-                            <span>识别频率</span>
+                            <span>{{ t('pages.attendance.scanInterval') }}</span>
                             <span class="tuning-hint">{{ currentScanInterval.hint }}</span>
                         </div>
                         <el-select v-model="scanIntervalId" class="resolution-select" :disabled="startingCamera">
@@ -62,11 +68,11 @@
 
                     <div class="tuning-panel">
                         <div class="tuning-head">
-                            <span>同人去重</span>
-                            <span class="tuning-hint">开启后，窗口内同一人重复刷脸不新增记录</span>
+                            <span>{{ t('pages.attendance.dedup') }}</span>
+                            <span class="tuning-hint">{{ t('pages.attendance.dedupHint') }}</span>
                         </div>
                         <div class="dedup-row">
-                            <el-switch v-model="dedupEnabled" active-text="开启" inactive-text="关闭" />
+                            <el-switch v-model="dedupEnabled" :active-text="t('common.on')" :inactive-text="t('common.off')" />
                             <el-select
                                 v-model="dedupSeconds"
                                 class="dedup-select"
@@ -84,8 +90,8 @@
 
                     <div class="tuning-panel">
                         <div class="tuning-head">
-                            <span>识别阈值 {{ matchThreshold.toFixed(2) }}</span>
-                            <span class="tuning-hint">越小越严格，越大越容易认成同一人</span>
+                            <span>{{ t('pages.attendance.threshold', { value: matchThreshold.toFixed(2) }) }}</span>
+                            <span class="tuning-hint">{{ t('pages.attendance.thresholdHint') }}</span>
                         </div>
                         <el-slider v-model="matchThreshold" :min="0.4" :max="0.8" :step="0.01" :show-tooltip="false" />
                     </div>
@@ -93,11 +99,11 @@
                     <div class="status-bar">
                         <span class="status-text">{{ statusText }}</span>
                         <span v-if="lastResult" class="last-result">
-                            上次：{{ lastResult.user_id }}
-                            <el-tag v-if="lastResult.is_new_person" size="small" type="success">新人</el-tag>
-                            <el-tag v-else-if="lastResult.punch_skipped" size="small" type="info">已去重</el-tag>
+                            {{ t('pages.attendance.lastPrefix') }}{{ lastResult.user_id }}
+                            <el-tag v-if="lastResult.is_new_person" size="small" type="success">{{ t('pages.attendance.newPerson') }}</el-tag>
+                            <el-tag v-else-if="lastResult.punch_skipped" size="small" type="info">{{ t('pages.attendance.deduped') }}</el-tag>
                             <span v-if="lastResult.match_distance != null">
-                                · 距离 {{ lastResult.match_distance.toFixed(3) }}
+                                · {{ t('pages.attendance.distance') }} {{ lastResult.match_distance.toFixed(3) }}
                             </span>
                             · {{ formatTime(lastResult.punched_at) }}
                         </span>
@@ -119,34 +125,43 @@
                 <el-card shadow="hover" class="history-card">
                     <template #header>
                         <div class="card-header">
-                            <span class="page-title">打卡历史</span>
-                            <el-button size="small" :loading="loading" @click="loadPunches">刷新</el-button>
+                            <div class="page-title-row">
+                                <span class="page-title">{{ t('pages.attendance.historyTitle') }}</span>
+                                <FeatureIntroIcon
+                                    page-key="attendance"
+                                    section-key="history"
+                                    :intros="intros"
+                                    :title="t('pages.attendance.historyTitle')"
+                                    @saved="setIntro"
+                                />
+                            </div>
+                            <el-button size="small" :loading="loading" @click="loadPunches">{{ t('common.refresh') }}</el-button>
                         </div>
                     </template>
 
                     <div class="history-toolbar">
                         <el-input
                             v-model="searchUserId"
-                            placeholder="输入用户 ID 搜索，如 U0001"
+                            :placeholder="t('pages.attendance.searchUserPh')"
                             clearable
                             @keyup.enter="handleSearch"
                             @clear="handleSearch"
                         />
-                        <el-button type="primary" @click="handleSearch">搜索</el-button>
+                        <el-button type="primary" @click="handleSearch">{{ t('common.search') }}</el-button>
                     </div>
 
                     <el-table :data="punches" v-loading="loading" stripe size="small" max-height="420">
                         <el-table-column type="index" label="#" width="50" />
-                        <el-table-column prop="user_id" label="用户 ID" width="100" />
-                        <el-table-column label="打卡时间" min-width="160">
+                        <el-table-column prop="user_id" :label="t('pages.attendance.colUserId')" width="100" />
+                        <el-table-column :label="t('pages.attendance.colPunchTime')" min-width="160">
                             <template #default="{ row }">
                                 {{ formatTime(row.punched_at) }}
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="70" fixed="right">
+                        <el-table-column :label="t('pages.attendance.colAction')" width="70" fixed="right">
                             <template #default="{ row }">
                                 <el-button type="danger" link size="small" @click="handleDeletePunch(row)">
-                                    删除
+                                    {{ t('common.delete') }}
                                 </el-button>
                             </template>
                         </el-table-column>
@@ -170,10 +185,19 @@
                 <el-card shadow="hover" class="persons-card mgt20">
                     <template #header>
                         <div class="card-header">
-                            <span class="page-title">已登记人员</span>
+                            <div class="page-title-row">
+                                <span class="page-title">{{ t('pages.attendance.personsTitle') }}</span>
+                                <FeatureIntroIcon
+                                    page-key="attendance"
+                                    section-key="persons"
+                                    :intros="intros"
+                                    :title="t('pages.attendance.personsTitle')"
+                                    @saved="setIntro"
+                                />
+                            </div>
                             <div class="card-header-actions">
-                                <el-tag size="small" type="info">{{ persons.length }} 人</el-tag>
-                                <el-button size="small" :loading="personsLoading" @click="loadPersons">刷新</el-button>
+                                <el-tag size="small" type="info">{{ persons.length }} {{ t('common.people') }}</el-tag>
+                                <el-button size="small" :loading="personsLoading" @click="loadPersons">{{ t('common.refresh') }}</el-button>
                             </div>
                         </div>
                     </template>
@@ -181,16 +205,16 @@
                     <div class="history-toolbar">
                         <el-input
                             v-model="searchPersonUserId"
-                            placeholder="输入用户 ID 搜索，如 U0001"
+                            :placeholder="t('pages.attendance.searchUserPh')"
                             clearable
                             @keyup.enter="handlePersonSearch"
                             @clear="handlePersonSearch"
                         />
-                        <el-button type="primary" @click="handlePersonSearch">搜索</el-button>
+                        <el-button type="primary" @click="handlePersonSearch">{{ t('common.search') }}</el-button>
                     </div>
 
                     <el-table :data="persons" v-loading="personsLoading" stripe size="small" max-height="280">
-                        <el-table-column label="人员" min-width="168">
+                        <el-table-column :label="t('pages.attendance.colPerson')" min-width="168">
                             <template #default="{ row }">
                                 <div
                                     class="person-cell"
@@ -210,22 +234,22 @@
                                     <div class="person-meta">
                                         <span class="person-id">{{ row.user_id }}</span>
                                         <span class="person-tip">
-                                            {{ row.has_reference_image ? '点击查看标准照' : '未采集标准照' }}
+                                            {{ row.has_reference_image ? t('pages.attendance.viewPhoto') : t('pages.attendance.noPhoto') }}
                                         </span>
                                     </div>
                                 </div>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="punch_count" label="打卡次数" width="88" align="right" />
-                        <el-table-column label="登记时间" min-width="140">
+                        <el-table-column prop="punch_count" :label="t('pages.attendance.colPunchCount')" width="88" align="right" />
+                        <el-table-column :label="t('pages.attendance.colRegisteredAt')" min-width="140">
                             <template #default="{ row }">
                                 {{ formatTime(row.created_at) }}
                             </template>
                         </el-table-column>
-                        <el-table-column label="操作" width="70" fixed="right">
+                        <el-table-column :label="t('pages.attendance.colAction')" width="70" fixed="right">
                             <template #default="{ row }">
                                 <el-button type="danger" link size="small" @click="handleDeletePerson(row)">
-                                    删除
+                                    {{ t('common.delete') }}
                                 </el-button>
                             </template>
                         </el-table-column>
@@ -244,7 +268,10 @@
 
 <script setup lang="ts" name="demo-attendance">
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import {
     attendancePunch,
     deleteAttendancePerson,
@@ -253,6 +280,9 @@ import {
     listAttendancePersons,
     listAttendancePunches,
 } from '@/api';
+
+const { t } = useI18n();
+const { intros, setIntro } = useFeatureIntros('attendance');
 
 type FaceApiModule = typeof import('@vladmandic/face-api');
 type FaceDetectionResult = {
@@ -405,9 +435,9 @@ const currentScanInterval = computed(
 const scanIntervalMs = computed(() => currentScanInterval.value.intervalMs);
 
 const cameraButtonText = computed(() => {
-    if (cameraOn.value) return '关闭摄像头';
-    if (modelsLoading.value) return '加载模型中…';
-    return '打开摄像头';
+    if (cameraOn.value) return t('pages.attendance.closeCamera');
+    if (modelsLoading.value) return t('pages.attendance.loadingModelsBtn');
+    return t('pages.attendance.openCamera');
 });
 
 let modelsLoadPromise: Promise<void> | null = null;
@@ -715,18 +745,15 @@ const submitPunch = async (detection: FaceDetectionResult) => {
             ? `新人登记并打卡成功：${data.user_id}`
             : `打卡成功：${data.user_id}`;
         ElMessage.success(statusText.value);
-        await loadPunches();
-        if (data.is_new_person || data.reference_image_updated) {
-            if (data.reference_image_updated) {
-                photoVersion.value[data.user_id] = Date.now();
-            }
-            await loadPersons();
-        } else {
-            const person = persons.value.find((item) => item.user_id === data.user_id);
-            if (person) {
-                person.punch_count += 1;
-            }
+        if (data.reference_image_updated) {
+            photoVersion.value[data.user_id] = Date.now();
         }
+        page.value = 1;
+        searchUserId.value = data.user_id;
+        if (data.is_new_person) {
+            searchPersonUserId.value = data.user_id;
+        }
+        await Promise.all([loadPunches(), loadPersons()]);
     } catch (err: unknown) {
         const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         statusText.value = '打卡失败，请重试';
@@ -896,15 +923,14 @@ onBeforeUnmount(() => {
     gap: 12px;
 }
 
+.attendance-page .page-title-row {
+    display: inline-flex;
+    align-items: center;
+}
+
 .attendance-page .page-title {
     font-size: 16px;
     font-weight: 600;
-}
-
-.attendance-page .page-subtitle {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #909399;
 }
 
 .video-wrap {

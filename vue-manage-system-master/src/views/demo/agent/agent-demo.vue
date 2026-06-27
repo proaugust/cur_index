@@ -6,7 +6,7 @@
         </div>
 
         <div v-if="examples?.length" class="example-row">
-            <span class="example-label">点示例直接运行：</span>
+            <span class="example-label">{{ t('pages.agent.clickExample') }}</span>
             <el-tooltip
                 v-for="item in examples"
                 :key="item.label"
@@ -29,11 +29,11 @@
                 v-model="question"
                 type="textarea"
                 :rows="2"
-                :placeholder="placeholder"
+                :placeholder="placeholder || t('pages.agent.placeholderDefault')"
                 :disabled="loading"
             />
             <el-button type="primary" :loading="loading" @click="runCurrent">
-                运行演示
+                {{ t('pages.agent.runDemo') }}
             </el-button>
         </div>
 
@@ -58,25 +58,25 @@
                 </div>
 
                 <div v-if="step.input && step.status !== 'pending'" class="step-block">
-                    <div class="block-label">输入</div>
+                    <div class="block-label">{{ t('pages.agent.input') }}</div>
                     <div class="block-content input-content">{{ truncate(step.input) }}</div>
                 </div>
 
                 <div v-if="step.output" class="step-block">
-                    <div class="block-label">输出</div>
+                    <div class="block-label">{{ t('pages.agent.output') }}</div>
                     <div class="block-content output-content">{{ step.output }}</div>
                 </div>
 
                 <div v-else-if="step.status === 'running'" class="step-loading">
                     <el-icon class="is-loading"><Loading /></el-icon>
-                    <span>执行中...</span>
+                    <span>{{ t('pages.agent.running') }}</span>
                 </div>
             </div>
         </div>
 
         <el-empty
             v-else
-            :description="emptyText"
+            :description="emptyText || t('pages.agent.emptyDefault')"
             :image-size="80"
         />
     </div>
@@ -84,8 +84,11 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { InfoFilled, Loading } from '@element-plus/icons-vue';
 import type { AgentExample, AgentStep } from './types';
+
+const { t } = useI18n();
 
 const props = withDefaults(
     defineProps<{
@@ -99,8 +102,6 @@ const props = withDefaults(
     }>(),
     {
         initialQuestion: '',
-        placeholder: '输入问题，例如：如何设计一个高可用的微服务架构？',
-        emptyText: '输入问题后点击「运行演示」查看 Agent 执行过程',
     },
 );
 
@@ -138,10 +139,10 @@ const statusTagType = (status: AgentStep['status']) => {
 
 const statusLabel = (status: AgentStep['status']) => {
     const map = {
-        pending: '等待',
-        running: '执行中',
-        done: '完成',
-        error: '失败',
+        pending: t('pages.agent.statusPending'),
+        running: t('pages.agent.statusRunning'),
+        done: t('pages.agent.statusDone'),
+        error: t('pages.agent.statusError'),
     };
     return map[status];
 };

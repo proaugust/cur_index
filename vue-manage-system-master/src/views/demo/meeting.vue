@@ -3,34 +3,40 @@
         <el-card shadow="hover">
             <template #header>
                 <div class="page-header">
-                    <span class="page-title">会议整理</span>
-                    <span class="page-subtitle">输入杂乱会议记录，由大模型整理为有条理、有结论的纪要</span>
+                    <span class="page-title">{{ t('pages.meeting.title') }}</span>
+                    <FeatureIntroIcon
+                        page-key="meeting"
+                        section-key="page"
+                        :intros="intros"
+                        :title="t('pages.meeting.title')"
+                        @saved="setIntro"
+                    />
                 </div>
             </template>
 
             <div class="input-section">
-                <div class="section-label">原始文字</div>
+                <div class="section-label">{{ t('pages.meeting.rawText') }}</div>
                 <el-input
                     v-model="inputText"
                     type="textarea"
                     :rows="10"
-                    placeholder="粘贴会议速记、语音转写或零散讨论内容……"
+                    :placeholder="t('pages.meeting.placeholder')"
                     :disabled="loading"
                 />
                 <div class="action-bar">
                     <el-button type="primary" :loading="loading" :disabled="!inputText.trim()" @click="handleOrganize">
-                        整理
+                        {{ t('common.organize') }}
                     </el-button>
-                    <el-button :disabled="loading || !inputText" @click="handleClear">清空</el-button>
+                    <el-button :disabled="loading || !inputText" @click="handleClear">{{ t('common.clear') }}</el-button>
                 </div>
             </div>
 
             <el-divider />
 
             <div class="output-section">
-                <div class="section-label">整理结果</div>
+                <div class="section-label">{{ t('pages.meeting.result') }}</div>
                 <div v-if="organizedText" class="result-box">{{ organizedText }}</div>
-                <el-empty v-else description="整理后的纪要将显示在这里" :image-size="80" />
+                <el-empty v-else :description="t('pages.meeting.empty')" :image-size="80" />
             </div>
         </el-card>
     </div>
@@ -38,8 +44,14 @@
 
 <script setup lang="ts" name="demo-meeting">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { organizeMeeting } from '@/api';
+
+const { t } = useI18n();
+const { intros, setIntro } = useFeatureIntros('meeting');
 
 const inputText = ref(`张三： 12点了，今天中午吃啥？老规矩，去楼下吃快餐？
 李四： 别点快餐了，油大还腻。今天出太阳了，不如走远点，去后面那条街吃那家新开的黄焖鸡？
@@ -48,7 +60,8 @@ const inputText = ref(`张三： 12点了，今天中午吃啥？老规矩，去
 钱七： 石锅拌饭不错，但我看排队人挺多的。我们一共五个人，要不直接在软件上拼单点个酸菜鱼外卖？在休息区吃，还省得出去晒太阳。
 张三： 别点外卖了，送来都凉了。既然大家意见不统一，赵六说的石锅拌饭和王五说的潮汕粿条在同一条街上。我们直接过去，想吃拌饭的坐左边，想吃粿条的坐右边，步行五分钟，正好活动一下。
 李四： 行，那快走吧，再晚没位置了。
-王五、赵六、钱七： 没问题，听张三的，出发！`);
+众人： 走走走！`);
+
 const organizedText = ref('');
 const loading = ref(false);
 
@@ -57,9 +70,10 @@ const handleOrganize = async () => {
     if (!text) return;
 
     loading.value = true;
+    organizedText.value = '';
     try {
         const res = await organizeMeeting({ text });
-        organizedText.value = res.data.organized_text;
+        organizedText.value = res.data.result ?? '';
     } catch (err: unknown) {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(typeof msg === 'string' ? msg : '整理失败，请稍后重试');
@@ -69,26 +83,19 @@ const handleOrganize = async () => {
 };
 
 const handleClear = () => {
-    inputText.value = '';
     organizedText.value = '';
 };
 </script>
 
 <style scoped>
 .meeting-page .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .meeting-page .page-title {
     font-size: 16px;
     font-weight: 600;
-}
-
-.meeting-page .page-subtitle {
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
 }
 
 .section-label {
@@ -104,13 +111,12 @@ const handleClear = () => {
 }
 
 .result-box {
-    min-height: 200px;
+    min-height: 120px;
     padding: 16px;
     border: 1px solid var(--el-border-color-light);
     border-radius: 4px;
     background: var(--el-fill-color-blank);
     white-space: pre-wrap;
-    word-break: break-word;
     line-height: 1.7;
     font-size: 14px;
 }

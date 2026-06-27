@@ -1,7 +1,6 @@
 <template>
     <div class="mode-intro">
         <h3 class="mode-title">{{ title }}</h3>
-        <p class="mode-desc">{{ desc }}</p>
 
         <div class="flow-chart">
             <template v-for="(node, i) in nodes" :key="node">
@@ -25,7 +24,6 @@
 <script setup lang="ts">
 defineProps<{
     title: string;
-    desc: string;
     nodes: string[];
     branches?: string[];
     loop?: boolean;

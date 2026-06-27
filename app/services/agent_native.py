@@ -7,15 +7,20 @@ from app.services.agent_common import (
     REVISE_SYSTEM,
     REVIEW_SYSTEM,
     ROUTE_SYSTEM,
+    ROUTING_ANSWER_WITH_TOOL_SYSTEM,
     SEQUENTIAL_AGENTS,
     SINGLE_ANSWER_SYSTEM,
     SPECIALISTS,
     AgentMode,
     AgentStepData,
+    build_routing_user_prompt,
     build_sequential_context,
+    detect_weather_tool,
+    extract_weather_city,
     parse_reflection_score,
     parse_route_category,
     prepare_single_run,
+    run_weather_tool,
 )
 from app.services.llm import chat_completion
 
@@ -65,6 +70,7 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
     route_raw = _ask(ROUTE_SYSTEM, question, temperature=min(temperature, 0.2))
     category = parse_route_category(route_raw)
     specialist = SPECIALISTS[category]
+    use_weather = detect_weather_tool(question)
 
     steps = [
         AgentStepData(
@@ -72,18 +78,44 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
             role="判断问题所属领域",
             input=question,
             output=f"路由结果：{category}",
-            meta=f"选中 {specialist['name']}",
+            meta=f"选中 {specialist['name']}" + (" + weather 工具" if use_weather else ""),
         ),
+    ]
+
+    if use_weather:
+        city = extract_weather_city(question)
+        tool_output = run_weather_tool(city)
+        steps.append(
+            AgentStepData(
+                agent="工具 Agent",
+                role=f"调用 weather 查询 {city} 天气",
+                input=city,
+                output=tool_output,
+                meta="builtin:weather",
+            )
+        )
+        user_prompt = build_routing_user_prompt(question, tool_output)
+        answer = _ask(ROUTING_ANSWER_WITH_TOOL_SYSTEM, user_prompt, temperature=temperature)
+        steps.append(
+            AgentStepData(
+                agent=specialist["name"],
+                role="基于天气数据作答",
+                input=user_prompt,
+                output=answer,
+            )
+        )
+        return steps, answer
+
+    steps.append(
         AgentStepData(
             agent=specialist["name"],
             role="领域专家作答",
             input=question,
             output="",
-        ),
-    ]
-
+        )
+    )
     answer = _ask(specialist["prompt"], question, temperature=temperature)
-    steps[1].output = answer
+    steps[-1].output = answer
     return steps, answer
 
 

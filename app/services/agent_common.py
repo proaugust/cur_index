@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+import httpx
+
 AgentMode = Literal["single", "sequential", "routing", "reflection"]
 AgentEngine = Literal["native", "langchain"]
 AgentStepStatus = Literal["pending", "running", "done", "error"]
@@ -18,7 +20,62 @@ SINGLE_ANSWER_SYSTEM = (
     "用简洁清晰的中文直接回答用户。"
 )
 
+ROUTING_ANSWER_WITH_TOOL_SYSTEM = (
+    "你是 AI 助手。若提供了「工具查询结果」，必须基于该结果作答，不要编造天气数据。"
+    "用简洁清晰的中文直接回答用户。"
+)
+
 CALC_TRIGGER = re.compile(r"等于多少|是多少|计算一下|算一下|多少")
+WEATHER_TRIGGER = re.compile(r"天气|气温|温度|下雨|晴天|刮风|预报")
+DEFAULT_WEATHER_CITY = "Tokyo"
+
+_CITY_ALIASES: dict[str, str] = {
+    "东京": "Tokyo",
+    "大阪": "Osaka",
+    "大版": "Osaka",
+    "京都": "Kyoto",
+    "名古屋": "Nagoya",
+    "横滨": "Yokohama",
+    "北京": "Beijing",
+    "上海": "Shanghai",
+    "广州": "Guangzhou",
+    "深圳": "Shenzhen",
+    "杭州": "Hangzhou",
+    "成都": "Chengdu",
+    "纽约": "New York",
+    "伦敦": "London",
+    "巴黎": "Paris",
+    "悉尼": "Sydney",
+}
+_WEATHER_CITY_STOPWORDS = frozenset({"今天", "明天", "后天", "这里", "当地", "本地", "现在", "本周", "这周"})
+_CITY_WEATHER_PATTERNS = (
+    re.compile(r"(?:今天|明天|后天)(.+?)的?天气"),
+    re.compile(r"(.+?)的?(?:今天|明天|后天)?天气"),
+    re.compile(r"查(?:一下)?(.+?)的?天气"),
+    re.compile(r"(.+?)的?(?:气温|温度|预报)"),
+)
+
+_WMO_WEATHER: dict[int, str] = {
+    0: "晴空",
+    1: "大部晴朗",
+    2: "局部多云",
+    3: "多云",
+    45: "有雾",
+    48: "雾凇",
+    51: "小毛毛雨",
+    53: "中毛毛雨",
+    55: "大毛毛雨",
+    61: "小雨",
+    63: "中雨",
+    65: "大雨",
+    71: "小雪",
+    73: "中雪",
+    75: "大雪",
+    80: "小阵雨",
+    81: "中阵雨",
+    82: "大阵雨",
+    95: "雷暴",
+}
 CALC_EXPR = re.compile(r"([\d\.]+(?:\s*[\+\-\*\/\%]\s*[\d\.]+)+)")
 
 _SAFE_BINOPS = {
@@ -124,6 +181,103 @@ def run_calc_tool(expr: str) -> str:
     except (SyntaxError, ValueError, ZeroDivisionError) as exc:
         return f"{expr} 计算失败：{exc}"
     return f"{expr} = {result}"
+
+
+def detect_weather_tool(question: str) -> bool:
+    return bool(WEATHER_TRIGGER.search(question))
+
+
+def _normalize_city_query(raw: str) -> str:
+    city = raw.strip()
+    return _CITY_ALIASES.get(city, city)
+
+
+def extract_weather_city(question: str) -> str:
+    """从问题中提取城市名；未识别时默认东京。"""
+    if not detect_weather_tool(question):
+        return DEFAULT_WEATHER_CITY
+
+    for pattern in _CITY_WEATHER_PATTERNS:
+        match = pattern.search(question)
+        if not match:
+            continue
+        raw_city = match.group(1).strip()
+        if raw_city and raw_city not in _WEATHER_CITY_STOPWORDS:
+            return _normalize_city_query(raw_city)
+    return DEFAULT_WEATHER_CITY
+
+
+def _geocode_city(city_query: str) -> tuple[float, float, str, str]:
+    with httpx.Client(timeout=10.0) as client:
+        response = client.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": city_query, "count": 1, "language": "zh"},
+        )
+        response.raise_for_status()
+        data = response.json()
+
+    results = data.get("results") or []
+    if not results:
+        raise ValueError(f"未找到城市：{city_query}")
+
+    place = results[0]
+    return (
+        float(place["latitude"]),
+        float(place["longitude"]),
+        str(place.get("name") or city_query),
+        str(place.get("timezone") or "auto"),
+    )
+
+
+def _wmo_weather_label(code: int | None) -> str:
+    if code is None:
+        return "未知"
+    return _WMO_WEATHER.get(code, "多变")
+
+
+def run_weather_tool(city: str = DEFAULT_WEATHER_CITY) -> str:
+    """调用 Open-Meteo 按城市查询实时天气。"""
+    city_query = _normalize_city_query(city.strip()) if city.strip() else DEFAULT_WEATHER_CITY
+    try:
+        latitude, longitude, city_label, timezone = _geocode_city(city_query)
+    except (httpx.HTTPError, ValueError) as exc:
+        return f"{city_query} 天气查询失败：{exc}"
+
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+        "timezone": timezone,
+        "wind_speed_unit": "kmh",
+    }
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get("https://api.open-meteo.com/v1/forecast", params=params)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPError as exc:
+        return f"{city_label}天气查询失败：{exc}"
+
+    current = data.get("current") or {}
+    temp = current.get("temperature_2m")
+    humidity = current.get("relative_humidity_2m")
+    weather_code = current.get("weather_code")
+    wind = current.get("wind_speed_10m")
+    desc = _wmo_weather_label(weather_code if isinstance(weather_code, int) else None)
+
+    parts = [city_label]
+    if temp is not None:
+        parts.append(f"当前 {temp}°C")
+    parts.append(desc)
+    if humidity is not None:
+        parts.append(f"湿度 {humidity}%")
+    if wind is not None:
+        parts.append(f"风速 {wind} km/h")
+    return "，".join(parts)
+
+
+def build_routing_user_prompt(question: str, tool_output: str) -> str:
+    return f"工具查询结果：{tool_output}\n\n用户问题：{question}"
 
 
 def prepare_single_run(question: str) -> tuple[list[AgentStepData], str, bool]:

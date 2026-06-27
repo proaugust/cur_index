@@ -4,74 +4,118 @@
             <template #header>
                 <div class="page-header">
                     <div class="page-header-top">
-                        <div>
-                            <span class="page-title">Agent 架构展示</span>
-                            <span class="page-subtitle">后端编排：原生 Python 与 LangChain 双引擎对比</span>
-                        </div>
+                        <span class="page-title">{{ t('pages.agent.title') }}</span>
                         <el-radio-group v-model="activeEngine" size="small">
-                            <el-radio-button value="native">原生 Agent</el-radio-button>
-                            <el-radio-button value="langchain">LangChain Agent</el-radio-button>
+                            <el-radio-button value="native">{{ t('pages.agent.nativeAgent') }}</el-radio-button>
+                            <el-radio-button value="langchain">{{ t('pages.agent.langchainAgent') }}</el-radio-button>
                         </el-radio-group>
                     </div>
                 </div>
             </template>
 
             <el-tabs v-model="activeTab" type="border-card">
-                <el-tab-pane label="单智能体" name="single" lazy>
+                <el-tab-pane name="single" lazy>
+                    <template #label>
+                        <span class="tab-label-with-intro">
+                            {{ t('pages.agent.tabSingle') }}
+                            <FeatureIntroIcon
+                                page-key="agent"
+                                section-key="single"
+                                :intros="intros"
+                                :title="t('pages.agent.tabSingle')"
+                                @saved="setIntro"
+                            />
+                        </span>
+                    </template>
                     <ModeIntro
-                        title="单智能体（Single Agent）"
-                        desc="识别到算式时先走内置 calc 工具本地计算，再由 LLM 组织自然语言回答；普通问题则直接由 LLM 作答。"
-                        :nodes="['用户', '工具 Agent', '回答 Agent', '答复']"
+                        :title="t('pages.agent.modeSingleTitle')"
+                        :nodes="[t('pages.agent.nodeUser'), '工具 Agent', '回答 Agent', t('pages.agent.nodeReply')]"
                     />
                     <AgentDemo
                         :loading="loading.single"
                         :steps="steps.single"
-                        initial-question="123*456 等于多少"
-                        placeholder="例如：123*456 等于多少（走计算器）或 什么是微服务（直接回答）"
-                        hint="工作原理：含「等于多少」等词且能识别算式时，后端先用 calc 算出精确结果，再交给 LLM 生成答复；否则跳过工具，直接 LLM 回答。点下面示例可一键运行对比。"
-                        empty-text="输入问题或点上方示例，查看 Agent 分步执行过程"
+                        :initial-question="singleExamples[0].question"
+                        :placeholder="t('pages.agent.singlePlaceholder')"
+                        :hint="t('pages.agent.singleHint')"
+                        :empty-text="t('pages.agent.singleEmpty')"
                         :examples="singleExamples"
                         @run="(q) => runAgent('single', q)"
                     />
                 </el-tab-pane>
 
-                <el-tab-pane label="顺序模式" name="sequential" lazy>
+                <el-tab-pane name="sequential" lazy>
+                    <template #label>
+                        <span class="tab-label-with-intro">
+                            {{ t('pages.agent.tabSequential') }}
+                            <FeatureIntroIcon
+                                page-key="agent"
+                                section-key="sequential"
+                                :intros="intros"
+                                :title="t('pages.agent.tabSequential')"
+                                @saved="setIntro"
+                            />
+                        </span>
+                    </template>
                     <ModeIntro
-                        title="多智能体 · 顺序模式（Sequential）"
-                        desc="多个 Agent 按固定流水线依次执行，前一步输出作为后一步输入，适合调研→撰写→润色等分阶段任务。"
-                        :nodes="['用户', '规划 Agent', '执行 Agent', '总结 Agent', '回答']"
+                        :title="t('pages.agent.modeSequentialTitle')"
+                        :nodes="[t('pages.agent.nodeUser'), '规划 Agent', '执行 Agent', '总结 Agent', t('pages.agent.nodeAnswer')]"
                     />
                     <AgentDemo
                         :loading="loading.sequential"
                         :steps="steps.sequential"
+                        :initial-question="defaultQuestions.sequential"
                         @run="(q) => runAgent('sequential', q)"
                     />
                 </el-tab-pane>
 
-                <el-tab-pane label="路由模式" name="routing" lazy>
+                <el-tab-pane name="routing" lazy>
+                    <template #label>
+                        <span class="tab-label-with-intro">
+                            {{ t('pages.agent.tabRouting') }}
+                            <FeatureIntroIcon
+                                page-key="agent"
+                                section-key="routing"
+                                :intros="intros"
+                                :title="t('pages.agent.tabRouting')"
+                                @saved="setIntro"
+                            />
+                        </span>
+                    </template>
                     <ModeIntro
-                        title="多智能体 · 路由模式（Routing）"
-                        desc="路由 Agent 先分析问题类型，再分发给对应专家 Agent，适合多领域混合问答场景。"
-                        :nodes="['用户', '路由 Agent', '专家 Agent', '回答']"
-                        :branches="['技术专家', '业务专家', '通用助手']"
+                        :title="t('pages.agent.modeRoutingTitle')"
+                        :nodes="[t('pages.agent.nodeUser'), '路由 Agent', '专家 Agent', t('pages.agent.nodeAnswer')]"
+                        :branches="[t('pages.agent.branchTech'), t('pages.agent.branchBiz'), t('pages.agent.branchGeneral')]"
                     />
                     <AgentDemo
                         :loading="loading.routing"
                         :steps="steps.routing"
+                        :initial-question="defaultQuestions.routing"
                         @run="(q) => runAgent('routing', q)"
                     />
                 </el-tab-pane>
 
-                <el-tab-pane label="循环/反思模式" name="reflection" lazy>
+                <el-tab-pane name="reflection" lazy>
+                    <template #label>
+                        <span class="tab-label-with-intro">
+                            {{ t('pages.agent.tabReflection') }}
+                            <FeatureIntroIcon
+                                page-key="agent"
+                                section-key="reflection"
+                                :intros="intros"
+                                :title="t('pages.agent.tabReflection')"
+                                @saved="setIntro"
+                            />
+                        </span>
+                    </template>
                     <ModeIntro
-                        title="多智能体 · 循环/反思模式（Loop / Reflection）"
-                        desc="生成 Agent 产出草稿，评审 Agent 给出反馈并打分；未达标则迭代修订，适合对质量要求较高的输出。"
-                        :nodes="['用户', '生成 Agent', '评审 Agent', '修订 Agent', '回答']"
+                        :title="t('pages.agent.modeReflectionTitle')"
+                        :nodes="[t('pages.agent.nodeUser'), '生成 Agent', '评审 Agent', '修订 Agent', t('pages.agent.nodeAnswer')]"
                         :loop="true"
                     />
                     <AgentDemo
                         :loading="loading.reflection"
                         :steps="steps.reflection"
+                        :initial-question="defaultQuestions.reflection"
                         @run="(q) => runAgent('reflection', q)"
                     />
                 </el-tab-pane>
@@ -81,8 +125,11 @@
 </template>
 
 <script setup lang="ts" name="demo-agent">
-import { defineAsyncComponent, reactive, ref } from 'vue';
+import { computed, defineAsyncComponent, reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { runAgent as runAgentApi } from '@/api';
 import type { AgentExample, AgentStep } from './agent/types';
 
@@ -91,21 +138,32 @@ const AgentDemo = defineAsyncComponent(() => import('./agent/agent-demo.vue'));
 type AgentMode = 'single' | 'sequential' | 'routing' | 'reflection';
 type AgentEngine = 'native' | 'langchain';
 
+const { t, locale } = useI18n();
+const { intros, setIntro } = useFeatureIntros('agent');
+
+void locale;
+
 const activeTab = ref('single');
 const activeEngine = ref<AgentEngine>('native');
 
-const singleExamples: AgentExample[] = [
+const singleExamples = computed<AgentExample[]>(() => [
     {
-        label: '计算器示例',
-        question: '123*456 等于多少',
-        tip: '识别算式 → 工具 Agent 本地计算 → 回答 Agent 转述结果',
+        label: t('pages.agent.calcExample'),
+        question: t('pages.agent.calcQuestion'),
+        tip: t('pages.agent.calcTip'),
     },
     {
-        label: '直接问答',
-        question: '用一句话解释什么是微服务',
-        tip: '无算式 → 跳过工具，回答 Agent 直接调用 LLM',
+        label: t('pages.agent.directQa'),
+        question: t('pages.agent.directQuestion'),
+        tip: t('pages.agent.directTip'),
     },
-];
+]);
+
+const defaultQuestions = computed(() => ({
+    sequential: t('pages.agent.sequentialQuestion'),
+    routing: t('pages.agent.routingQuestion'),
+    reflection: t('pages.agent.reflectionQuestion'),
+}));
 
 const loading = reactive({
     single: false,
@@ -123,7 +181,7 @@ const steps = reactive<Record<AgentMode, AgentStep[]>>({
 
 const runAgent = async (mode: AgentMode, question: string) => {
     if (!question.trim()) {
-        ElMessage.warning('请输入问题');
+        ElMessage.warning(t('pages.agent.enterQuestion'));
         return;
     }
     loading[mode] = true;
@@ -137,7 +195,7 @@ const runAgent = async (mode: AgentMode, question: string) => {
         });
         steps[mode] = res.data.steps ?? [];
     } catch {
-        ElMessage.error('Agent 执行失败');
+        ElMessage.error(t('pages.agent.runFailed'));
     } finally {
         loading[mode] = false;
     }
@@ -151,29 +209,20 @@ const runAgent = async (mode: AgentMode, question: string) => {
 
 .page-header-top {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-}
-
-.page-header {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
 .page-title {
     font-size: 16px;
     font-weight: 600;
     color: #303133;
-    display: block;
 }
 
-.page-subtitle {
-    font-size: 13px;
-    color: #909399;
-    display: block;
-    margin-top: 4px;
+.tab-label-with-intro {
+    display: inline-flex;
+    align-items: center;
 }
 </style>
