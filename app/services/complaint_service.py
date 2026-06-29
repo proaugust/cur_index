@@ -211,6 +211,7 @@ class ComplaintService:
         time_from: date | None = None,
         time_to: date | None = None,
         category_name: str | None = None,
+        classified: bool | None = None,
         page: int = 1,
         page_size: int = 10,
     ) -> schemas.ComplaintSamplesPage:
@@ -221,6 +222,7 @@ class ComplaintService:
             time_from=time_from,
             time_to=time_to,
             category_name=category_name,
+            classified=classified,
             page=page,
             page_size=page_size,
         )

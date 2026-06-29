@@ -385,6 +385,8 @@ export default {
             total: '苦情総数',
             classified: '分類済',
             unclassified: '未分類',
+            classifyStatus: '分類状態',
+            classifyStatusAll: 'すべて',
             typeCount: '苦情タイプ数',
             allRecords: '全明細',
             classifyRate: '分類率 {rate}%',

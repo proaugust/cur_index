@@ -94,6 +94,7 @@ def complaint_samples(
     time_from: date | None = Query(default=None, description="投诉时间起（含当天）"),
     time_to: date | None = Query(default=None, description="投诉时间止（含当天）"),
     category_name: str | None = Query(default=None, description="投诉分类名称"),
+    classified: bool | None = Query(default=None, description="是否已归类：true 已归类，false 未归类"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     service: ComplaintService = Depends(get_complaint_service),
@@ -105,6 +106,7 @@ def complaint_samples(
         time_from=time_from,
         time_to=time_to,
         category_name=category_name,
+        classified=classified,
         page=page,
         page_size=page_size,
     )
