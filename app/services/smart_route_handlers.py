@@ -7,22 +7,16 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.services import attendance_service
 from app.services.agent_common import extract_weather_city, run_weather_tool
-from app.services.attendance_service import PRESET_EMPLOYEE_NAMES
 
-_EMPLOYEE_NAME_PATTERN = re.compile(r"员工\s*([^\s，,。.!！?？]{2,4})")
+_EMPLOYEE_ID_PATTERN = re.compile(r"U\d{4}", re.IGNORECASE)
 
 
-def extract_employee_names(question: str) -> list[str]:
-    """从问题中提取员工姓名；未指定时返回全部预设演示员工。"""
-    names = [name for name in PRESET_EMPLOYEE_NAMES if name in question]
-    if names:
-        return names
-
-    match = _EMPLOYEE_NAME_PATTERN.search(question)
-    if match:
-        return [match.group(1).strip()]
-
-    return list(PRESET_EMPLOYEE_NAMES)
+def extract_employee_names(question: str) -> list[str] | None:
+    """从问题中提取员工 user_id（仅 U0001 格式）；未指定时返回 None 表示查全部已登记人员。"""
+    u_ids = [uid.upper() for uid in _EMPLOYEE_ID_PATTERN.findall(question)]
+    if u_ids:
+        return list(dict.fromkeys(u_ids))
+    return None
 
 
 def _to_smart_route_employee(profile: schemas.EmployeeProfileRead) -> schemas.SmartRouteEmployee:
@@ -46,13 +40,12 @@ def query_weather(question: str) -> str:
 
 def query_employee(question: str, db: Session) -> tuple[str, list[schemas.SmartRouteEmployee]]:
     """员工检索接口：返回打卡员工档案与头像地址。"""
-    attendance_service.ensure_demo_employees(db)
     names = extract_employee_names(question)
     profiles = attendance_service.get_employee_profiles(db, names=names)
     employees = [_to_smart_route_employee(profile) for profile in profiles]
 
     if not employees:
-        target = "、".join(names)
+        target = "、".join(names) if names else "已登记人员"
         return f"调用了员工知识库检索接口：未找到员工 {target}", []
 
     summaries = []

@@ -21,17 +21,42 @@
 </template>
 
 <script setup lang="ts" name="system-user">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { CirclePlusFilled } from '@element-plus/icons-vue';
 import { User } from '@/types/user';
-import { fetchUserData } from '@/api';
+import { createUser, deleteUser, fetchMe, fetchRoleData, fetchUserData, updateUser } from '@/api';
 import TableCustom from '@/components/table-custom.vue';
 import TableDetail from '@/components/table-detail.vue';
 import TableSearch from '@/components/table-search.vue';
+import TableEdit from '@/components/table-edit.vue';
 import { FormOption, FormOptionList } from '@/types/form-option';
 
-// 查询相关
+const roleOptions = ref<{ label: string; value: number; level?: number }[]>([]);
+const currentLevel = ref(99);
+
+const loadRoles = async () => {
+    const res = await fetchRoleData();
+    const list = res.data.list as { id: number; name: string; level: number }[];
+    roleOptions.value = list
+        .filter((item) => currentLevel.value === 1 || item.level >= 3)
+        .map((item) => ({
+            label: item.name,
+            value: item.id,
+            level: item.level,
+        }));
+    options.value.list = options.value.list.map((item) =>
+        item.prop === 'role_id' ? { ...item, opts: roleOptions.value } : item,
+    );
+};
+
+onMounted(async () => {
+    const me = await fetchMe();
+    currentLevel.value = me.data.user.level;
+    await loadRoles();
+    getData();
+});
+
 const query = reactive({
     name: '',
 });
@@ -42,7 +67,6 @@ const handleSearch = () => {
     changePage(1);
 };
 
-// 表格相关
 let columns = ref([
     { type: 'index', label: '序号', width: 55, align: 'center' },
     { prop: 'name', label: '用户名' },
@@ -57,45 +81,80 @@ const page = reactive({
 })
 const tableData = ref<User[]>([]);
 const getData = async () => {
-    const res = await fetchUserData()
+    const res = await fetchUserData({
+        name: query.name || undefined,
+        page: page.index,
+        page_size: page.size,
+    });
     tableData.value = res.data.list;
     page.total = res.data.pageTotal;
 };
-getData();
 
 const changePage = (val: number) => {
     page.index = val;
     getData();
 };
 
-// 新增/编辑弹窗相关
 let options = ref<FormOption>({
     labelWidth: '100px',
     span: 12,
     list: [
         { type: 'input', label: '用户名', prop: 'name', required: true },
-        { type: 'input', label: '手机号', prop: 'phone', required: true },
+        { type: 'input', label: '手机号', prop: 'phone', required: false },
         { type: 'input', label: '密码', prop: 'password', required: true },
-        { type: 'input', label: '邮箱', prop: 'email', required: true },
-        { type: 'input', label: '角色', prop: 'role', required: true },
+        { type: 'input', label: '邮箱', prop: 'email', required: false },
+        { type: 'select', label: '角色', prop: 'role_id', required: true, opts: [] },
     ]
 })
 const visible = ref(false);
 const isEdit = ref(false);
-const rowData = ref({});
+const rowData = ref<Record<string, unknown>>({});
 const handleEdit = (row: User) => {
-    rowData.value = { ...row };
+    rowData.value = { ...row, password: '' };
+    options.value.list = options.value.list.map((item) =>
+        item.prop === 'password' ? { ...item, required: false } : item,
+    );
     isEdit.value = true;
     visible.value = true;
 };
-const updateData = () => {
-    closeDialog();
-    getData();
+const updateData = async (form: Record<string, unknown>) => {
+    try {
+        if (isEdit.value) {
+            const payload: Record<string, unknown> = {
+                name: form.name,
+                email: form.email,
+                phone: form.phone,
+                role_id: form.role_id,
+            };
+            if (form.password) {
+                payload.password = form.password;
+            }
+            await updateUser(form.id as number, payload);
+            ElMessage.success('更新成功');
+        } else {
+            await createUser({
+                name: form.name as string,
+                password: form.password as string,
+                email: form.email as string | undefined,
+                phone: form.phone as string | undefined,
+                role_id: form.role_id as number,
+            });
+            ElMessage.success('创建成功');
+        }
+        closeDialog();
+        getData();
+    } catch {
+        ElMessage.error('操作失败');
+    }
 };
 
 const closeDialog = () => {
     visible.value = false;
     isEdit.value = false;
+    rowData.value = {};
+    options.value.list = options.value.list.map((item) =>
+        item.prop === 'password' ? { ...item, required: true } : item,
+    );
 };
 
 // 查看详情弹窗相关
@@ -140,8 +199,14 @@ const handleView = (row: User) => {
 };
 
 // 删除相关
-const handleDelete = (row: User) => {
-    ElMessage.success('删除成功');
+const handleDelete = async (row: User) => {
+    try {
+        await deleteUser(row.id);
+        ElMessage.success('删除成功');
+        getData();
+    } catch {
+        ElMessage.error('删除失败');
+    }
 }
 </script>
 

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app import crud, schemas
 from app.core.deps import get_db
+from app.core.permissions import require_permission
+from app.models import User
 
 router = APIRouter(prefix="/feature-intros", tags=["feature-intros"])
 
@@ -11,6 +13,7 @@ router = APIRouter(prefix="/feature-intros", tags=["feature-intros"])
 def list_feature_intros(
     page_key: str | None = Query(default=None, description="按页面过滤，如 complaints、agent"),
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("8.feature-intros-list")),
 ) -> list[schemas.FeatureIntroRead]:
     return crud.list_feature_intros(db, page_key=page_key)
 
@@ -21,11 +24,14 @@ def upsert_feature_intro(
     section_key: str,
     body: schemas.FeatureIntroUpsert,
     db: Session = Depends(get_db),
+    _: User = Depends(require_permission("8.feature-intros-upsert")),
 ) -> schemas.FeatureIntroRead:
     return crud.upsert_feature_intro(db, page_key, section_key, body)
 
 
 @router.post("/seed", response_model=list[schemas.FeatureIntroRead])
-def seed_feature_intros(db: Session = Depends(get_db)) -> list[schemas.FeatureIntroRead]:
+def seed_feature_intros(
+    db: Session = Depends(get_db), _: User = Depends(require_permission("8.feature-intros-seed"))
+) -> list[schemas.FeatureIntroRead]:
     """初始化各业务 tab 占位行（仅插入缺失项，不覆盖已有内容）。"""
     return crud.seed_feature_intros(db)

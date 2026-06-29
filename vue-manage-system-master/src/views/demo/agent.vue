@@ -32,6 +32,7 @@
                         :nodes="[t('pages.agent.nodeUser'), '工具 Agent', '回答 Agent', t('pages.agent.nodeReply')]"
                     />
                     <AgentDemo
+                        cache-key="single"
                         :loading="loading.single"
                         :steps="steps.single"
                         :initial-question="singleExamples[0].question"
@@ -61,6 +62,7 @@
                         :nodes="[t('pages.agent.nodeUser'), '规划 Agent', '执行 Agent', '总结 Agent', t('pages.agent.nodeAnswer')]"
                     />
                     <AgentDemo
+                        cache-key="sequential"
                         :loading="loading.sequential"
                         :steps="steps.sequential"
                         :initial-question="defaultQuestions.sequential"
@@ -87,6 +89,7 @@
                         :branches="[t('pages.agent.branchTech'), t('pages.agent.branchBiz'), t('pages.agent.branchGeneral')]"
                     />
                     <AgentDemo
+                        cache-key="routing"
                         :loading="loading.routing"
                         :steps="steps.routing"
                         :initial-question="defaultQuestions.routing"
@@ -113,6 +116,7 @@
                         :loop="true"
                     />
                     <AgentDemo
+                        cache-key="reflection"
                         :loading="loading.reflection"
                         :steps="steps.reflection"
                         :initial-question="defaultQuestions.reflection"
@@ -125,11 +129,12 @@
 </template>
 
 <script setup lang="ts" name="demo-agent">
-import { computed, defineAsyncComponent, reactive, ref } from 'vue';
+import { computed, defineAsyncComponent, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
+import { useCachedRef } from '@/composables/useFormCache';
 import { runAgent as runAgentApi } from '@/api';
 import type { AgentExample, AgentStep } from './agent/types';
 
@@ -143,8 +148,8 @@ const { intros, setIntro } = useFeatureIntros('agent');
 
 void locale;
 
-const activeTab = ref('single');
-const activeEngine = ref<AgentEngine>('native');
+const activeTab = useCachedRef('agent:activeTab', 'single');
+const activeEngine = useCachedRef<AgentEngine>('agent:activeEngine', 'native');
 
 const singleExamples = computed<AgentExample[]>(() => [
     {

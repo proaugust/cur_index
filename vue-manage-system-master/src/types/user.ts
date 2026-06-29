@@ -2,10 +2,11 @@
 export interface User {
     id: number;
     name: string;
-    password: string;
+    password?: string;
     email: string;
     phone: string;
     role: string;
+    role_id: number;
     date: string;
 }
 

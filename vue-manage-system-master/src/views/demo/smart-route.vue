@@ -83,7 +83,9 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
-import { getAttendancePersonPhotoUrl, smartRouteDispatch } from '@/api';
+import { useCachedRef } from '@/composables/useFormCache';
+import { smartRouteDispatch } from '@/api';
+import { loadAttendancePersonPhoto } from '@/utils/authPhoto';
 
 const { t, tm, locale } = useI18n();
 const { intros, setIntro } = useFeatureIntros('smart-route');
@@ -99,10 +101,11 @@ interface SmartRouteEmployee {
 
 const quickQuestions = computed(() => tm('pages.smartRoute.quickQuestions') as string[]);
 
-const question = ref('');
+const question = useCachedRef('smart-route:question', '');
 const routeMessage = ref('');
 const routeIntent = ref('');
 const routeEmployees = ref<SmartRouteEmployee[]>([]);
+const employeePhotoUrls = ref<Record<string, string>>({});
 const loading = ref(false);
 
 const intentMap = computed(() => ({
@@ -122,12 +125,21 @@ const formatDateTime = (value: string) => {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
-const getEmployeePhotoUrl = (item: SmartRouteEmployee) => {
-    if (!item.has_reference_image) return '';
-    if (item.photo_url) {
-        return item.photo_url.startsWith('/api') ? item.photo_url : `/api${item.photo_url}`;
-    }
-    return getAttendancePersonPhotoUrl(item.user_id);
+const getEmployeePhotoUrl = (item: SmartRouteEmployee) =>
+    item.has_reference_image ? employeePhotoUrls.value[item.user_id] || '' : '';
+
+const syncEmployeePhotos = async () => {
+    await Promise.all(
+        routeEmployees.value
+            .filter((item) => item.has_reference_image)
+            .map(async (item) => {
+                try {
+                    employeePhotoUrls.value[item.user_id] = await loadAttendancePersonPhoto(item.user_id);
+                } catch {
+                    delete employeePhotoUrls.value[item.user_id];
+                }
+            }),
+    );
 };
 
 const handleDispatch = async () => {
@@ -138,6 +150,7 @@ const handleDispatch = async () => {
     routeMessage.value = '';
     routeIntent.value = '';
     routeEmployees.value = [];
+    employeePhotoUrls.value = {};
     try {
         const res = await smartRouteDispatch({ question: q });
         const data = res.data as {
@@ -148,6 +161,7 @@ const handleDispatch = async () => {
         routeMessage.value = data.message ?? '';
         routeIntent.value = data.intent ?? '';
         routeEmployees.value = Array.isArray(data.employees) ? data.employees : [];
+        await syncEmployeePhotos();
     } catch (err: unknown) {
         const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(typeof msg === 'string' ? msg : '路由判断失败，请稍后重试');
@@ -166,6 +180,7 @@ const handleClear = () => {
     routeMessage.value = '';
     routeIntent.value = '';
     routeEmployees.value = [];
+    employeePhotoUrls.value = {};
 };
 </script>
 

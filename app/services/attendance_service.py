@@ -11,15 +11,6 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.core.config import settings
 
-PRESET_EMPLOYEE_NAMES: tuple[str, ...] = ("张三", "李四")
-_PLACEHOLDER_JPEG = base64.b64decode(
-    "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
-    "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIy"
-    "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAB"
-    "AAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAA"
-    "AAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMB"
-    "AAIRAxEAPwCwAA8A/9k="
-)
 
 def _euclidean_distance(a: list[float], b: list[float]) -> float:
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
@@ -31,16 +22,20 @@ def _parse_descriptor(raw: str) -> list[float]:
 
 def _next_user_id(db: Session) -> str:
     used = {row[0] for row in db.query(models.AttendancePerson.user_id).all()}
-    for name in PRESET_EMPLOYEE_NAMES:
-        if name not in used:
-            return name
-    max_id = db.query(func.max(models.AttendancePerson.id)).scalar() or 0
-    return f"U{max_id + 1:04d}"
+    n = 1
+    while True:
+        candidate = f"U{n:04d}"
+        if candidate not in used:
+            return candidate
+        n += 1
 
 
-def _blend_descriptors(stored: list[float], incoming: list[float], new_weight: float = 0.7) -> list[float]:
-    old_weight = 1 - new_weight
-    return [old * old_weight + inc * new_weight for old, inc in zip(stored, incoming)]
+# 仅在高置信同一人时更新标准照，避免误匹配覆盖他人头像
+_REFERENCE_UPDATE_MAX_DISTANCE = 0.45
+
+
+def _is_placeholder_descriptor(descriptor: list[float]) -> bool:
+    return len(descriptor) == 128 and all(v == 0.0 for v in descriptor)
 
 
 def _find_matching_person(
@@ -51,6 +46,8 @@ def _find_matching_person(
 
     for person in db.query(models.AttendancePerson).all():
         stored = _parse_descriptor(person.face_descriptor)
+        if _is_placeholder_descriptor(stored):
+            continue
         distance = _euclidean_distance(descriptor, stored)
         if distance <= threshold and (best_distance is None or distance < best_distance):
             best_person = person
@@ -181,16 +178,23 @@ def punch(db: Session, body: schemas.AttendancePunchRequest) -> schemas.Attendan
         ):
             punch_skipped = True
 
-        stored = _parse_descriptor(person.face_descriptor)
-        person.face_descriptor = json.dumps(_blend_descriptors(stored, descriptor))
+        # 不融合特征向量，避免误匹配后污染档案、把不同人当成同一人
         person.updated_at = now
 
-    reference_image_updated = _maybe_update_reference_image(
-        person,
-        face_image=body.face_image,
-        face_score=body.face_score,
-        force=is_new_person,
-    )
+    reference_image_updated = False
+    if is_new_person:
+        reference_image_updated = _maybe_update_reference_image(
+            person,
+            face_image=body.face_image,
+            face_score=body.face_score,
+            force=True,
+        )
+    elif match_distance is not None and match_distance <= _REFERENCE_UPDATE_MAX_DISTANCE:
+        reference_image_updated = _maybe_update_reference_image(
+            person,
+            face_image=body.face_image,
+            face_score=body.face_score,
+        )
 
     if punch_skipped and last_punch:
         db.commit()
@@ -278,7 +282,7 @@ def get_employee_profiles(
     *,
     names: list[str] | None = None,
 ) -> list[schemas.EmployeeProfileRead]:
-    """按姓名查询打卡员工档案（含最近打卡时间与头像状态）。"""
+    """按 user_id 查询打卡员工档案（含最近打卡时间与头像状态）。"""
     ensure_attendance_tables(db)
     query = db.query(models.AttendancePerson)
     if names:
@@ -305,33 +309,6 @@ def get_employee_profiles(
             )
         )
     return profiles
-
-
-def ensure_demo_employees(db: Session) -> None:
-    """确保演示员工张三、李四存在（无打卡记录时写入占位档案与头像）。"""
-    ensure_attendance_tables(db)
-    now = datetime.utcnow()
-    changed = False
-    for name in PRESET_EMPLOYEE_NAMES:
-        person = db.query(models.AttendancePerson).filter(models.AttendancePerson.user_id == name).first()
-        if person:
-            continue
-        filename = f"{name}.jpg"
-        image_path = settings.attendance_faces_dir / filename
-        if not image_path.is_file():
-            image_path.write_bytes(_PLACEHOLDER_JPEG)
-        person = models.AttendancePerson(
-            user_id=name,
-            face_descriptor=json.dumps([0.0] * 128),
-            reference_image=filename,
-            reference_score=0.0,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(person)
-        changed = True
-    if changed:
-        db.commit()
 
 
 def get_person_photo_path(db: Session, user_id: str) -> Path:

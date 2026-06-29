@@ -94,6 +94,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "demo-attendance" */ '../views/demo/attendance.vue'),
             },
             {
+                path: '/demo-cobol-migrate',
+                name: 'demo-cobol-migrate',
+                meta: {
+                    titleKey: 'route.demoCobolMigrate',
+                    title: 'COBOL to Java',
+                    permiss: '88',
+                },
+                component: () => import(/* webpackChunkName: "demo-cobol-migrate" */ '../views/demo/cobol-migrate.vue'),
+            },
+            {
                 path: '/system-user',
                 name: 'system-user',
                 meta: {
@@ -346,13 +356,12 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
     NProgress.start();
-    const role = localStorage.getItem('vuems_name');
+    const token = localStorage.getItem('access_token');
     const permiss = usePermissStore();
 
-    if (!role && to.meta.noAuth !== true) {
+    if (!token && to.meta.noAuth !== true) {
         next('/login');
     } else if (typeof to.meta.permiss == 'string' && !permiss.key.includes(to.meta.permiss)) {
-        // 如果没有权限，则进入403
         next('/403');
     } else {
         next();

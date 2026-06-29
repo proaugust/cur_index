@@ -16,6 +16,15 @@ export const classifyComplaints = () =>
 export const getComplaintStats = () =>
     request.get('/complaints/stats');
 
+export const getComplaintCategories = (params?: { name?: string }) =>
+    request.get('/complaints/categories', { params });
+
+export const getComplaintSettings = () =>
+    request.get('/complaints/settings');
+
+export const updateComplaintSettings = (data: { classify_threshold: number }) =>
+    request.put('/complaints/settings', data);
+
 export const getComplaintSamples = (params?: {
     address?: string;
     text?: string;
@@ -25,6 +34,12 @@ export const getComplaintSamples = (params?: {
     page?: number;
     page_size?: number;
 }) => request.get('/complaints/samples', { params });
+
+export const createComplaint = (data: {
+    complaint_text: string;
+    address?: string;
+    complaint_time?: string;
+}) => request.post('/complaints', data);
 
 // --- documents / RAG ---
 export const importDocument = (file: File, replaceExisting = true) => {
@@ -72,7 +87,7 @@ export const deleteDocumentChunk = (chunkId: number) =>
     request.delete(`/documents/chunks/${chunkId}`);
 
 // --- meeting ---
-export const organizeMeeting = (data: { text: string; temperature?: number }) =>
+export const organizeMeeting = (data: { text: string; style?: 'concise' | 'formal'; temperature?: number }) =>
     request.post('/meeting/organize', data);
 
 // --- smart route ---
@@ -111,9 +126,6 @@ export const deleteAttendancePunch = (punchId: number) =>
 export const deleteAttendancePerson = (personId: number) =>
     request.delete(`/attendance/persons/${personId}`);
 
-export const getAttendancePersonPhotoUrl = (userId: string, version = 0) =>
-    `/api/attendance/persons/${encodeURIComponent(userId)}/photo?v=${version}`;
-
 // --- agent ---
 export const runAgent = (data: {
     question: string;
@@ -121,6 +133,12 @@ export const runAgent = (data: {
     engine?: 'native' | 'langchain';
     temperature?: number;
 }) => request.post('/my_agent/run', data);
+
+// --- COBOL migrate demo ---
+export const runCobolMigrateStep = (step: number) =>
+    request.post(`/cobol_migrate/step/${step}`);
+
+export const runCobolMigratePipeline = () => request.post('/cobol_migrate/pipeline');
 
 // --- AI chat ---
 export const askChat = (data: {
@@ -162,16 +180,77 @@ export const fetchData = () => {
     });
 };
 
-export const fetchUserData = () => {
-    return request({
-        url: './mock/user.json',
-        method: 'get'
-    });
-};
+// --- auth / rbac ---
+export const login = (data: { username: string; password: string }) =>
+    request.post('/auth/login', data);
 
-export const fetchRoleData = () => {
-    return request({
-        url: './mock/role.json',
-        method: 'get'
-    });
-};
+export const fetchMe = () => request.get('/auth/me');
+
+export const fetchUserData = (params?: { name?: string; page?: number; page_size?: number }) =>
+    request.get('/users/', { params });
+
+export const createUser = (data: {
+    name: string;
+    password: string;
+    email?: string;
+    phone?: string;
+    role_id: number;
+}) => request.post('/users/', data);
+
+export const updateUser = (
+    id: number,
+    data: {
+        name?: string;
+        password?: string;
+        email?: string;
+        phone?: string;
+        role_id?: number;
+        is_active?: boolean;
+    },
+) => request.put(`/users/${id}`, data);
+
+export const deleteUser = (id: number) => request.delete(`/users/${id}`);
+
+export const fetchRoleData = () => request.get('/roles/');
+
+export const createRole = (data: {
+    name: string;
+    key: string;
+    status?: boolean;
+    level?: number;
+    permiss?: string[];
+}) => request.post('/roles/', data);
+
+export const updateRole = (
+    id: number,
+    data: { name?: string; status?: boolean; level?: number; permiss?: string[] },
+) => request.put(`/roles/${id}`, data);
+
+export const updateRolePermissions = (id: number, permiss: string[]) =>
+    request.put(`/roles/${id}/permissions`, { permiss });
+
+export const deleteRole = (id: number) => request.delete(`/roles/${id}`);
+
+export const fetchMenuData = () => request.get('/menus/');
+
+export const createMenu = (data: {
+    code: string;
+    name: string;
+    parent_code?: string;
+    route_path?: string;
+    icon?: string;
+}) => request.post('/menus/', data);
+
+export const updateMenu = (
+    code: string,
+    data: {
+        name?: string;
+        parent_code?: string;
+        route_path?: string;
+        icon?: string;
+    },
+) => request.put(`/menus/${code}`, data);
+
+export const deleteMenu = (code: string) => request.delete(`/menus/${code}`);
+
+export const fetchPermissionTree = () => request.get('/permissions/tree');

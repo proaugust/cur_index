@@ -1,8 +1,19 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.deps import get_current_user, get_db
+from app.models import User
+from app.schemas_rbac import LoginRequest, LoginResponse, MeResponse
+from app.services import rbac_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login")
-async def login() -> dict[str, str]:
-    return {"message": "not implemented"}
+@router.post("/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    return rbac_service.login(db, payload)
+
+
+@router.get("/me", response_model=MeResponse)
+def me(current_user: User = Depends(get_current_user)) -> MeResponse:
+    return rbac_service.get_me(current_user)

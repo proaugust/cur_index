@@ -126,6 +126,66 @@ def get_complaint_categories(db: Session) -> list[models.ComplaintCategory]:
     return db.query(models.ComplaintCategory).order_by(models.ComplaintCategory.id).all()
 
 
+def get_complaint_category_by_name(db: Session, name: str) -> models.ComplaintCategory | None:
+    return db.query(models.ComplaintCategory).filter(models.ComplaintCategory.name == name).first()
+
+
+def list_complaint_categories(db: Session, *, name: str | None = None) -> list[tuple[models.ComplaintCategory, int]]:
+    query = (
+        db.query(models.ComplaintCategory, func.count(models.Complaint.id))
+        .outerjoin(models.Complaint, models.Complaint.category_id == models.ComplaintCategory.id)
+        .group_by(models.ComplaintCategory.id)
+        .order_by(models.ComplaintCategory.id)
+    )
+    if name:
+        query = query.filter(models.ComplaintCategory.name.ilike(f"%{name}%"))
+    return query.all()
+
+
+def create_complaint_category(
+    db: Session,
+    *,
+    name: str,
+    description: str,
+    seed_phrases: str,
+    embedding: list[float],
+) -> models.ComplaintCategory:
+    category = models.ComplaintCategory(
+        name=name,
+        description=description,
+        seed_phrases=seed_phrases,
+        embedding=embedding,
+    )
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def create_complaint(
+    db: Session,
+    *,
+    complaint_text: str,
+    address: str | None,
+    complaint_time: datetime | None,
+    embedding: list[float],
+    category_id: int | None,
+    similarity: float | None,
+) -> models.Complaint:
+    complaint = models.Complaint(
+        complaint_text=complaint_text,
+        address=address,
+        complaint_time=complaint_time,
+        embedding=embedding,
+        category_id=category_id,
+        similarity=similarity,
+    )
+    db.add(complaint)
+    db.commit()
+    db.refresh(complaint)
+    return complaint
+
+
 def get_unclassified_complaints(db: Session) -> list[models.Complaint]:
     return db.query(models.Complaint).filter(models.Complaint.category_id.is_(None)).all()
 
@@ -249,6 +309,7 @@ def upsert_feature_intro(
 
 
 DEFAULT_FEATURE_INTROS: list[tuple[str, str, str]] = [
+    ("app", "header", "站点说明"),
     ("complaints", "samples", "投诉样本查询"),
     ("complaints", "category", "按投诉类型"),
     ("complaints", "address", "按地区"),
@@ -268,6 +329,7 @@ DEFAULT_FEATURE_INTROS: list[tuple[str, str, str]] = [
     ("attendance", "punch", "人脸打卡"),
     ("attendance", "history", "打卡历史"),
     ("attendance", "persons", "已登记人员"),
+    ("cobol-migrate", "page", "COBOL to Java 多 Agent 迁移流程演示"),
 ]
 
 

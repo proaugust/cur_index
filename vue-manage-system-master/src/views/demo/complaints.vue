@@ -15,7 +15,6 @@
                             />
                         </div>
                     </div>
-                    <el-button type="primary" :loading="samplesLoading" @click="searchSamples">{{ t('common.query') }}</el-button>
                 </div>
             </template>
 
@@ -41,6 +40,11 @@
                     <el-input v-model="sampleQuery.category_name" :placeholder="t('pages.complaints.optional')" clearable style="width: 140px" />
                 </el-form-item>
             </el-form>
+
+            <div class="samples-toolbar">
+                <el-button type="success" @click="openCreateDialog">{{ t('pages.complaints.createBtn') }}</el-button>
+                <el-button type="primary" :loading="samplesLoading" @click="searchSamples">{{ t('common.query') }}</el-button>
+            </div>
 
             <el-table :data="sampleRows" stripe size="small" :empty-text="t('pages.complaints.tableEmpty')">
                 <el-table-column prop="id" label="ID" width="70" />
@@ -73,14 +77,151 @@
             />
         </el-card>
 
+        <el-dialog v-model="createVisible" :title="t('pages.complaints.createTitle')" width="640px" destroy-on-close @closed="resetCreateForm">
+            <el-form label-width="88px" @submit.prevent="submitComplaint">
+                <el-form-item :label="t('pages.complaints.body')" required>
+                    <el-input
+                        v-model="createForm.complaint_text"
+                        type="textarea"
+                        :rows="4"
+                        :placeholder="t('pages.complaints.createTextPh')"
+                        maxlength="2000"
+                        show-word-limit
+                    />
+                </el-form-item>
+                <el-form-item :label="t('pages.complaints.region')">
+                    <el-input v-model="createForm.address" :placeholder="t('pages.complaints.createRegionPh')" clearable />
+                </el-form-item>
+                <el-form-item :label="t('pages.complaints.complaintTime')">
+                    <el-date-picker
+                        v-model="createForm.complaint_time"
+                        type="datetime"
+                        value-format="YYYY-MM-DDTHH:mm:ss"
+                        :placeholder="t('pages.complaints.createTimePh')"
+                        style="width: 100%"
+                    />
+                </el-form-item>
+            </el-form>
+
+            <div v-if="createResult" class="create-result">
+                <el-alert
+                    :title="t('pages.complaints.createSuccess')"
+                    type="success"
+                    :closable="false"
+                    show-icon
+                    class="create-alert"
+                >
+                    <template #default>
+                        <div>
+                            {{ t('pages.complaints.createAssigned') }}：
+                            <strong>{{ createResult.assigned_category_name || '—' }}</strong>
+                            <el-tag v-if="createResult.category_created" size="small" type="warning" class="create-tag">
+                                {{ t('pages.complaints.createNewCategory') }}
+                            </el-tag>
+                        </div>
+                        <div v-if="createResult.similarity != null">
+                            {{ t('pages.complaints.createSimilarity') }}：{{ createResult.similarity.toFixed(4) }}
+                        </div>
+                    </template>
+                </el-alert>
+
+                <div v-if="createResult.category_scores.length" class="create-chart-wrap">
+                    <div class="section-title">{{ t('pages.complaints.createScoreTitle') }}</div>
+                    <component
+                        :is="VChart"
+                        v-if="VChart"
+                        class="create-score-chart"
+                        :option="createScoreOption"
+                        autoresize
+                    />
+                </div>
+            </div>
+
+            <template #footer>
+                <el-button @click="createVisible = false">{{ t('common.cancel') }}</el-button>
+                <el-button type="primary" :loading="createLoading" @click="submitComplaint">
+                    {{ t('pages.complaints.createSubmit') }}
+                </el-button>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="categoriesVisible" :title="t('pages.complaints.categoriesTitle')" width="860px" destroy-on-close @open="loadCategories">
+            <el-form :inline="true" class="categories-form" @submit.prevent="searchCategories">
+                <el-form-item :label="t('pages.complaints.category')">
+                    <el-input
+                        v-model="categoryQuery.name"
+                        :placeholder="t('pages.complaints.categoriesNamePh')"
+                        clearable
+                        style="width: 220px"
+                        @keyup.enter="searchCategories"
+                    />
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" :loading="categoriesLoading" @click="searchCategories">{{ t('common.query') }}</el-button>
+                </el-form-item>
+            </el-form>
+
+            <el-table :data="categoryRows" stripe size="small" v-loading="categoriesLoading" :empty-text="t('pages.complaints.tableEmpty')">
+                <el-table-column type="expand">
+                    <template #default="{ row }">
+                        <div class="category-expand">
+                            <div class="category-expand-title">{{ t('pages.complaints.seedPhrasesTitle') }}</div>
+                            <el-tag v-for="(phrase, index) in row.seed_phrases" :key="index" size="small" class="seed-tag">
+                                {{ phrase }}
+                            </el-tag>
+                            <span v-if="!row.seed_phrases.length">—</span>
+                        </div>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="id" label="ID" width="60" />
+                <el-table-column prop="name" :label="t('pages.complaints.colType')" min-width="130" show-overflow-tooltip />
+                <el-table-column prop="description" :label="t('pages.complaints.colDescription')" min-width="180" show-overflow-tooltip />
+                <el-table-column :label="t('pages.complaints.colSeedCount')" width="88" align="right">
+                    <template #default="{ row }">{{ row.seed_phrases.length }}</template>
+                </el-table-column>
+                <el-table-column prop="complaint_count" :label="t('pages.complaints.colComplaintCount')" width="80" align="right" />
+                <el-table-column :label="t('pages.complaints.colHasEmbedding')" width="88" align="center">
+                    <template #default="{ row }">
+                        <el-tag :type="row.has_embedding ? 'success' : 'info'" size="small">
+                            {{ row.has_embedding ? t('pages.complaints.yes') : t('pages.complaints.no') }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
+                <el-table-column :label="t('pages.complaints.colAction')" width="100" fixed="right">
+                    <template #default="{ row }">
+                        <el-button type="primary" link size="small" @click="viewCategorySamples(row.name)">
+                            {{ t('pages.complaints.viewSamples') }}
+                        </el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-dialog>
+
         <el-card class="mgb20 stats-card" shadow="hover" v-loading="loading">
             <template #header>
                 <div class="stats-header">
                     <div>
                         <div class="content-title">{{ t('pages.complaints.statsTitle') }}</div>
                     </div>
-                    <el-button type="primary" :loading="loading" @click="loadStats">{{ t('pages.complaints.refreshStats') }}</el-button>
+                    <div class="stats-header-actions">
+                        <div class="threshold-setting">
+                            <span class="threshold-label">{{ t('pages.complaints.classifyThreshold') }}</span>
+                            <el-input-number
+                                v-model="classifyThreshold"
+                                :min="0"
+                                :max="1"
+                                :step="0.01"
+                                :precision="2"
+                                size="small"
+                                :disabled="thresholdSaving"
+                                controls-position="right"
+                                @change="onThresholdChange"
+                            />
+                        </div>
+                        <el-button type="primary" :loading="loading" @click="loadStats">{{ t('pages.complaints.refreshStats') }}</el-button>
+                    </div>
                 </div>
+                <div class="threshold-hint">{{ t('pages.complaints.classifyThresholdHint') }}</div>
             </template>
 
             <el-empty v-if="!stats && !loading" :description="t('pages.complaints.statsEmpty')" />
@@ -88,7 +229,11 @@
             <template v-if="stats">
                 <el-row :gutter="20" class="summary-row">
                     <el-col v-for="card in summaryCards" :key="card.key" :xs="12" :sm="6">
-                        <div class="summary-card" :class="card.bg">
+                        <div
+                            class="summary-card"
+                            :class="[card.bg, { 'summary-card-clickable': card.clickable }]"
+                            @click="card.clickable ? onSummaryCardClick(card.key) : undefined"
+                        >
                             <div class="summary-label">{{ card.label }}</div>
                             <countup class="summary-value" :end="card.value" />
                             <div v-if="card.extra" class="summary-extra">{{ card.extra }}</div>
@@ -219,7 +364,9 @@ import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import countup from '@/components/countup.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
-import { getComplaintStats, getComplaintSamples } from '@/api';
+import { useCachedRef } from '@/composables/useFormCache';
+import { getComplaintStats, getComplaintSamples, createComplaint, getComplaintCategories, getComplaintSettings, updateComplaintSettings } from '@/api';
+import { ElMessage } from 'element-plus';
 
 const { t, locale } = useI18n();
 const { intros, setIntro } = useFeatureIntros('complaints');
@@ -250,6 +397,7 @@ async function ensureCharts() {
         components.GridComponent,
         components.TooltipComponent,
         components.LegendComponent,
+        components.MarkLineComponent,
     ]);
     VChart.value = vueEcharts.default;
 }
@@ -280,6 +428,8 @@ const DIMENSION_COLORS: Record<DimensionKey, string> = {
 const loading = ref(true);
 const stats = ref<ComplaintStatsReport | null>(null);
 const activeDimension = ref<DimensionKey>('category');
+const classifyThreshold = ref(0.65);
+const thresholdSaving = ref(false);
 
 interface ComplaintSample {
     id: number;
@@ -301,13 +451,51 @@ interface ComplaintSamplesPage {
 const samplesLoading = ref(false);
 const sampleRows = ref<ComplaintSample[]>([]);
 const sampleTotal = ref(0);
-const sampleQuery = ref({
+const sampleQuery = useCachedRef('complaints:sampleQuery', {
     address: '',
     text: '',
     category_name: '',
     dateRange: null as [string, string] | null,
 });
 const samplePage = ref({ page: 1, page_size: 10 });
+
+interface ComplaintCategoryScore {
+    category_id: number;
+    category_name: string;
+    similarity: number;
+}
+
+interface ComplaintCreateResult {
+    complaint: ComplaintSample;
+    category_created: boolean;
+    assigned_category_id: number | null;
+    assigned_category_name: string | null;
+    similarity: number | null;
+    category_scores: ComplaintCategoryScore[];
+}
+
+const createVisible = ref(false);
+const createLoading = ref(false);
+const createResult = ref<ComplaintCreateResult | null>(null);
+const createForm = useCachedRef('complaints:createForm', {
+    complaint_text: '',
+    address: '',
+    complaint_time: null as string | null,
+});
+
+interface ComplaintCategoryDetail {
+    id: number;
+    name: string;
+    description: string;
+    seed_phrases: string[];
+    complaint_count: number;
+    has_embedding: boolean;
+}
+
+const categoriesVisible = ref(false);
+const categoriesLoading = ref(false);
+const categoryRows = ref<ComplaintCategoryDetail[]>([]);
+const categoryQuery = useCachedRef('complaints:categoryQuery', { name: '' });
 
 const classifiedRate = computed(() => {
     if (!stats.value?.total) return 0;
@@ -331,10 +519,8 @@ const summaryCards = computed(() => {
             label: t('pages.complaints.typeCount'),
             value: stats.value.by_category.length,
             bg: 'bg-types',
-            extra: t('pages.complaints.regionDateSummary', {
-                addr: stats.value.by_address.length,
-                time: stats.value.by_time.length,
-            }),
+            clickable: true,
+            extra: t('pages.complaints.typeCountHint'),
         },
     ];
 });
@@ -494,11 +680,30 @@ const dimensionSections = computed(() => {
 async function loadStats() {
     loading.value = true;
     try {
-        const { data } = await getComplaintStats();
+        const [{ data: statsData }, { data: settingsData }] = await Promise.all([
+            getComplaintStats(),
+            getComplaintSettings(),
+        ]);
         await ensureCharts();
-        stats.value = data as ComplaintStatsReport;
+        stats.value = statsData as ComplaintStatsReport;
+        classifyThreshold.value = (settingsData as { classify_threshold: number }).classify_threshold;
     } finally {
         loading.value = false;
+    }
+}
+
+async function onThresholdChange(value: number | undefined) {
+    if (value == null || thresholdSaving.value) return;
+    thresholdSaving.value = true;
+    try {
+        const { data } = await updateComplaintSettings({ classify_threshold: value });
+        classifyThreshold.value = (data as { classify_threshold: number }).classify_threshold;
+        ElMessage.success(t('pages.complaints.thresholdSaved'));
+    } catch {
+        const { data } = await getComplaintSettings();
+        classifyThreshold.value = (data as { classify_threshold: number }).classify_threshold;
+    } finally {
+        thresholdSaving.value = false;
     }
 }
 
@@ -544,6 +749,105 @@ function onSamplePageSizeChange(size: number) {
     samplePage.value.page = 1;
     loadSamples();
 }
+
+const createScoreOption = computed(() => {
+    const scores = createResult.value?.category_scores ?? [];
+    if (!scores.length || !echartsGraphic) return {};
+    const top = scores.slice(0, 10);
+    const labels = top.map((item) => item.category_name);
+    const values = top.map((item) => item.similarity);
+    const threshold = classifyThreshold.value;
+    return {
+        title: { text: t('pages.complaints.createScoreTitle'), left: 'center', textStyle: { fontSize: 14 } },
+        tooltip: { trigger: 'axis', formatter: (params: { name: string; value: number }[]) => {
+            const row = params[0];
+            return `${row.name}<br/>${row.value.toFixed(4)}`;
+        } },
+        grid: { left: '3%', right: '8%', bottom: '3%', containLabel: true },
+        xAxis: { type: 'value', min: 0, max: 1, axisLabel: { formatter: (v: number) => v.toFixed(2) } },
+        yAxis: { type: 'category', data: [...labels].reverse(), inverse: true },
+        series: [
+            {
+                type: 'bar',
+                data: [...values].reverse(),
+                barMaxWidth: 22,
+                itemStyle: {
+                    color: (params: { value: number }) => (params.value >= threshold ? DIMENSION_COLORS.category : '#c0c4cc'),
+                    borderRadius: [0, 4, 4, 0],
+                },
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: { type: 'dashed', color: '#f25e43' },
+                    data: [{ xAxis: threshold, label: { formatter: threshold.toFixed(2), position: 'end' } }],
+                },
+            },
+        ],
+    };
+});
+
+function openCreateDialog() {
+    createVisible.value = true;
+    void ensureCharts();
+}
+
+function resetCreateForm() {
+    createForm.value = { complaint_text: '', address: '', complaint_time: null };
+    createResult.value = null;
+}
+
+async function submitComplaint() {
+    const text = createForm.value.complaint_text.trim();
+    if (text.length < 5) {
+        ElMessage.warning(t('pages.complaints.createTextRequired'));
+        return;
+    }
+    createLoading.value = true;
+    try {
+        const { data } = await createComplaint({
+            complaint_text: text,
+            address: createForm.value.address.trim() || undefined,
+            complaint_time: createForm.value.complaint_time || undefined,
+        });
+        createResult.value = data as ComplaintCreateResult;
+        await ensureCharts();
+        await Promise.all([loadSamples(), loadStats()]);
+    } finally {
+        createLoading.value = false;
+    }
+}
+
+function onSummaryCardClick(key: string) {
+    if (key === 'categories') {
+        categoriesVisible.value = true;
+    }
+}
+
+async function loadCategories() {
+    categoriesLoading.value = true;
+    try {
+        const { data } = await getComplaintCategories({
+            name: categoryQuery.value.name.trim() || undefined,
+        });
+        categoryRows.value = data as ComplaintCategoryDetail[];
+    } finally {
+        categoriesLoading.value = false;
+    }
+}
+
+function searchCategories() {
+    loadCategories();
+}
+
+function viewCategorySamples(categoryName: string) {
+    categoriesVisible.value = false;
+    sampleQuery.value.category_name = categoryName;
+    sampleQuery.value.text = '';
+    sampleQuery.value.address = '';
+    sampleQuery.value.dateRange = null;
+    searchSamples();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 
 <style scoped>
@@ -556,6 +860,13 @@ function onSamplePageSizeChange(size: number) {
 }
 
 .samples-form {
+    margin-bottom: 8px;
+}
+
+.samples-toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
     margin-bottom: 12px;
 }
 
@@ -564,11 +875,58 @@ function onSamplePageSizeChange(size: number) {
     justify-content: flex-end;
 }
 
+.create-result {
+    margin-top: 8px;
+}
+
+.create-alert {
+    margin-bottom: 12px;
+}
+
+.create-tag {
+    margin-left: 8px;
+}
+
+.create-chart-wrap {
+    margin-top: 4px;
+}
+
+.create-score-chart {
+    width: 100%;
+    height: 280px;
+}
+
 .stats-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+}
+
+.stats-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.threshold-setting {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.threshold-label {
+    font-size: 13px;
+    color: #606266;
+    white-space: nowrap;
+}
+
+.threshold-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #909399;
+    line-height: 1.5;
 }
 
 .content-title-row {
@@ -630,6 +988,35 @@ function onSamplePageSizeChange(size: number) {
 
 .bg-types {
     background: linear-gradient(135deg, #9c27b0, #ba68c8);
+}
+
+.summary-card-clickable {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.summary-card-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(156, 39, 176, 0.35);
+}
+
+.categories-form {
+    margin-bottom: 12px;
+}
+
+.category-expand {
+    padding: 8px 12px 12px;
+}
+
+.category-expand-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #606266;
+}
+
+.seed-tag {
+    margin: 0 8px 8px 0;
 }
 
 .section-title {

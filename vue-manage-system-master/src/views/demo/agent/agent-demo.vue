@@ -83,9 +83,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { InfoFilled, Loading } from '@element-plus/icons-vue';
+import { hasDemoCache, useCachedRef } from '@/composables/useFormCache';
 import type { AgentExample, AgentStep } from './types';
 
 const { t } = useI18n();
@@ -94,6 +95,7 @@ const props = withDefaults(
     defineProps<{
         loading: boolean;
         steps: AgentStep[];
+        cacheKey: string;
         initialQuestion?: string;
         placeholder?: string;
         hint?: string;
@@ -109,12 +111,12 @@ const emit = defineEmits<{
     run: [question: string];
 }>();
 
-const question = ref(props.initialQuestion);
+const question = useCachedRef(`agent:question:${props.cacheKey}`, props.initialQuestion);
 
 watch(
     () => props.initialQuestion,
     (value) => {
-        if (value) {
+        if (value && !hasDemoCache(`agent:question:${props.cacheKey}`)) {
             question.value = value;
         }
     },

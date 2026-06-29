@@ -117,6 +117,15 @@ class ComplaintCategoryRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ComplaintCategoryDetail(BaseModel):
+    id: int
+    name: str
+    description: str
+    seed_phrases: list[str] = Field(description="种子句列表")
+    complaint_count: int = Field(description="该类型下投诉条数")
+    has_embedding: bool = Field(description="是否已向量化")
+
+
 class ComplaintRead(BaseModel):
     id: int
     complaint_text: str
@@ -127,6 +136,27 @@ class ComplaintRead(BaseModel):
     similarity: float | None
 
     model_config = {"from_attributes": True}
+
+
+class ComplaintCreate(BaseModel):
+    complaint_text: str = Field(min_length=5, max_length=2000, description="投诉正文")
+    address: str | None = Field(default=None, max_length=100, description="地区")
+    complaint_time: datetime | None = Field(default=None, description="投诉时间，默认当前时间")
+
+
+class ComplaintCategoryScore(BaseModel):
+    category_id: int
+    category_name: str
+    similarity: float
+
+
+class ComplaintCreateResult(BaseModel):
+    complaint: ComplaintRead
+    category_created: bool = Field(description="是否新建了投诉类型")
+    assigned_category_id: int | None = None
+    assigned_category_name: str | None = None
+    similarity: float | None = Field(description="与最终归类的相似度")
+    category_scores: list[ComplaintCategoryScore] = Field(description="与各类别相似度排行，供图表展示")
 
 
 class ComplaintSamplesPage(BaseModel):
@@ -179,6 +209,14 @@ class ComplaintClassifyResult(BaseModel):
     by_category: list[ComplaintClassifyCategoryCount]
 
 
+class ComplaintSettings(BaseModel):
+    classify_threshold: float = Field(ge=0.0, le=1.0, description="投诉向量归类阈值，≥ 此值归入已有类")
+
+
+class ComplaintSettingsUpdate(BaseModel):
+    classify_threshold: float = Field(ge=0.0, le=1.0, description="投诉向量归类阈值")
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
@@ -198,6 +236,10 @@ class ChatAskResponse(BaseModel):
 
 class MeetingOrganizeRequest(BaseModel):
     text: str = Field(min_length=1, description="待整理的杂乱会议记录或口述文字")
+    style: Literal["concise", "formal"] = Field(
+        default="formal",
+        description="整理风格：concise 精简版，formal 正规版",
+    )
     temperature: float = Field(default=0.3, ge=0, le=2)
 
 
@@ -279,9 +321,20 @@ class AgentRunResponse(BaseModel):
     answer: str = Field(description="最终答复")
 
 
+class CobolMigrateStepResponse(BaseModel):
+    step: int = Field(ge=1, le=7)
+    step_name: str
+    steps: list[AgentStep]
+    payload: dict = Field(default_factory=dict)
+
+
+class CobolMigratePipelineResponse(BaseModel):
+    results: list[CobolMigrateStepResponse]
+
+
 class AttendancePunchRequest(BaseModel):
     descriptor: list[float] = Field(min_length=128, max_length=128, description="face-api 128 维人脸特征向量")
-    match_threshold: float = Field(default=0.65, ge=0.3, le=0.9, description="人脸匹配阈值，越小越严格")
+    match_threshold: float = Field(default=0.55, ge=0.3, le=0.9, description="人脸匹配阈值，越小越严格")
     face_image: str | None = Field(default=None, description="裁切后的人脸 JPEG base64")
     face_score: float | None = Field(default=None, ge=0, description="人脸质量分，越高越适合作为标准照")
     dedup_enabled: bool = Field(default=True, description="同一人短时重复刷脸是否跳过记新记录")

@@ -213,7 +213,15 @@
                         <el-button type="primary" @click="handlePersonSearch">{{ t('common.search') }}</el-button>
                     </div>
 
-                    <el-table :data="persons" v-loading="personsLoading" stripe size="small" max-height="280">
+                    <el-table
+                        ref="personsTableRef"
+                        :data="persons"
+                        v-loading="personsLoading"
+                        stripe
+                        size="small"
+                        max-height="280"
+                        :row-class-name="personRowClassName"
+                    >
                         <el-table-column :label="t('pages.attendance.colPerson')" min-width="168">
                             <template #default="{ row }">
                                 <div
@@ -224,7 +232,7 @@
                                     <div class="person-avatar" :class="{ placeholder: !row.has_reference_image }">
                                         <el-image
                                             v-if="row.has_reference_image"
-                                            :src="getPersonPhotoUrl(row.user_id)"
+                                            :src="personPhotoUrls[row.user_id] || ''"
                                             fit="cover"
                                             class="person-photo"
                                             loading="lazy"
@@ -267,19 +275,20 @@
 </template>
 
 <script setup lang="ts" name="demo-attendance">
-import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
+import { useCachedRef } from '@/composables/useFormCache';
 import {
     attendancePunch,
     deleteAttendancePerson,
     deleteAttendancePunch,
-    getAttendancePersonPhotoUrl,
     listAttendancePersons,
     listAttendancePunches,
 } from '@/api';
+import { loadAttendancePersonPhoto, revokeAttendancePersonPhoto } from '@/utils/authPhoto';
 
 const { t } = useI18n();
 const { intros, setIntro } = useFeatureIntros('attendance');
@@ -408,7 +417,7 @@ const statusText = ref('正在加载列表…');
 const lastResult = ref<PunchResult | null>(null);
 const photoPreviewVisible = ref(false);
 const photoPreviewUrl = ref('');
-const matchThreshold = ref(Number(localStorage.getItem(THRESHOLD_STORAGE_KEY)) || 0.65);
+const matchThreshold = ref(Number(localStorage.getItem(THRESHOLD_STORAGE_KEY)) || 0.55);
 const savedResolution = localStorage.getItem(RESOLUTION_STORAGE_KEY);
 const resolutionPresetId = ref(
     RESOLUTION_PRESETS.some((item) => item.id === savedResolution) ? savedResolution! : '720p',
@@ -448,10 +457,13 @@ const loading = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
-const searchUserId = ref('');
-const searchPersonUserId = ref('');
+const searchUserId = useCachedRef('attendance:searchUserId', '');
+const searchPersonUserId = useCachedRef('attendance:searchPersonUserId', '');
 const personsLoading = ref(false);
 const photoVersion = ref<Record<string, number>>({});
+const personPhotoUrls = ref<Record<string, string>>({});
+const personsTableRef = ref<{ setScrollTop: (top: number) => void } | null>(null);
+const highlightUserId = ref('');
 
 let stream: MediaStream | null = null;
 let rafId: number | null = null;
@@ -464,6 +476,7 @@ let faceapi: FaceApiModule | null = null;
 let detectorOptions: { inputSize: number; scoreThreshold: number } | null = null;
 let detectIntervalMs = currentResolution.value.detectIntervalMs;
 let punchCooldownMs = scanIntervalMs.value;
+let highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(matchThreshold, (value) => {
     localStorage.setItem(THRESHOLD_STORAGE_KEY, String(value));
@@ -517,11 +530,25 @@ const formatTime = (value: string) => {
     return date.toLocaleString('zh-CN', { hour12: false });
 };
 
-const getPersonPhotoUrl = (userId: string) => getAttendancePersonPhotoUrl(userId, photoVersion.value[userId] || 0);
+const syncPersonPhotos = async () => {
+    await Promise.all(
+        persons.value
+            .filter((person) => person.has_reference_image)
+            .map(async (person) => {
+                const version = photoVersion.value[person.user_id] || 0;
+                try {
+                    personPhotoUrls.value[person.user_id] = await loadAttendancePersonPhoto(person.user_id, version);
+                } catch {
+                    delete personPhotoUrls.value[person.user_id];
+                }
+            }),
+    );
+};
 
 const openPersonPhoto = (row: PersonItem) => {
-    if (!row.has_reference_image) return;
-    photoPreviewUrl.value = getPersonPhotoUrl(row.user_id);
+    const url = personPhotoUrls.value[row.user_id];
+    if (!row.has_reference_image || !url) return;
+    photoPreviewUrl.value = url;
     photoPreviewVisible.value = true;
 };
 
@@ -617,6 +644,7 @@ const loadPersons = async () => {
         const keyword = searchPersonUserId.value.trim();
         const res = await listAttendancePersons(keyword ? { user_id: keyword } : undefined);
         persons.value = res.data;
+        await syncPersonPhotos();
     } catch {
         ElMessage.error('加载人员列表失败');
     } finally {
@@ -657,6 +685,8 @@ const handleDeletePerson = async (row: PersonItem) => {
             { type: 'warning' },
         );
         await deleteAttendancePerson(row.id);
+        revokeAttendancePersonPhoto(row.user_id);
+        delete personPhotoUrls.value[row.user_id];
         ElMessage.success('已删除人员');
         await Promise.all([loadPunches(), loadPersons()]);
     } catch {
@@ -702,6 +732,37 @@ const drawOverlay = (video: HTMLVideoElement, detection: FaceDetectionResult | u
     faceapi.draw.drawFaceLandmarks(canvas, resized);
 };
 
+const personRowClassName = ({ row }: { row: PersonItem }) =>
+    row.user_id === highlightUserId.value ? 'person-row-highlight' : '';
+
+const markPersonHighlight = (userId: string) => {
+    if (highlightTimer) {
+        clearTimeout(highlightTimer);
+    }
+    highlightUserId.value = userId;
+    highlightTimer = setTimeout(() => {
+        highlightUserId.value = '';
+        highlightTimer = null;
+    }, 3000);
+};
+
+const focusPersonInList = async (userId: string) => {
+    markPersonHighlight(userId);
+    await nextTick();
+    const index = persons.value.findIndex((item) => item.user_id === userId);
+    if (index < 0) return;
+    personsTableRef.value?.setScrollTop(index * 49);
+};
+
+const refreshListsAfterPunch = async (userId: string) => {
+    // 打卡后始终拉全量列表，避免搜索框残留导致旧记录“看起来被删”
+    searchUserId.value = '';
+    searchPersonUserId.value = '';
+    page.value = 1;
+    await Promise.all([loadPunches(), loadPersons()]);
+    await focusPersonInList(userId);
+};
+
 const formatCooldownHint = (ms: number) => {
     if (ms >= 1000) {
         const seconds = ms / 1000;
@@ -736,8 +797,22 @@ const submitPunch = async (detection: FaceDetectionResult) => {
         lastResult.value = data;
         lastPunchTime = Date.now();
 
+        if (data.reference_image_updated) {
+            revokeAttendancePersonPhoto(data.user_id);
+            photoVersion.value[data.user_id] = Date.now();
+            try {
+                personPhotoUrls.value[data.user_id] = await loadAttendancePersonPhoto(
+                    data.user_id,
+                    photoVersion.value[data.user_id],
+                );
+            } catch {
+                delete personPhotoUrls.value[data.user_id];
+            }
+        }
+
         if (data.punch_skipped) {
             statusText.value = `已识别 ${data.user_id}，${dedupSeconds.value} 秒内重复刷脸已跳过`;
+            await refreshListsAfterPunch(data.user_id);
             return;
         }
 
@@ -745,15 +820,7 @@ const submitPunch = async (detection: FaceDetectionResult) => {
             ? `新人登记并打卡成功：${data.user_id}`
             : `打卡成功：${data.user_id}`;
         ElMessage.success(statusText.value);
-        if (data.reference_image_updated) {
-            photoVersion.value[data.user_id] = Date.now();
-        }
-        page.value = 1;
-        searchUserId.value = data.user_id;
-        if (data.is_new_person) {
-            searchPersonUserId.value = data.user_id;
-        }
-        await Promise.all([loadPunches(), loadPersons()]);
+        await refreshListsAfterPunch(data.user_id);
     } catch (err: unknown) {
         const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         statusText.value = '打卡失败，请重试';
@@ -911,6 +978,9 @@ onDeactivated(() => {
 });
 
 onBeforeUnmount(() => {
+    if (highlightTimer) {
+        clearTimeout(highlightTimer);
+    }
     stopCamera();
 });
 </script>
@@ -1108,5 +1178,13 @@ onBeforeUnmount(() => {
 .person-tip {
     font-size: 12px;
     color: #909399;
+}
+
+:deep(.person-row-highlight) {
+    background-color: #ecf5ff !important;
+}
+
+:deep(.person-row-highlight td) {
+    background-color: #ecf5ff !important;
 }
 </style>

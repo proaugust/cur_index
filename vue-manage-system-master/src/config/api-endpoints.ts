@@ -53,6 +53,11 @@ export interface ApiResultContentView {
 
 export type ApiResultView = ApiResultTableView | ApiResultContentView;
 
+export interface ApiQueryExample {
+    label: string;
+    query: Record<string, string | number>;
+}
+
 export interface ApiEndpoint {
     id: string;
     name: string;
@@ -64,6 +69,8 @@ export interface ApiEndpoint {
     bodyParams?: ApiParam[];
     formParams?: ApiParam[];
     resultView?: ApiResultView;
+    /** 快捷填充 Query 参数示例 */
+    queryExamples?: ApiQueryExample[];
 }
 
 export const complaintEndpoints: ApiEndpoint[] = [
@@ -96,7 +103,34 @@ export const complaintEndpoints: ApiEndpoint[] = [
         name: '执行归类',
         method: 'POST',
         path: '/complaints/classify',
-        description: '对未归类投诉执行向量归类，返回各类别数量与占比',
+        description: '对未归类投诉执行向量归类（相似度 ≥ 当前阈值），返回各类别数量与占比',
+    },
+    {
+        id: 'settings',
+        name: '归类设置',
+        method: 'GET',
+        path: '/complaints/settings',
+        description: '获取投诉向量归类统一阈值（默认 0.65）',
+    },
+    {
+        id: 'settings',
+        name: '更新归类设置',
+        method: 'PUT',
+        path: '/complaints/settings',
+        description: '更新投诉向量归类阈值，影响新增、造数、批量归类',
+        formParams: [
+            { name: 'classify_threshold', label: '归类阈值', type: 'number', default: 0.65, min: 0, max: 1 },
+        ],
+    },
+    {
+        id: 'categories',
+        name: '分类列表',
+        method: 'GET',
+        path: '/complaints/categories',
+        description: '查询 complaint_categories：名称、描述、种子句、投诉条数',
+        queryParams: [
+            { name: 'name', label: '分类名称', type: 'string', placeholder: '模糊匹配' },
+        ],
     },
     {
         id: 'stats',
@@ -104,6 +138,18 @@ export const complaintEndpoints: ApiEndpoint[] = [
         method: 'GET',
         path: '/complaints/stats',
         description: '按类型(8类)、地区(12城)、时间(按天) 实时 GROUP BY 聚合',
+    },
+    {
+        id: 'create',
+        name: '新增投诉',
+        method: 'POST',
+        path: '/complaints',
+        description: '录入单条投诉：向量相似度 ≥ 当前阈值归入已有类，否则 LLM 自动新建类型',
+        formParams: [
+            { name: 'complaint_text', label: '投诉正文', type: 'string', required: true, placeholder: '至少 5 字' },
+            { name: 'address', label: '地区', type: 'string', placeholder: '如：成都' },
+            { name: 'complaint_time', label: '投诉时间', type: 'string', placeholder: 'ISO 时间，留空为当前' },
+        ],
     },
     {
         id: 'samples',
@@ -204,7 +250,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 name: 'source_file',
                 label: '文件名',
                 type: 'string',
-                placeholder: '留空查全部；或填导入时的文件名，如 readme.txt',
+                placeholder: '留空查全部；或填导入时的文件名，如休假规则',
             },
             { name: 'limit', label: '条数', type: 'number', default: 20, min: 1, max: 200 },
         ],
@@ -230,7 +276,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         path: '/documents/search',
         description: 'BGE 向量语义检索 top-k 片段',
         queryParams: [
-            { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：退货流程是什么？' },
+            { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：休假规则是什么？' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
             {
                 name: 'min_similarity',
@@ -297,6 +343,99 @@ export const documentEndpoints: ApiEndpoint[] = [
     },
 ];
 
+const DOCUMENT_EP_I18N_KEY: Record<string, string> = {
+    import: 'import',
+    listByFile: 'listByFile',
+    search: 'search',
+    'search-and-llm': 'searchAndLlm',
+};
+
+const DOCUMENT_QUERY_EXAMPLE_IDS: Record<string, string[]> = {
+    'search-and-llm': ['leave', 'travelExpense'],
+};
+
+type TranslateFn = (key: string) => string;
+
+const localizeParams = (
+    params: ApiParam[] | undefined,
+    epKey: string,
+    t: TranslateFn,
+    paramType: 'query' | 'form' | 'body',
+): ApiParam[] | undefined => {
+    if (!params) return undefined;
+    return params.map((p) => {
+        const base = `pages.rag.endpoints.${epKey}.${paramType}.${p.name}`;
+        return {
+            ...p,
+            label: t(`${base}.label`),
+            placeholder: p.placeholder ? t(`${base}.placeholder`) : undefined,
+        };
+    });
+};
+
+const localizeRowActions = (actions: ApiResultRowActions, t: TranslateFn): ApiResultRowActions => {
+    const mapFields = (fields: ApiParam[]) =>
+        fields.map((f) => ({
+            ...f,
+            label: t(`pages.rag.chunkFields.${f.name}.label`),
+            placeholder: f.placeholder
+                ? t(`pages.rag.chunkFields.${f.name}.placeholder`)
+                : undefined,
+        }));
+    return {
+        ...actions,
+        editableFields: mapFields(actions.editableFields),
+        createFields: mapFields(actions.createFields),
+    };
+};
+
+export function getDocumentEndpoints(t: TranslateFn, te?: (key: string) => boolean): ApiEndpoint[] {
+    return documentEndpoints.map((ep) => {
+        const epKey = DOCUMENT_EP_I18N_KEY[ep.id] ?? ep.id;
+        const localized: ApiEndpoint = {
+            ...ep,
+            name: t(`pages.rag.tabs.${epKey}`),
+            description: ep.description ? t(`pages.rag.endpoints.${epKey}.description`) : undefined,
+            queryParams: localizeParams(ep.queryParams, epKey, t, 'query'),
+            formParams: localizeParams(ep.formParams, epKey, t, 'form'),
+            bodyParams: localizeParams(ep.bodyParams, epKey, t, 'body'),
+        };
+
+        if (ep.resultView?.mode === 'table') {
+            localized.resultView = {
+                ...ep.resultView,
+                highlightFields: ep.resultView.highlightFields?.map((field) => ({
+                    ...field,
+                    label: t(`pages.rag.highlights.${field.key}`),
+                })),
+                columns: ep.resultView.columns.map((col) => {
+                    const specificKey = `pages.rag.endpoints.${epKey}.columns.${col.prop}`;
+                    const label =
+                        col.prop === 'id'
+                            ? 'ID'
+                            : te?.(specificKey)
+                              ? t(specificKey)
+                              : t(`pages.rag.columns.${col.prop}`);
+                    return { ...col, label };
+                }),
+                rowActions: ep.resultView.rowActions
+                    ? localizeRowActions(ep.resultView.rowActions, t)
+                    : undefined,
+            };
+        }
+
+        const exampleIds = DOCUMENT_QUERY_EXAMPLE_IDS[ep.id];
+        if (exampleIds?.length) {
+            localized.queryExamples = exampleIds.map((id) => ({
+                label: t(`pages.rag.endpoints.${epKey}.examples.${id}.label`),
+                query: { q: t(`pages.rag.endpoints.${epKey}.examples.${id}.q`) },
+            }));
+        }
+
+        return localized;
+    });
+}
+
 export const meetingEndpoints: ApiEndpoint[] = [
     {
         id: 'organize',
@@ -311,6 +450,13 @@ export const meetingEndpoints: ApiEndpoint[] = [
                 type: 'string',
                 required: true,
                 placeholder: '粘贴会议速记或语音转写内容',
+            },
+            {
+                name: 'style',
+                label: '整理风格',
+                type: 'string',
+                default: 'formal',
+                placeholder: 'concise 精简版 / formal 正规版',
             },
             { name: 'temperature', label: '温度', type: 'number', default: 0.3, min: 0, max: 2 },
         ],

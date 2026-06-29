@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app import schemas
+from app.core.permissions import require_permission
+from app.models import User
 from app.services.llm import chat_completion
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -20,7 +22,10 @@ def _build_user_prompt(question: str, history: list[schemas.ChatMessage]) -> str
 
 
 @router.post("/ask", response_model=schemas.ChatAskResponse)
-def ask_chat(body: schemas.ChatAskRequest) -> schemas.ChatAskResponse:
+def ask_chat(
+    body: schemas.ChatAskRequest,
+    _: User = Depends(require_permission("83.ask")),
+) -> schemas.ChatAskResponse:
 
     system_prompt = body.system_prompt.strip() if body.system_prompt else _DEFAULT_SYSTEM
     user_prompt = _build_user_prompt(body.question.strip(), body.history)

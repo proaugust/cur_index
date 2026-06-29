@@ -25,9 +25,33 @@
                         <p v-if="ep.description" class="endpoint-desc">{{ ep.description }}</p>
                     </div>
 
+                    <div v-if="ep.queryExamples?.length" class="example-list">
+                        <div class="param-section-title">{{ t('apiDebug.exampleQueries') }}</div>
+                        <div
+                            v-for="item in ep.queryExamples"
+                            :key="item.label"
+                            class="example-item"
+                            :class="{ active: isActiveExample(ep, item) }"
+                        >
+                            <div class="example-item-bar">
+                                <el-tag size="small">{{ item.label }}</el-tag>
+                                <el-button
+                                    size="small"
+                                    link
+                                    type="primary"
+                                    :disabled="loading[ep.id]"
+                                    @click="applyQueryExample(ep, item)"
+                                >
+                                    {{ t('apiDebug.fillExample') }}
+                                </el-button>
+                            </div>
+                            <p class="example-text">{{ item.query.q }}</p>
+                        </div>
+                    </div>
+
                     <el-form label-width="120px" class="param-form" @submit.prevent>
                         <template v-if="ep.pathParams?.length">
-                            <div class="param-section-title">Path 参数</div>
+                            <div class="param-section-title">{{ t('apiDebug.pathParams') }}</div>
                             <el-form-item
                                 v-for="param in ep.pathParams"
                                 :key="param.name"
@@ -51,7 +75,7 @@
                         </template>
 
                         <template v-if="ep.queryParams?.length">
-                            <div class="param-section-title">Query 参数</div>
+                            <div class="param-section-title">{{ t('apiDebug.queryParams') }}</div>
                             <el-form-item
                                 v-for="param in ep.queryParams"
                                 :key="param.name"
@@ -80,7 +104,7 @@
                         </template>
 
                         <template v-if="ep.bodyParams?.length">
-                            <div class="param-section-title">Body 参数</div>
+                            <div class="param-section-title">{{ t('apiDebug.bodyParams') }}</div>
                             <el-form-item
                                 v-for="param in ep.bodyParams"
                                 :key="param.name"
@@ -112,7 +136,7 @@
                         </template>
 
                         <template v-if="ep.formParams?.length">
-                            <div class="param-section-title">Form 参数</div>
+                            <div class="param-section-title">{{ t('apiDebug.formParams') }}</div>
                             <el-form-item
                                 v-for="param in ep.formParams"
                                 :key="param.name"
@@ -127,7 +151,7 @@
                                     accept=".txt,.md"
                                     :on-change="(f: UploadFile) => onFileChange(ep.id, param.name, f)"
                                 >
-                                    <el-button size="small">选择文件</el-button>
+                                    <el-button size="small">{{ t('apiDebug.selectFile') }}</el-button>
                                 </el-upload>
                                 <el-switch
                                     v-else-if="param.type === 'boolean'"
@@ -152,7 +176,7 @@
 
                     <div class="send-row">
                         <el-button type="primary" :loading="loading[ep.id]" @click="sendRequest(ep)">
-                            发送
+                            {{ t('common.send') }}
                         </el-button>
                         <span
                             v-if="statusInfo[ep.id]"
@@ -203,9 +227,9 @@
 
                         <div v-if="ep.resultView.rowActions" class="row-actions-bar">
                             <span v-if="selectedRow[ep.id]" class="selected-hint">
-                                已选 ID: {{ selectedRow[ep.id]?.[ep.resultView.rowActions.idField ?? 'id'] }}
+                                {{ t('apiDebug.selectedId', { id: selectedRow[ep.id]?.[ep.resultView.rowActions.idField ?? 'id'] }) }}
                             </span>
-                            <span v-else class="selected-hint muted">点击表格行以选中切块</span>
+                            <span v-else class="selected-hint muted">{{ t('apiDebug.selectRowHint') }}</span>
                             <div class="row-actions-btns">
                                 <el-button
                                     size="small"
@@ -214,7 +238,7 @@
                                     :loading="rowActionLoading[ep.id]"
                                     @click="openEditDialog(ep)"
                                 >
-                                    编辑选中
+                                    {{ t('apiDebug.editSelected') }}
                                 </el-button>
                                 <el-button
                                     size="small"
@@ -223,7 +247,7 @@
                                     :loading="rowActionLoading[ep.id]"
                                     @click="deleteSelectedRow(ep)"
                                 >
-                                    删除选中
+                                    {{ t('apiDebug.deleteSelected') }}
                                 </el-button>
                                 <el-button
                                     size="small"
@@ -231,7 +255,7 @@
                                     :loading="rowActionLoading[ep.id]"
                                     @click="openCreateDialog(ep)"
                                 >
-                                    新增切块
+                                    {{ t('apiDebug.addChunk') }}
                                 </el-button>
                             </div>
                         </div>
@@ -241,7 +265,7 @@
                         v-if="ep.resultView?.mode === 'content' && contentState[ep.id]?.content"
                         class="highlight-block content-result-block"
                     >
-                        <div class="highlight-label">{{ ep.resultView.contentLabel ?? '正文' }}</div>
+                        <div class="highlight-label">{{ ep.resultView.contentLabel ?? t('apiDebug.contentLabel') }}</div>
                         <div class="highlight-content">{{ contentState[ep.id].content }}</div>
                     </div>
 
@@ -249,14 +273,14 @@
                         v-if="ep.resultView?.mode === 'content' && responses[ep.id]"
                         class="param-section-title"
                     >
-                        元数据
+                        {{ t('apiDebug.metadata') }}
                     </div>
                     <el-input
                         v-model="responses[ep.id]"
                         type="textarea"
                         :rows="ep.resultView?.mode === 'table' || ep.resultView?.mode === 'content' ? 12 : 28"
                         readonly
-                        :placeholder="ep.resultView?.mode === 'content' ? '响应元数据 JSON 将显示在这里' : '响应 JSON 将显示在这里'"
+                        :placeholder="ep.resultView?.mode === 'content' ? t('apiDebug.responseMetaPh') : t('apiDebug.responseJsonPh')"
                         class="response-box"
                     />
                 </el-tab-pane>
@@ -265,7 +289,7 @@
 
         <el-dialog
             v-model="dialogVisible"
-            :title="dialogMode === 'edit' ? '编辑切块' : '新增切块'"
+            :title="dialogMode === 'edit' ? t('apiDebug.editChunk') : t('apiDebug.addChunkTitle')"
             width="560px"
             destroy-on-close
             @closed="resetDialog"
@@ -296,9 +320,9 @@
                 </el-form-item>
             </el-form>
             <template #footer>
-                <el-button @click="dialogVisible = false">取消</el-button>
+                <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
                 <el-button type="primary" :loading="dialogSubmitting" @click="submitDialog">
-                    确定
+                    {{ t('apiDebug.confirm') }}
                 </el-button>
             </template>
         </el-dialog>
@@ -307,13 +331,17 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
 import type { AxiosError } from 'axios';
 import request from '@/utils/request';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { readDemoCache, writeDemoCache } from '@/composables/useFormCache';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
-import type { ApiEndpoint, ApiParam } from '@/config/api-endpoints';
+import type { ApiEndpoint, ApiParam, ApiQueryExample } from '@/config/api-endpoints';
+
+const { t } = useI18n();
 
 const props = withDefaults(
     defineProps<{
@@ -378,6 +406,28 @@ const initDefault = (param: ApiParam): FormValue => {
     return String(param.default ?? '');
 };
 
+const serializeFormForCache = (state: EndpointFormState): EndpointFormState => {
+    const sections = ['path', 'query', 'body', 'form'] as const;
+    const result = { path: {}, query: {}, body: {}, form: {} } as EndpointFormState;
+    for (const section of sections) {
+        for (const [name, value] of Object.entries(state[section])) {
+            result[section][name] = value instanceof File ? null : value;
+        }
+    }
+    return result;
+};
+
+const mergeCachedForm = (target: EndpointFormState, cached: EndpointFormState) => {
+    const sections = ['path', 'query', 'body', 'form'] as const;
+    for (const section of sections) {
+        for (const [name, value] of Object.entries(cached[section] ?? {})) {
+            if (name in target[section] && !(value instanceof File)) {
+                target[section][name] = value;
+            }
+        }
+    }
+};
+
 const initEndpointState = (ep: ApiEndpoint) => {
     if (formState[ep.id]) return;
 
@@ -394,6 +444,11 @@ const initEndpointState = (ep: ApiEndpoint) => {
     ep.formParams?.forEach((p) => {
         state.form[p.name] = initDefault(p);
     });
+
+    const cached = readDemoCache<EndpointFormState | null>(`api-debug:${ep.id}`, null);
+    if (cached) {
+        mergeCachedForm(state, cached);
+    }
 
     formState[ep.id] = state;
     responses[ep.id] = '';
@@ -414,6 +469,19 @@ watch(
     { immediate: true, deep: true }
 );
 
+watch(
+    formState,
+    () => {
+        props.endpoints.forEach((ep) => {
+            const state = formState[ep.id];
+            if (state) {
+                writeDemoCache(`api-debug:${ep.id}`, serializeFormForCache(state));
+            }
+        });
+    },
+    { deep: true },
+);
+
 const methodTagType = (method: string) => {
     const map: Record<string, 'success' | 'primary' | 'warning' | 'danger' | 'info'> = {
         GET: 'success',
@@ -427,6 +495,17 @@ const methodTagType = (method: string) => {
 const onFileChange = (epId: string, paramName: string, file: UploadFile) => {
     formState[epId].form[paramName] = file.raw ?? null;
 };
+
+const applyQueryExample = (ep: ApiEndpoint, example: ApiQueryExample) => {
+    Object.entries(example.query).forEach(([name, value]) => {
+        if (name in formState[ep.id].query) {
+            formState[ep.id].query[name] = value;
+        }
+    });
+};
+
+const isActiveExample = (ep: ApiEndpoint, example: ApiQueryExample) =>
+    Object.entries(example.query).every(([name, value]) => formState[ep.id].query[name] === value);
 
 const buildQueryParams = (ep: ApiEndpoint) => {
     const params: Record<string, string | number | boolean> = {};
@@ -636,24 +715,24 @@ const submitDialog = async () => {
             const idField = actions.idField ?? 'id';
             const chunkId = row?.[idField];
             if (chunkId === undefined || chunkId === null) {
-                ElMessage.warning('请先选中一条切块');
+                ElMessage.warning(t('apiDebug.selectChunkFirst'));
                 return;
             }
             const body = buildFieldsBody(actions.editableFields, dialogForm);
             const path = replacePathId(actions.updatePath, chunkId as number | string);
             await request.put(path, body);
-            ElMessage.success('已更新');
+            ElMessage.success(t('apiDebug.updated'));
         } else {
             const body = buildFieldsBody(actions.createFields, dialogForm);
             if (!body.source_file || !body.content) {
-                ElMessage.warning('文件名和正文为必填');
+                ElMessage.warning(t('apiDebug.fileContentRequired'));
                 return;
             }
             if (body.chunk_index !== undefined) {
                 body.chunk_index = Number(body.chunk_index);
             }
             await request.post(actions.createPath, body);
-            ElMessage.success('已新增');
+            ElMessage.success(t('apiDebug.added'));
         }
         dialogVisible.value = false;
         await sendRequest(ep);
@@ -662,7 +741,7 @@ const submitDialog = async () => {
         const detail = axiosErr.response?.data;
         ElMessage.error(typeof detail === 'object' && detail && 'detail' in detail
             ? String((detail as { detail: unknown }).detail)
-            : '操作失败');
+            : t('apiDebug.opFailed'));
     } finally {
         dialogSubmitting.value = false;
         rowActionLoading[ep.id] = false;
@@ -679,10 +758,10 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
     if (chunkId === undefined || chunkId === null) return;
 
     try {
-        await ElMessageBox.confirm(`确定删除切块 ID ${chunkId}？`, '删除确认', {
+        await ElMessageBox.confirm(t('apiDebug.deleteConfirm', { id: chunkId }), t('apiDebug.deleteConfirmTitle'), {
             type: 'warning',
-            confirmButtonText: '删除',
-            cancelButtonText: '取消',
+            confirmButtonText: t('common.delete'),
+            cancelButtonText: t('common.cancel'),
         });
     } catch {
         return;
@@ -693,14 +772,14 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
         const path = replacePathId(actions.deletePath, chunkId as number | string);
         await request.delete(path);
         selectedRow[ep.id] = null;
-        ElMessage.success('已删除');
+        ElMessage.success(t('apiDebug.deleted'));
         await sendRequest(ep);
     } catch (err) {
         const axiosErr = err as AxiosError;
         const detail = axiosErr.response?.data;
         ElMessage.error(typeof detail === 'object' && detail && 'detail' in detail
             ? String((detail as { detail: unknown }).detail)
-            : '删除失败');
+            : t('apiDebug.deleteFailed'));
     } finally {
         rowActionLoading[ep.id] = false;
     }
@@ -708,7 +787,7 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
 
 const sendRequest = async (ep: ApiEndpoint) => {
     loading[ep.id] = true;
-    statusInfo[ep.id] = { ok: true, text: '请求中...' };
+    statusInfo[ep.id] = { ok: true, text: t('apiDebug.requesting') };
 
     try {
         let res;
@@ -738,7 +817,7 @@ const sendRequest = async (ep: ApiEndpoint) => {
         contentState[ep.id] = { content: '' };
         statusInfo[ep.id] = {
             ok: false,
-            text: status ? `HTTP ${status}` : '网络错误',
+            text: status ? `HTTP ${status}` : t('apiDebug.networkError'),
         };
     } finally {
         loading[ep.id] = false;
@@ -778,6 +857,41 @@ const sendRequest = async (ep: ApiEndpoint) => {
     margin: 8px 0 0;
     color: #909399;
     font-size: 13px;
+}
+
+.example-list {
+    margin-bottom: 12px;
+}
+
+.example-item {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: #f5f7fa;
+    border: 1px solid #ebeef5;
+    border-radius: 4px;
+}
+
+.example-item.active {
+    border-color: #409eff;
+    background: #ecf5ff;
+}
+
+.example-item-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.example-text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #303133;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: all;
+    cursor: text;
 }
 
 .param-section-title {

@@ -4,6 +4,16 @@
         <div class="header-left">
             <img class="logo" src="../assets/img/logo.svg" alt="" />
             <div class="web-title">{{ t('header.appTitle') }}</div>
+            <div class="app-intro-wrap">
+                <span class="app-intro-hint">{{ introHint }}</span>
+                <FeatureIntroIcon
+                    page-key="app"
+                    section-key="header"
+                    :intros="intros"
+                    :title="t('header.appTitle')"
+                    @saved="setIntro"
+                />
+            </div>
             <div class="collapse-btn" @click="collapseChage">
                 <el-icon v-if="sidebar.collapse">
                     <Expand />
@@ -69,15 +79,20 @@
     </div>
 </template>
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { usePermissStore } from '@/store/permiss';
 import { useSidebarStore } from '../store/sidebar';
 import { useLocaleStore } from '../store/locale';
 import { useRouter } from 'vue-router';
 import type { AppLocale } from '@/i18n';
+import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import imgurl from '../assets/img/img.jpg';
 
 const { t } = useI18n();
+const { intros, setIntro } = useFeatureIntros('app');
+const introHint = computed(() => intros.value.header?.trim() || t('header.editHint'));
 const localeStore = useLocaleStore();
 
 const username: string | null = localStorage.getItem('vuems_name');
@@ -99,9 +114,12 @@ onMounted(() => {
 });
 
 const router = useRouter();
+const permiss = usePermissStore();
 const handleCommand = (command: string) => {
     if (command == 'loginout') {
         localStorage.removeItem('vuems_name');
+        localStorage.removeItem('access_token');
+        permiss.clear();
         router.push('/login');
     } else if (command == 'user') {
         router.push('/ucenter');
@@ -141,8 +159,25 @@ const setFullScreen = () => {
 }
 
 .web-title {
-    margin: 0 40px 0 10px;
+    margin: 0 12px 0 10px;
     font-size: 22px;
+}
+
+.app-intro-wrap {
+    display: flex;
+    align-items: center;
+    margin-right: 28px;
+    max-width: 420px;
+}
+
+.app-intro-hint {
+    font-size: 13px;
+    color: #909399;
+    line-height: 1.4;
+    margin-right: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .collapse-btn {

@@ -7,6 +7,10 @@ const service: AxiosInstance = axios.create({
 
 service.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error: AxiosError) => {
@@ -24,8 +28,15 @@ service.interceptors.response.use(
         }
     },
     (error: AxiosError) => {
-        console.log(error);
-        return Promise.reject();
+        if (error.response?.status === 401) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('vuems_name');
+            localStorage.removeItem('vuems_permissions');
+            if (!window.location.hash.includes('/login')) {
+                window.location.hash = '#/login';
+            }
+        }
+        return Promise.reject(error);
     }
 );
 

@@ -111,6 +111,7 @@ import { ElMessage } from 'element-plus';
 import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
+import { hasDemoCache, useCachedRef } from '@/composables/useFormCache';
 import { askChat } from '@/api';
 
 const { t, locale } = useI18n();
@@ -192,9 +193,9 @@ const scenarios = computed<Scenario[]>(() => [
     },
 ]);
 
-const question = ref('');
-const systemPrompt = ref('');
-const temperature = ref(0.7);
+const question = useCachedRef('ai-chat:question', '');
+const systemPrompt = useCachedRef('ai-chat:systemPrompt', '');
+const temperature = useCachedRef('ai-chat:temperature', 0.7);
 const history = ref<ChatMessage[]>([]);
 const displayMessages = ref<ChatMessage[]>([]);
 const loading = ref(false);
@@ -222,7 +223,12 @@ const applyScenario = (item: Scenario) => {
 watch(
     scenarios,
     (list) => {
-        if (list.length) {
+        if (!list.length) return;
+        const hasSavedInput =
+            hasDemoCache('ai-chat:question') ||
+            hasDemoCache('ai-chat:systemPrompt') ||
+            hasDemoCache('ai-chat:temperature');
+        if (!hasSavedInput) {
             applyScenario(list[0]);
         }
     },

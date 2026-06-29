@@ -7,7 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import attendance, auth, chat, complaints, documents, feature_intros, items, meeting, my_agent, smart_route
+from app.database import SessionLocal, engine
+from app.models import Base
+from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, meeting, menus, my_agent, permissions, roles, smart_route, users
+from app.services.rbac_seed import ensure_permission_schema, seed_rbac
 
 
 def _configure_logging() -> None:
@@ -44,7 +47,16 @@ def _warmup_in_background() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    ensure_permission_schema(engine)
+    db = SessionLocal()
+    try:
+        seed_rbac(db)
+        logger.info("RBAC 种子数据已就绪")
+    except Exception:
+        logger.exception("RBAC 种子数据初始化失败")
+    finally:
+        db.close()
     print(f"应用名称: {app.title}")
     threading.Thread(target=_warmup_in_background, name="app-warmup", daemon=True).start()
     yield
@@ -57,6 +69,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(roles.router)
+app.include_router(menus.router)
+app.include_router(permissions.router)
 app.include_router(items.router)
 app.include_router(documents.router)
 app.include_router(complaints.router)
@@ -65,6 +81,7 @@ app.include_router(meeting.router)
 app.include_router(smart_route.router)  # 智能路由：天气/员工/邮件分发
 app.include_router(attendance.router)
 app.include_router(my_agent.router)
+app.include_router(cobol_migrate.router)
 app.include_router(feature_intros.router)
 
 

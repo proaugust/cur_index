@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app import schemas
+from app.core.permissions import require_permission
+from app.models import User
 from app.services.agent_native import run_agent_native
 
 router = APIRouter(prefix="/my_agent", tags=["my_agent"])
@@ -21,7 +23,10 @@ def _to_schema_steps(steps) -> list[schemas.AgentStep]:
 
 
 @router.post("/run", response_model=schemas.AgentRunResponse)
-def run_agent(body: schemas.AgentRunRequest) -> schemas.AgentRunResponse:
+def run_agent(
+    body: schemas.AgentRunRequest,
+    _: User = Depends(require_permission("84.run")),
+) -> schemas.AgentRunResponse:
     question = body.question.strip()
     if body.engine == "langchain":
         from app.services.agent_langchain import run_agent_langchain

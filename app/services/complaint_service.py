@@ -1,12 +1,16 @@
+import json
 import logging
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
 from app import crud, models, schemas
+from app.core.config import settings
 from app.services.complaint_categories import CATEGORY_SEEDS, dumps_seed_phrases
+from app.services.complaint_category_namer import suggest_complaint_category
 from app.services.complaint_generator import generate_complaints
-from app.services.embedding import cosine_similarity, embed_texts, mean_vector
+from app.services.complaint_settings import get_classify_threshold, set_classify_threshold
+from app.services.embedding import cosine_similarity, embed_text, embed_texts, mean_vector
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +68,7 @@ class ComplaintService:
                     if score > best_score:
                         best_score = score
                         best_category = category
-                if best_category is not None:
+                if best_category is not None and best_score >= get_classify_threshold():
                     category_id = best_category.id
                     similarity = best_score
 
@@ -131,6 +135,8 @@ class ComplaintService:
                     best_score = score
                     best_category = category
             if best_category is None:
+                continue
+            if best_score < get_classify_threshold():
                 continue
 
             complaint.category_id = best_category.id
@@ -231,3 +237,151 @@ class ComplaintService:
             for row in rows
         ]
         return schemas.ComplaintSamplesPage(items=items, total=total, page=page, page_size=page_size)
+
+    def _score_categories(
+        self, vector: list[float], categories: list[models.ComplaintCategory]
+    ) -> list[tuple[models.ComplaintCategory, float]]:
+        scored: list[tuple[models.ComplaintCategory, float]] = []
+        for category in categories:
+            if category.embedding is None:
+                continue
+            scored.append((category, cosine_similarity(vector, category.embedding)))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored
+
+    def _find_category_by_name_similarity(
+        self, name: str, categories: list[models.ComplaintCategory]
+    ) -> models.ComplaintCategory | None:
+        if not name:
+            return None
+        name_vector = embed_text(name)
+        best_category = None
+        best_score = -1.0
+        for category in categories:
+            if category.embedding is None:
+                continue
+            score = cosine_similarity(name_vector, category.embedding)
+            if score > best_score:
+                best_score = score
+                best_category = category
+        if best_category is not None and best_score >= settings.complaint_name_dedupe_threshold:
+            return best_category
+        return None
+
+    def _to_complaint_read(self, complaint: models.Complaint) -> schemas.ComplaintRead:
+        return schemas.ComplaintRead(
+            id=complaint.id,
+            complaint_text=complaint.complaint_text,
+            address=complaint.address,
+            complaint_time=complaint.complaint_time,
+            category_id=complaint.category_id,
+            category_name=complaint.category.name if complaint.category else None,
+            similarity=complaint.similarity,
+        )
+
+    def create_complaint(self, payload: schemas.ComplaintCreate) -> schemas.ComplaintCreateResult:
+        complaint_text = payload.complaint_text.strip()
+        vector = embed_text(complaint_text)
+        categories = [c for c in crud.get_complaint_categories(self.db) if c.embedding is not None]
+        scored = self._score_categories(vector, categories)
+
+        best_category = scored[0][0] if scored else None
+        best_score = scored[0][1] if scored else -1.0
+        category_created = False
+        assigned_category: models.ComplaintCategory | None = None
+        similarity: float | None = None
+
+        if best_category is not None and best_score >= get_classify_threshold():
+            assigned_category = best_category
+            similarity = round(best_score, 4)
+        else:
+            suggested_name, description = suggest_complaint_category(
+                complaint_text, existing_names=[category.name for category in categories]
+            )
+            merge_target = self._find_category_by_name_similarity(suggested_name, categories)
+            if merge_target is not None:
+                assigned_category = merge_target
+                similarity = round(cosine_similarity(vector, merge_target.embedding), 4)
+            else:
+                existing = crud.get_complaint_category_by_name(self.db, suggested_name)
+                if existing is not None:
+                    assigned_category = existing
+                    similarity = round(cosine_similarity(vector, existing.embedding), 4) if existing.embedding else None
+                else:
+                    assigned_category = crud.create_complaint_category(
+                        self.db,
+                        name=suggested_name,
+                        description=description,
+                        seed_phrases=dumps_seed_phrases([complaint_text]),
+                        embedding=vector,
+                    )
+                    category_created = True
+                    similarity = 1.0
+                    categories.append(assigned_category)
+                    scored = self._score_categories(vector, categories)
+
+        complaint = crud.create_complaint(
+            self.db,
+            complaint_text=complaint_text,
+            address=payload.address,
+            complaint_time=payload.complaint_time or datetime.utcnow(),
+            embedding=vector,
+            category_id=assigned_category.id if assigned_category else None,
+            similarity=similarity,
+        )
+        self.db.refresh(complaint)
+
+        category_scores = [
+            schemas.ComplaintCategoryScore(
+                category_id=category.id,
+                category_name=category.name,
+                similarity=round(score, 4),
+            )
+            for category, score in scored
+        ]
+
+        logger.info(
+            "新增投诉 id=%s category=%s created=%s similarity=%s",
+            complaint.id,
+            assigned_category.name if assigned_category else None,
+            category_created,
+            similarity,
+        )
+        return schemas.ComplaintCreateResult(
+            complaint=self._to_complaint_read(complaint),
+            category_created=category_created,
+            assigned_category_id=assigned_category.id if assigned_category else None,
+            assigned_category_name=assigned_category.name if assigned_category else None,
+            similarity=similarity,
+            category_scores=category_scores,
+        )
+
+    def list_categories(self, *, name: str | None = None) -> list[schemas.ComplaintCategoryDetail]:
+        rows = crud.list_complaint_categories(self.db, name=name)
+        items: list[schemas.ComplaintCategoryDetail] = []
+        for category, complaint_count in rows:
+            try:
+                seed_phrases = json.loads(category.seed_phrases) if category.seed_phrases else []
+            except json.JSONDecodeError:
+                seed_phrases = [category.seed_phrases] if category.seed_phrases else []
+            if not isinstance(seed_phrases, list):
+                seed_phrases = [str(seed_phrases)]
+            items.append(
+                schemas.ComplaintCategoryDetail(
+                    id=category.id,
+                    name=category.name,
+                    description=category.description,
+                    seed_phrases=[str(item) for item in seed_phrases],
+                    complaint_count=complaint_count,
+                    has_embedding=category.embedding is not None,
+                )
+            )
+        return items
+
+    def get_settings(self) -> schemas.ComplaintSettings:
+        return schemas.ComplaintSettings(classify_threshold=get_classify_threshold())
+
+    def update_settings(self, payload: schemas.ComplaintSettingsUpdate) -> schemas.ComplaintSettings:
+        threshold = set_classify_threshold(payload.classify_threshold)
+        logger.info("投诉归类阈值已更新为 %s", threshold)
+        return schemas.ComplaintSettings(classify_threshold=threshold)

@@ -34,7 +34,7 @@
                     <el-link type="primary" @click="$router.push('/reset-pwd')">忘记密码</el-link>
                 </div>
                 <el-button class="login-btn" type="primary" size="large" @click="submitForm(login)">登录</el-button>
-                <p class="login-tips">Tips : 用户名 admin，密码 admin。</p>
+                <p class="login-tips">Tips : 用户名 admin，密码 admin123456。</p>
             </el-form>
         </div>
     </div>
@@ -47,6 +47,7 @@ import { usePermissStore } from '@/store/permiss';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
+import { login as loginApi } from '@/api';
 
 interface LoginInfo {
     username: string;
@@ -59,8 +60,8 @@ const checked = ref(lgStr ? true : false);
 
 const router = useRouter();
 const param = reactive<LoginInfo>({
-    username: defParam ? defParam.username : '',
-    password: defParam ? defParam.password : '',
+    username: defParam ? defParam.username : 'admin',
+    password: defParam ? defParam.password : 'admin123456',
 });
 
 const rules: FormRules = {
@@ -77,24 +78,29 @@ const permiss = usePermissStore();
 const login = ref<FormInstance>();
 const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
-    formEl.validate((valid: boolean) => {
-        if (valid) {
-            if (param.username !== 'admin' || param.password !== 'admin') {
-                ElMessage.error('用户名或密码错误');
-                return false;
-            }
+    formEl.validate(async (valid: boolean) => {
+        if (!valid) {
+            ElMessage.error('登录失败');
+            return false;
+        }
+        try {
+            const res = await loginApi({
+                username: param.username,
+                password: param.password,
+            });
+            const data = res.data;
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('vuems_name', data.user.username);
+            permiss.handleSet(data.permissions);
             ElMessage.success('登录成功');
-            localStorage.setItem('vuems_name', param.username);
-            permiss.handleSet(permiss.defaultList.admin);
             router.push('/');
             if (checked.value) {
-                localStorage.setItem('login-param', JSON.stringify(param));
+                localStorage.setItem('login-param', JSON.stringify({ username: param.username, password: param.password }));
             } else {
                 localStorage.removeItem('login-param');
             }
-        } else {
-            ElMessage.error('登录失败');
-            return false;
+        } catch {
+            ElMessage.error('用户名或密码错误');
         }
     });
 };

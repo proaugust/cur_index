@@ -81,6 +81,12 @@ export const menuData: Menus[] = [
                 index: '/demo-attendance',
                 titleKey: 'menu.demoAttendance',
             },
+            {
+                id: '88',
+                pid: '8',
+                index: '/demo-cobol-migrate',
+                titleKey: 'menu.demoCobolMigrate',
+            },
         ],
     },
     {
