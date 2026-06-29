@@ -40,9 +40,9 @@
                     <el-input v-model="sampleQuery.category_name" :placeholder="t('pages.complaints.optional')" clearable style="width: 140px" />
                 </el-form-item>
                 <el-form-item :label="t('pages.complaints.classifyStatus')">
-                    <el-select v-model="sampleQuery.classify_status" clearable :placeholder="t('pages.complaints.classifyStatusAll')" style="width: 120px">
-                        <el-option :label="t('pages.complaints.classified')" value="classified" />
-                        <el-option :label="t('pages.complaints.unclassified')" value="unclassified" />
+                    <el-select v-model="sampleQuery.classified" clearable :placeholder="t('pages.complaints.classifyStatusAll')" style="width: 120px">
+                        <el-option :label="t('pages.complaints.classified')" :value="true" />
+                        <el-option :label="t('pages.complaints.unclassified')" :value="false" />
                     </el-select>
                 </el-form-item>
             </el-form>
@@ -264,9 +264,10 @@
                                     :is="VChart"
                                     v-if="VChart"
                                     class="overview-chart overview-chart-clickable"
+                                    :style="{ height: `${section.overviewHeight}px` }"
                                     :option="section.miniOption"
                                     autoresize
-                                    @click="onDimensionChartClick(section.key, $event)"
+                                    @click="(params: ChartClickParams) => onChartClick(params, section.key)"
                                 />
                             </div>
                         </el-col>
@@ -323,7 +324,7 @@
                                         size="small"
                                         max-height="380"
                                         class="dimension-table-clickable"
-                                        @row-click="(row: ComplaintStatsCountItem) => onDimensionRowClick(section.key, row.label)"
+                                        @row-click="(row: ComplaintStatsCountItem) => onDimensionItemClick(section.key, row.label)"
                                     >
                                         <el-table-column type="index" label="#" width="50" />
                                         <el-table-column prop="label" :label="section.columnLabel" min-width="120" />
@@ -349,7 +350,7 @@
                                         class="stats-chart stats-chart-clickable"
                                         :option="section.barOption"
                                         autoresize
-                                        @click="onDimensionChartClick(section.key, $event)"
+                                        @click="(params: ChartClickParams) => onChartClick(params, section.key)"
                                     />
                                 </el-col>
                                 <el-col :xs="24" :xl="7">
@@ -359,7 +360,7 @@
                                         class="stats-chart stats-chart-clickable"
                                         :option="section.secondaryOption"
                                         autoresize
-                                        @click="onDimensionChartClick(section.key, $event)"
+                                        @click="(params: ChartClickParams) => onChartClick(params, section.key)"
                                     />
                                 </el-col>
                             </el-row>
@@ -435,6 +436,26 @@ interface ComplaintStatsReport {
 
 type DimensionKey = 'category' | 'address' | 'time';
 
+interface ChartClickParams {
+    name?: string;
+}
+
+interface SampleQueryState {
+    address: string;
+    text: string;
+    category_name: string;
+    dateRange: [string, string] | null;
+    classified: boolean | null;
+}
+
+const EMPTY_SAMPLE_QUERY: SampleQueryState = {
+    address: '',
+    text: '',
+    category_name: '',
+    dateRange: null,
+    classified: null,
+};
+
 const DIMENSION_COLORS: Record<DimensionKey, string> = {
     category: '#009688',
     address: '#2d8cf0',
@@ -467,13 +488,8 @@ interface ComplaintSamplesPage {
 const samplesLoading = ref(false);
 const sampleRows = ref<ComplaintSample[]>([]);
 const sampleTotal = ref(0);
-const sampleQuery = useCachedRef('complaints:sampleQuery', {
-    address: '',
-    text: '',
-    category_name: '',
-    classify_status: '' as '' | 'classified' | 'unclassified',
-    dateRange: null as [string, string] | null,
-});
+const sampleQuery = useCachedRef<SampleQueryState>('complaints:sampleQuery', { ...EMPTY_SAMPLE_QUERY });
+sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value };
 const samplePage = ref({ page: 1, page_size: 10 });
 
 interface ComplaintCategoryScore {
@@ -637,22 +653,55 @@ function buildLineOption(items: ComplaintStatsCountItem[], title: string, color:
     };
 }
 
-function buildMiniBarOption(items: ComplaintStatsCountItem[], color: string, limit = 6) {
-    const top = items.slice(0, limit);
+function buildMiniBarOption(items: ComplaintStatsCountItem[], color: string, horizontal = false) {
+    if (horizontal) {
+        const labels = items.map((item) => item.label);
+        const counts = items.map((item) => item.count);
+        return {
+            tooltip: { trigger: 'axis', confine: true },
+            grid: { left: 4, right: 12, top: 4, bottom: 4, containLabel: true },
+            xAxis: { type: 'value', show: false },
+            yAxis: {
+                type: 'category',
+                data: [...labels].reverse(),
+                inverse: true,
+                axisLabel: { fontSize: 10, width: 80, overflow: 'truncate' },
+            },
+            series: [
+                {
+                    type: 'bar',
+                    data: [...counts].reverse(),
+                    barMaxWidth: 14,
+                    itemStyle: { color, borderRadius: [0, 3, 3, 0] },
+                },
+            ],
+        };
+    }
+
     return {
         tooltip: { trigger: 'axis', confine: true },
         grid: { left: 8, right: 8, top: 8, bottom: 8, containLabel: true },
-        xAxis: { type: 'category', data: top.map((item) => item.label), show: top.length <= 4, axisLabel: { fontSize: 10 } },
+        xAxis: {
+            type: 'category',
+            data: items.map((item) => item.label),
+            axisLabel: { fontSize: 10, rotate: items.length > 8 ? 35 : 0 },
+        },
         yAxis: { type: 'value', show: false },
         series: [
             {
                 type: 'bar',
-                data: top.map((item) => item.count),
+                data: items.map((item) => item.count),
                 barMaxWidth: 18,
                 itemStyle: { color, borderRadius: [3, 3, 0, 0] },
             },
         ],
     };
+}
+
+function overviewChartHeight(items: ComplaintStatsCountItem[], horizontal: boolean) {
+    if (!items.length) return 160;
+    if (horizontal) return Math.min(480, Math.max(160, items.length * 22 + 24));
+    return Math.min(320, Math.max(160, items.length > 8 ? 200 : 160));
 }
 
 const dimensionSections = computed(() => {
@@ -665,7 +714,7 @@ const dimensionSections = computed(() => {
         color: string;
         horizontalBar: boolean;
         useLineSecondary: boolean;
-        miniLimit?: number;
+        overviewHorizontal: boolean;
     }> = [
         {
             key: 'category',
@@ -675,7 +724,7 @@ const dimensionSections = computed(() => {
             color: DIMENSION_COLORS.category,
             horizontalBar: true,
             useLineSecondary: false,
-            miniLimit: 8,
+            overviewHorizontal: true,
         },
         {
             key: 'address',
@@ -685,6 +734,7 @@ const dimensionSections = computed(() => {
             color: DIMENSION_COLORS.address,
             horizontalBar: false,
             useLineSecondary: false,
+            overviewHorizontal: true,
         },
         {
             key: 'time',
@@ -694,14 +744,15 @@ const dimensionSections = computed(() => {
             color: DIMENSION_COLORS.time,
             horizontalBar: false,
             useLineSecondary: true,
-            miniLimit: 7,
+            overviewHorizontal: false,
         },
     ];
 
     return configs.map((config) => ({
         ...config,
         topItem: topItem(config.items),
-        miniOption: buildMiniBarOption(config.items, config.color, config.miniLimit ?? 6),
+        overviewHeight: overviewChartHeight(config.items, config.overviewHorizontal),
+        miniOption: buildMiniBarOption(config.items, config.color, config.overviewHorizontal),
         barOption: buildBarOption(config.items, config.title, config.color, config.horizontalBar),
         secondaryOption: config.useLineSecondary
             ? buildLineOption(config.items, config.title, config.color)
@@ -752,12 +803,12 @@ async function loadSamples() {
     samplesLoading.value = true;
     try {
         const [time_from, time_to] = sampleQuery.value.dateRange ?? [undefined, undefined];
-        const classifyStatus = sampleQuery.value.classify_status;
+        const classified = sampleQuery.value.classified;
         const { data } = await getComplaintSamples({
             address: sampleQuery.value.address || undefined,
             text: sampleQuery.value.text || undefined,
             category_name: sampleQuery.value.category_name || undefined,
-            is_classified: classifyStatus === 'classified' ? true : classifyStatus === 'unclassified' ? false : undefined,
+            is_classified: classified === null ? undefined : classified,
             time_from,
             time_to,
             page: samplePage.value.page,
@@ -855,30 +906,10 @@ function scrollToSamples() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function applyDimensionFilter(dimension: DimensionKey, label: string) {
-    if (dimension === 'category') {
-        sampleQuery.value.category_name = label;
-    } else if (dimension === 'address') {
-        sampleQuery.value.address = label;
-    } else if (dimension === 'time') {
-        sampleQuery.value.dateRange = [label, label];
-    }
+function applySampleFilter(patch: Partial<SampleQueryState>) {
+    sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...patch };
     searchSamples();
     scrollToSamples();
-}
-
-interface EChartsClickParams {
-    componentType?: string;
-    name?: string;
-}
-
-function onDimensionChartClick(dimension: DimensionKey, params: EChartsClickParams) {
-    if (params.componentType !== 'series' || !params.name) return;
-    applyDimensionFilter(dimension, params.name);
-}
-
-function onDimensionRowClick(dimension: DimensionKey, label: string) {
-    applyDimensionFilter(dimension, label);
 }
 
 function onSummaryCardClick(key: string) {
@@ -887,20 +918,37 @@ function onSummaryCardClick(key: string) {
         return;
     }
     if (key === 'total') {
-        sampleQuery.value = {
-            address: '',
-            text: '',
-            category_name: '',
-            classify_status: '',
-            dateRange: null,
-        };
-    } else if (key === 'classified') {
-        sampleQuery.value.classify_status = 'classified';
-    } else if (key === 'unclassified') {
-        sampleQuery.value.classify_status = 'unclassified';
+        applySampleFilter({});
+        return;
     }
-    searchSamples();
-    scrollToSamples();
+    if (key === 'classified') {
+        applySampleFilter({ classified: true });
+        return;
+    }
+    if (key === 'unclassified') {
+        applySampleFilter({ classified: false });
+    }
+}
+
+function onDimensionItemClick(dimension: DimensionKey, label: string) {
+    if (dimension === 'category') {
+        applySampleFilter({ category_name: label });
+        return;
+    }
+    if (dimension === 'address') {
+        applySampleFilter({ address: label });
+        return;
+    }
+    if (dimension === 'time') {
+        applySampleFilter({ dateRange: [label, label] });
+    }
+}
+
+function onChartClick(params: ChartClickParams, dimension: DimensionKey) {
+    const label = params?.name?.trim();
+    if (label) {
+        onDimensionItemClick(dimension, label);
+    }
 }
 
 async function loadCategories() {
@@ -921,13 +969,7 @@ function searchCategories() {
 
 function viewCategorySamples(categoryName: string) {
     categoriesVisible.value = false;
-    sampleQuery.value.category_name = categoryName;
-    sampleQuery.value.text = '';
-    sampleQuery.value.address = '';
-    sampleQuery.value.classify_status = '';
-    sampleQuery.value.dateRange = null;
-    searchSamples();
-    scrollToSamples();
+    applySampleFilter({ category_name: categoryName });
 }
 </script>
 
@@ -1097,15 +1139,14 @@ function viewCategorySamples(categoryName: string) {
     box-shadow: 0 6px 16px rgba(156, 39, 176, 0.35);
 }
 
-.overview-chart-clickable,
-.stats-chart-clickable {
-    cursor: pointer;
-}
-
 .dimension-table-clickable :deep(.el-table__row) {
     cursor: pointer;
 }
 
+.overview-chart-clickable,
+.stats-chart-clickable {
+    cursor: pointer;
+}
 .categories-form {
     margin-bottom: 12px;
 }
@@ -1172,7 +1213,7 @@ function viewCategorySamples(categoryName: string) {
 
 .overview-chart {
     width: 100%;
-    height: 160px;
+    min-height: 160px;
 }
 
 .dimension-metrics {

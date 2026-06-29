@@ -106,7 +106,7 @@ def complaint_samples(
         time_from=time_from,
         time_to=time_to,
         category_name=category_name,
-        is_classified=is_classified,
+        classified=is_classified,
         page=page,
         page_size=page_size,
     )

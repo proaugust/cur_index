@@ -250,7 +250,7 @@ def search_complaints(
     time_from: date | None = None,
     time_to: date | None = None,
     category_name: str | None = None,
-    is_classified: bool | None = None,
+    classified: bool | None = None,
     page: int = 1,
     page_size: int = 10,
 ) -> tuple[list[models.Complaint], int]:
@@ -267,9 +267,9 @@ def search_complaints(
         query = query.filter(models.Complaint.complaint_time < datetime.combine(time_to + timedelta(days=1), time.min))
     if category_name:
         query = query.filter(models.ComplaintCategory.name == category_name)
-    if is_classified is True:
+    if classified is True:
         query = query.filter(models.Complaint.category_id.isnot(None))
-    elif is_classified is False:
+    elif classified is False:
         query = query.filter(models.Complaint.category_id.is_(None))
 
     total = query.count()
