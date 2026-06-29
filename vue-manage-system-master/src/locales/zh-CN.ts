@@ -376,6 +376,8 @@ export default {
             bodyPh: '模糊匹配投诉内容',
             category: '分类',
             optional: '可选',
+            classifyStatus: '归类状态',
+            classifyStatusAll: '全部',
             tableEmpty: '暂无数据，点击「查询」加载',
             colRegion: '地区',
             colTime: '投诉时间',

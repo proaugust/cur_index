@@ -39,6 +39,12 @@
                 <el-form-item :label="t('pages.complaints.category')">
                     <el-input v-model="sampleQuery.category_name" :placeholder="t('pages.complaints.optional')" clearable style="width: 140px" />
                 </el-form-item>
+                <el-form-item :label="t('pages.complaints.classifyStatus')">
+                    <el-select v-model="sampleQuery.classify_status" clearable :placeholder="t('pages.complaints.classifyStatusAll')" style="width: 120px">
+                        <el-option :label="t('pages.complaints.classified')" value="classified" />
+                        <el-option :label="t('pages.complaints.unclassified')" value="unclassified" />
+                    </el-select>
+                </el-form-item>
             </el-form>
 
             <div class="samples-toolbar">
@@ -257,9 +263,10 @@
                                 <component
                                     :is="VChart"
                                     v-if="VChart"
-                                    class="overview-chart"
+                                    class="overview-chart overview-chart-clickable"
                                     :option="section.miniOption"
                                     autoresize
+                                    @click="onDimensionChartClick(section.key, $event)"
                                 />
                             </div>
                         </el-col>
@@ -310,7 +317,14 @@
 
                             <el-row :gutter="16" class="dimension-content">
                                 <el-col :xs="24" :xl="10">
-                                    <el-table :data="section.items" stripe size="small" max-height="380">
+                                    <el-table
+                                        :data="section.items"
+                                        stripe
+                                        size="small"
+                                        max-height="380"
+                                        class="dimension-table-clickable"
+                                        @row-click="(row: ComplaintStatsCountItem) => onDimensionRowClick(section.key, row.label)"
+                                    >
                                         <el-table-column type="index" label="#" width="50" />
                                         <el-table-column prop="label" :label="section.columnLabel" min-width="120" />
                                         <el-table-column prop="count" :label="t('pages.complaints.colCount')" width="90" align="right" sortable />
@@ -332,18 +346,20 @@
                                     <component
                                         :is="VChart"
                                         v-if="VChart"
-                                        class="stats-chart"
+                                        class="stats-chart stats-chart-clickable"
                                         :option="section.barOption"
                                         autoresize
+                                        @click="onDimensionChartClick(section.key, $event)"
                                     />
                                 </el-col>
                                 <el-col :xs="24" :xl="7">
                                     <component
                                         :is="VChart"
                                         v-if="VChart"
-                                        class="stats-chart"
+                                        class="stats-chart stats-chart-clickable"
                                         :option="section.secondaryOption"
                                         autoresize
+                                        @click="onDimensionChartClick(section.key, $event)"
                                     />
                                 </el-col>
                             </el-row>
@@ -455,6 +471,7 @@ const sampleQuery = useCachedRef('complaints:sampleQuery', {
     address: '',
     text: '',
     category_name: '',
+    classify_status: '' as '' | 'classified' | 'unclassified',
     dateRange: null as [string, string] | null,
 });
 const samplePage = ref({ page: 1, page_size: 10 });
@@ -505,15 +522,30 @@ const classifiedRate = computed(() => {
 const summaryCards = computed(() => {
     if (!stats.value) return [];
     return [
-        { key: 'total', label: t('pages.complaints.total'), value: stats.value.total, bg: 'bg-total', extra: t('pages.complaints.allRecords') },
+        {
+            key: 'total',
+            label: t('pages.complaints.total'),
+            value: stats.value.total,
+            bg: 'bg-total',
+            clickable: true,
+            extra: t('pages.complaints.allRecords'),
+        },
         {
             key: 'classified',
             label: t('pages.complaints.classified'),
             value: stats.value.classified,
             bg: 'bg-classified',
+            clickable: true,
             extra: t('pages.complaints.classifyRate', { rate: classifiedRate.value }),
         },
-        { key: 'unclassified', label: t('pages.complaints.unclassified'), value: stats.value.unclassified, bg: 'bg-unclassified', extra: t('pages.complaints.pendingClassify') },
+        {
+            key: 'unclassified',
+            label: t('pages.complaints.unclassified'),
+            value: stats.value.unclassified,
+            bg: 'bg-unclassified',
+            clickable: true,
+            extra: t('pages.complaints.pendingClassify'),
+        },
         {
             key: 'categories',
             label: t('pages.complaints.typeCount'),
@@ -720,10 +752,12 @@ async function loadSamples() {
     samplesLoading.value = true;
     try {
         const [time_from, time_to] = sampleQuery.value.dateRange ?? [undefined, undefined];
+        const classifyStatus = sampleQuery.value.classify_status;
         const { data } = await getComplaintSamples({
             address: sampleQuery.value.address || undefined,
             text: sampleQuery.value.text || undefined,
             category_name: sampleQuery.value.category_name || undefined,
+            is_classified: classifyStatus === 'classified' ? true : classifyStatus === 'unclassified' ? false : undefined,
             time_from,
             time_to,
             page: samplePage.value.page,
@@ -817,10 +851,56 @@ async function submitComplaint() {
     }
 }
 
+function scrollToSamples() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function applyDimensionFilter(dimension: DimensionKey, label: string) {
+    if (dimension === 'category') {
+        sampleQuery.value.category_name = label;
+    } else if (dimension === 'address') {
+        sampleQuery.value.address = label;
+    } else if (dimension === 'time') {
+        sampleQuery.value.dateRange = [label, label];
+    }
+    searchSamples();
+    scrollToSamples();
+}
+
+interface EChartsClickParams {
+    componentType?: string;
+    name?: string;
+}
+
+function onDimensionChartClick(dimension: DimensionKey, params: EChartsClickParams) {
+    if (params.componentType !== 'series' || !params.name) return;
+    applyDimensionFilter(dimension, params.name);
+}
+
+function onDimensionRowClick(dimension: DimensionKey, label: string) {
+    applyDimensionFilter(dimension, label);
+}
+
 function onSummaryCardClick(key: string) {
     if (key === 'categories') {
         categoriesVisible.value = true;
+        return;
     }
+    if (key === 'total') {
+        sampleQuery.value = {
+            address: '',
+            text: '',
+            category_name: '',
+            classify_status: '',
+            dateRange: null,
+        };
+    } else if (key === 'classified') {
+        sampleQuery.value.classify_status = 'classified';
+    } else if (key === 'unclassified') {
+        sampleQuery.value.classify_status = 'unclassified';
+    }
+    searchSamples();
+    scrollToSamples();
 }
 
 async function loadCategories() {
@@ -844,9 +924,10 @@ function viewCategorySamples(categoryName: string) {
     sampleQuery.value.category_name = categoryName;
     sampleQuery.value.text = '';
     sampleQuery.value.address = '';
+    sampleQuery.value.classify_status = '';
     sampleQuery.value.dateRange = null;
     searchSamples();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToSamples();
 }
 </script>
 
@@ -997,7 +1078,32 @@ function viewCategorySamples(categoryName: string) {
 
 .summary-card-clickable:hover {
     transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.bg-total.summary-card-clickable:hover {
+    box-shadow: 0 6px 16px rgba(45, 140, 240, 0.35);
+}
+
+.bg-classified.summary-card-clickable:hover {
+    box-shadow: 0 6px 16px rgba(0, 150, 136, 0.35);
+}
+
+.bg-unclassified.summary-card-clickable:hover {
+    box-shadow: 0 6px 16px rgba(242, 94, 67, 0.35);
+}
+
+.bg-types.summary-card-clickable:hover {
     box-shadow: 0 6px 16px rgba(156, 39, 176, 0.35);
+}
+
+.overview-chart-clickable,
+.stats-chart-clickable {
+    cursor: pointer;
+}
+
+.dimension-table-clickable :deep(.el-table__row) {
+    cursor: pointer;
 }
 
 .categories-form {

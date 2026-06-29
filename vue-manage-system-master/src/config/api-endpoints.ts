@@ -163,6 +163,7 @@ export const complaintEndpoints: ApiEndpoint[] = [
             { name: 'time_from', label: '开始日期', type: 'string', placeholder: 'YYYY-MM-DD' },
             { name: 'time_to', label: '结束日期', type: 'string', placeholder: 'YYYY-MM-DD' },
             { name: 'category_name', label: '分类名称', type: 'string', placeholder: '可选' },
+            { name: 'is_classified', label: '是否已归类', type: 'boolean', placeholder: 'true/false，留空为全部' },
             { name: 'page', label: '页码', type: 'number', default: 1, min: 1 },
             { name: 'page_size', label: '每页条数', type: 'number', default: 10, min: 1, max: 100 },
         ],

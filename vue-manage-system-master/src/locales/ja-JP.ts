@@ -375,6 +375,8 @@ export default {
             bodyPh: '苦情内容あいまい検索',
             category: '分類',
             optional: '任意',
+            classifyStatus: '分類状態',
+            classifyStatusAll: 'すべて',
             tableEmpty: 'データなし。「検索」をクリック',
             colRegion: '地域',
             colTime: '苦情日時',

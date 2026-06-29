@@ -31,6 +31,7 @@ export const getComplaintSamples = (params?: {
     time_from?: string;
     time_to?: string;
     category_name?: string;
+    is_classified?: boolean;
     page?: number;
     page_size?: number;
 }) => request.get('/complaints/samples', { params });
