@@ -1,0 +1,36 @@
+[project]
+name = "cur_index"
+version = "0.1.0"
+description = "FastAPI backend with document search and complaint services"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "python-multipart>=0.0.9",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "pgvector>=0.4.0",
+    "sentence-transformers>=3.0.0",
+    "notebook>=7.6.0",
+    "requests>=2.34.2",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0,<5",
+]
+
+[tool.uv]
+package = false
+
+
+[tool.black]
+line-length = 130
+
+[tool.ruff]
+line-length = 130
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true

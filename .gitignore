@@ -1,0 +1,37 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+
+# Database
+*.db
+data/attendance_faces/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# HF Space 禁止推送的大体积二进制（人脸模型在部署环境按需下载）
+vue-manage-system-master/public/models/*.bin
+vue-manage-system-master/screenshots/
+
