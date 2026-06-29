@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "FastAPI App"
     debug: bool = False
+    # 本地默认（.env）；部署在 HF Secrets 设 DATABASE_URL，Supabase 库名 postgres、端口 5432
     database_url: str = "postgresql://postgres:postgres@localhost:5435/ai_test"
     embedding_model_name: str = "BAAI/bge-small-zh-v1.5"
     embedding_dim: int = 512
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me-in-production-use-env"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
+    # Docker/HF 设为 true：API 挂 /api 前缀并托管 static/；本地不设，保持 Vite 代理
+    serve_static: bool = False
 
 
 settings = Settings()

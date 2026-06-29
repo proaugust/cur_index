@@ -3,14 +3,35 @@ import logging
 import threading
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from app.core.config import settings
+from app.core.config import BASE_DIR, settings
 from app.database import SessionLocal, engine
 from app.models import Base
 from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, meeting, menus, my_agent, permissions, roles, smart_route, users
 from app.services.rbac_seed import ensure_permission_schema, seed_rbac
+
+STATIC_DIR = BASE_DIR / "static"
+
+API_ROUTERS = (
+    auth.router,
+    users.router,
+    roles.router,
+    menus.router,
+    permissions.router,
+    items.router,
+    documents.router,
+    complaints.router,
+    chat.router,
+    meeting.router,
+    smart_route.router,
+    attendance.router,
+    my_agent.router,
+    cobol_migrate.router,
+    feature_intros.router,
+)
 
 
 def _configure_logging() -> None:
@@ -62,37 +83,43 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def _register_api_routes(app: FastAPI, *, prefix: str = "") -> None:
+    if prefix:
+        api_router = APIRouter(prefix=prefix)
+        for router in API_ROUTERS:
+            api_router.include_router(router)
+        app.include_router(api_router)
+    else:
+        for router in API_ROUTERS:
+            app.include_router(router)
+
+
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
-)
+if settings.serve_static:
+    _register_api_routes(app, prefix="/api")
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    _register_api_routes(app)
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(roles.router)
-app.include_router(menus.router)
-app.include_router(permissions.router)
-app.include_router(items.router)
-app.include_router(documents.router)
-app.include_router(complaints.router)
-app.include_router(chat.router)
-app.include_router(meeting.router)
-app.include_router(smart_route.router)  # 智能路由：天气/员工/邮件分发
-app.include_router(attendance.router)
-app.include_router(my_agent.router)
-app.include_router(cobol_migrate.router)
-app.include_router(feature_intros.router)
-
-
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "Hello, FastAPI!"}
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {"message": "Hello, FastAPI!"}
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if settings.serve_static and STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 
 if __name__ == "__main__":
