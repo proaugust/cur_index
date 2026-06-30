@@ -1,3 +1,13 @@
+---
+title: cur_index
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # FastAPI App
 
 纯 FastAPI 后端项目，按业务分层组织代码。
