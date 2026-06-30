@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     database_url: str = ""
     supabase_url: str = ""
     supabase_key: str = ""
-    supabase_db_password: str = "Z3UkKYAHJl0ieTjz"
+    supabase_db_password: str = ""
     supabase_pooler_host: str = "aws-1-ap-northeast-1.pooler.supabase.com"
     embedding_model_name: str = "BAAI/bge-small-zh-v1.5"
     embedding_dim: int = 512
