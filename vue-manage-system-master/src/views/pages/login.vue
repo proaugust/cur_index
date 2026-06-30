@@ -34,7 +34,7 @@
                     <el-link type="primary" @click="$router.push('/reset-pwd')">忘记密码</el-link>
                 </div>
                 <el-button class="login-btn" type="primary" size="large" @click="submitForm(login)">登录</el-button>
-                <p class="login-tips">Tips : 用户名 admin，密码 admin123456。</p>
+                <p class="login-tips">Tips : 用户名 user1，密码 111111。</p>
             </el-form>
         </div>
     </div>
@@ -60,8 +60,8 @@ const checked = ref(lgStr ? true : false);
 
 const router = useRouter();
 const param = reactive<LoginInfo>({
-    username: defParam ? defParam.username : 'admin',
-    password: defParam ? defParam.password : 'admin123456',
+    username: defParam ? defParam.username : 'user1',
+    password: defParam ? defParam.password : '111111',
 });
 
 const rules: FormRules = {
