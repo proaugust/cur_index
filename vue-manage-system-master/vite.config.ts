@@ -1,12 +1,31 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import VueSetupExtend from 'vite-plugin-vue-setup-extend';
 import AutoImport from 'unplugin-auto-import/vite';
 import Components from 'unplugin-vue-components/vite';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
-export default defineConfig({
-	base: './',
+
+/** Vite 3 dev：根路径 / 有时不落 index.html，显式改写 */
+function devRootIndexFallback(): Plugin {
+	return {
+		name: 'dev-root-index-fallback',
+		enforce: 'pre',
+		apply: 'serve',
+		configureServer(server) {
+			server.middlewares.use((req, _res, next) => {
+				if (req.url === '/' || req.url === '') {
+					req.url = '/index.html';
+				}
+				next();
+			});
+		},
+	};
+}
+
+export default defineConfig(({ command }) => ({
+	base: command === 'build' ? './' : '/',
 	plugins: [
+		devRootIndexFallback(),
 		vue(),
 		VueSetupExtend(),
 		AutoImport({
@@ -61,4 +80,4 @@ export default defineConfig({
 			},
 		},
 	},
-});
+}));
