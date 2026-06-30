@@ -404,3 +404,94 @@ class AttendancePersonRead(BaseModel):
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> datetime:
         return _as_utc_aware(value)
+
+
+class ZhaJinhuaStartResponse(BaseModel):
+    message: str
+    round: int
+    pot: int
+
+
+class ZhaJinhuaMessageResponse(BaseModel):
+    message: str
+
+
+class ZhaJinhuaTurnResponse(BaseModel):
+    player_id: str
+    display_name: str
+    skipped: bool = False
+    reason: str = ""
+    thought: str = ""
+    action: str = ""
+    amount: int = 0
+    target: str = ""
+    pot: int = 0
+    balance: int = 0
+    phase: str = ""
+    current_player_id: str | None = None
+
+
+class ZhaJinhuaRefereeResponse(BaseModel):
+    referee_voice: str
+
+
+class ZhaJinhuaAccessRequest(BaseModel):
+    enabled: bool
+
+
+class ZhaJinhuaAccessResponse(BaseModel):
+    enabled: bool
+    message: str
+
+
+class ZhaJinhuaPlayerStatus(BaseModel):
+    display_name: str
+    balance: int
+    has_looked: bool
+    alive: bool
+    cards: list[str]
+    cards_display: str = ""
+    hand_label: str = ""
+    session_pnl: int = 0
+
+
+class ZhaJinhuaSettlementPlayer(BaseModel):
+    display_name: str
+    cards: list[str]
+    cards_display: str
+    hand_label: str
+    round_pnl: int
+    balance: int
+    session_pnl: int
+    alive: bool
+
+
+class ZhaJinhuaSettlement(BaseModel):
+    winner_id: str
+    winner_name: str
+    pot_total: int
+    winner_net_win: int
+    players: dict[str, ZhaJinhuaSettlementPlayer]
+
+
+class ZhaJinhuaPotEntry(BaseModel):
+    step: int
+    player_id: str
+    display_name: str
+    amount: int
+    reason: str
+
+
+class ZhaJinhuaStatusResponse(BaseModel):
+    round: int
+    max_rounds: int
+    pot: int
+    current_bet: int
+    phase: str
+    game_enabled: bool = False
+    last_winner: str | None
+    last_winner_name: str | None = None
+    current_player_id: str | None = None
+    last_settlement: ZhaJinhuaSettlement | None = None
+    pot_ledger: list[ZhaJinhuaPotEntry] = []
+    players: dict[str, ZhaJinhuaPlayerStatus]

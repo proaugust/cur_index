@@ -23,18 +23,25 @@ def warmup() -> None:
         logger.warning("LLM 预热失败，首次 polished 请求可能更慢", exc_info=True)
 
 
-def chat_completion(system_prompt: str, user_prompt: str, *, temperature: float = 0.3) -> str:
+def chat_completion(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    temperature: float = 0.3,
+    json_mode: bool = False,
+) -> str:
     if not settings.openai_api_key:
         raise HTTPException(status_code=503, detail="未配置 OPENAI_API_KEY，无法调用大模型")
 
     url = f"{settings.llm_api_base.rstrip('/')}/chat/completions"
-    payload = json.dumps(
-        {
-            "model": settings.llm_model,
-            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            "temperature": temperature,
-        }
-    ).encode("utf-8")
+    body: dict = {
+        "model": settings.llm_model,
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "temperature": temperature,
+    }
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
+    payload = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(
         url, data=payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {settings.openai_api_key}"}, method="POST"
     )

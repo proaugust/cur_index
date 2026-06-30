@@ -104,6 +104,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "demo-cobol-migrate" */ '../views/demo/cobol-migrate.vue'),
             },
             {
+                path: '/demo-zha-jinhua',
+                name: 'demo-zha-jinhua',
+                meta: {
+                    titleKey: 'route.demoZhaJinhua',
+                    title: '炸金花',
+                    permiss: '89',
+                },
+                component: () => import(/* webpackChunkName: "demo-zha-jinhua" */ '../views/demo/zha-jinhua.vue'),
+            },
+            {
                 path: '/system-user',
                 name: 'system-user',
                 meta: {

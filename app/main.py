@@ -12,7 +12,7 @@ from sqlalchemy import text
 from app.core.config import BASE_DIR, Settings, settings
 from app.database import SessionLocal, engine
 from app.models import Base
-from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, meeting, menus, my_agent, permissions, roles, smart_route, users
+from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
 from app.services.rbac_seed import ensure_permission_schema, seed_rbac
 
 STATIC_DIR = BASE_DIR / "static"
@@ -35,6 +35,7 @@ API_ROUTERS = (
     my_agent.router,
     cobol_migrate.router,
     feature_intros.router,
+    zha_jinhua.router,
 )
 
 

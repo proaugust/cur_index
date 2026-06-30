@@ -1,0 +1,56 @@
+---
+description: 炸金花 LLM 对局模块 — 目录、分层、接口与实现约束
+globs: app/routers/**/zha_jinhua*.py,app/services/**/zha_jinhua*.py,app/game_logic/**/zha_jinhua*.py,app/routers/prompts/**
+alwaysApply: false
+---
+
+# 炸金花（Zha Jinhua）模块约定
+
+## 目标
+
+三 Agent 玩家 + 裁判 Agent；**规则引擎算牌算账**，LLM 只负责决策与解说。
+
+## 目录
+
+- 路由：`app/routers/zha_jinhua.py`（`APIRouter`，prefix `/game`）
+- 服务：`app/services/zha_jinhua_service.py`
+- 规则：`app/game_logic/zha_jinhua.py`（纯函数，可单测）
+- 提示词：`app/routers/prompts/`（`player_prompt.md`、`player1/2/3.md`、`referee_prompt.md`）
+
+Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
+
+## 集成
+
+- 注册于 `app/main.py` → `API_ROUTERS`
+- LLM 使用 `app.services.llm.chat_completion`（`json_mode=True` 优先）
+- 同步 LLM 在 service 内用 `asyncio.to_thread` 包装
+
+## 状态机
+
+- `phase`: `idle` → `betting` → `round_end` → … → `ended`（10 局）
+- 明注 = 暗注线 × 2（已看牌）
+- 比牌：先看牌，指定 `target`，输者出局
+- 结算写入 `last_settlement`（手牌、牌型、本局盈亏、累计盈亏）
+
+## API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/game/start` | 第一局 |
+| POST | `/game/next-round` | 下一局（`round_end` 后） |
+| POST | `/game/reset` | 重置 |
+| POST | `/game/turn/{player_id}` | 当前玩家 LLM 决策（须轮到该玩家） |
+| GET | `/game/referee` | 裁判解说 |
+| GET | `/game/status` | 局面 + 结算 |
+
+## LLM JSON 输出
+
+```json
+{"thought":"…","action":"看牌|跟注|加注|比牌|弃牌","amount":0,"target":"Player_2"}
+```
+
+## 禁止
+
+- 新增未声明依赖
+- router 内写业务逻辑
+- service 内硬编码比牌结果

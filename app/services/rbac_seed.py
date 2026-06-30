@@ -105,8 +105,8 @@ def seed_rbac(db: Session) -> None:
     code_map = _ensure_permissions(db)
 
     roles_spec = [
-        ("超级管理员", "super_admin", 1, True, default_permissions_for_menus(SUPER_ADMIN_MENU_PERMISSIONS)),
-        ("管理员", "admin", 2, True, default_permissions_for_menus(ADMIN_MENU_PERMISSIONS)),
+        ("超级管理员", "super_admin", 1, True, default_permissions_for_menus(SUPER_ADMIN_MENU_PERMISSIONS, include_admin_only_apis=True)),
+        ("管理员", "admin", 2, True, default_permissions_for_menus(ADMIN_MENU_PERMISSIONS, include_admin_only_apis=True)),
         ("用户", "user", 3, True, default_permissions_for_menus(USER_MENU_PERMISSIONS)),
     ]
     role_by_key: dict[str, Role] = {}

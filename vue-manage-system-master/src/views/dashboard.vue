@@ -4,78 +4,115 @@
             <el-col :span="6">
                 <el-card shadow="hover" body-class="card-body">
                     <el-icon class="card-icon bg1">
-                        <User />
+                        <TrendCharts />
                     </el-icon>
                     <div class="card-content">
-                        <countup class="card-num color1" :end="6666" />
-                        <div>用户访问量</div>
+                        <countup class="card-num color1" :end="summary.usIndex" :options="{ decimalPlaces: 1 }" />
+                        <div>美国 AI 指数 (2026)</div>
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
                 <el-card shadow="hover" body-class="card-body">
                     <el-icon class="card-icon bg2">
-                        <ChatDotRound />
+                        <Coin />
                     </el-icon>
                     <div class="card-content">
-                        <countup class="card-num color2" :end="168" />
-                        <div>系统消息</div>
+                        <countup class="card-num color2" :end="summary.totalInvestment" :options="{ decimalPlaces: 1 }" />
+                        <div>全球 AI 投资 (十亿美元)</div>
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
                 <el-card shadow="hover" body-class="card-body">
                     <el-icon class="card-icon bg3">
-                        <Goods />
+                        <Document />
                     </el-icon>
                     <div class="card-content">
-                        <countup class="card-num color3" :end="8888" />
-                        <div>商品数量</div>
+                        <countup class="card-num color3" :end="summary.totalPapers" :options="{ decimalPlaces: 1 }" />
+                        <div>全球发表论文 (千篇)</div>
                     </div>
                 </el-card>
             </el-col>
             <el-col :span="6">
                 <el-card shadow="hover" body-class="card-body">
                     <el-icon class="card-icon bg4">
-                        <ShoppingCartFull />
+                        <DataAnalysis />
                     </el-icon>
                     <div class="card-content">
-                        <countup class="card-num color4" :end="568" />
-                        <div>今日订单量</div>
+                        <countup class="card-num color4" :end="summary.avgScore" :options="{ decimalPlaces: 1 }" />
+                        <div>{{ summary.countryCount }} 国平均 AI 指数</div>
                     </div>
                 </el-card>
             </el-col>
         </el-row>
 
         <el-row :gutter="20" class="mgb20">
-            <el-col :span="18">
+            <el-col :span="16">
                 <el-card shadow="hover">
                     <div class="card-header">
-                        <p class="card-header-title">订单动态</p>
-                        <p class="card-header-desc">最近一周订单状态，包括订单成交量和订单退货量</p>
+                        <p class="card-header-title">全球 AI 指数趋势</p>
+                        <p class="card-header-desc">2015–2026 年 14 国/地区 AI_Index_Score 多线对比</p>
                     </div>
-                    <v-chart class="chart" :option="dashOpt1" />
+                    <v-chart class="chart" :option="indexTrendOption" autoresize />
                 </el-card>
             </el-col>
-            <el-col :span="6">
+            <el-col :span="8">
                 <el-card shadow="hover">
                     <div class="card-header">
-                        <p class="card-header-title">品类分布</p>
-                        <p class="card-header-desc">最近一个月销售商品的品类情况</p>
+                        <p class="card-header-title">2026 投资占比</p>
+                        <p class="card-header-desc">AI 投资 Top6 + 其他地区（十亿美元）</p>
                     </div>
-                    <v-chart class="chart" :option="dashOpt2" />
+                    <v-chart class="chart" :option="investmentPieOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
+
+        <el-row :gutter="20" class="mgb20">
+            <el-col :span="24">
+                <el-card shadow="hover">
+                    <div class="card-header">
+                        <p class="card-header-title">2026 全球 AI 指数分布</p>
+                        <p class="card-header-desc">14 国/地区有数据（有颜色的区域）；其余国家悬停显示「暂无数据」</p>
+                    </div>
+                    <v-chart class="chart chart-map" :option="worldMapOption" autoresize />
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <el-row :gutter="20" class="mgb20">
+            <el-col :span="24">
+                <el-card shadow="hover">
+                    <div class="card-header">
+                        <p class="card-header-title">全球 AI 投资动态排行</p>
+                        <p class="card-header-desc">2015–2026 年各国投资金额动态条形图（自动播放，可点击时间轴切换年份）</p>
+                    </div>
+                    <v-chart class="chart chart-tall" :option="barRaceOption" autoresize />
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <el-row :gutter="20" class="mgb20">
+            <el-col :span="24">
+                <el-card shadow="hover">
+                    <div class="card-header">
+                        <p class="card-header-title">AI 智力提升趋势</p>
+                        <p class="card-header-desc">2018–2026 年模型在阅读理解、数学推理、代码生成、复杂推理（人类考试）四项能力得分</p>
+                    </div>
+                    <v-chart class="chart" :option="intelligenceTrendOption" autoresize />
+                </el-card>
+            </el-col>
+        </el-row>
+
         <el-row :gutter="20">
-            <el-col :span="7">
+            <el-col :span="10">
                 <el-card shadow="hover" :body-style="{ height: '400px' }">
                     <div class="card-header">
-                        <p class="card-header-title">时间线</p>
-                        <p class="card-header-desc">最新的销售动态和活动信息</p>
+                        <p class="card-header-title">发展里程碑</p>
+                        <p class="card-header-desc">全球 AI 发展关键节点</p>
                     </div>
                     <el-timeline>
-                        <el-timeline-item v-for="(activity, index) in activities" :key="index" :color="activity.color">
+                        <el-timeline-item v-for="(activity, index) in aiMilestones" :key="index" :color="activity.color">
                             <div class="timeline-item">
                                 <div>
                                     <p>{{ activity.content }}</p>
@@ -87,28 +124,19 @@
                     </el-timeline>
                 </el-card>
             </el-col>
-            <el-col :span="10">
+            <el-col :span="14">
                 <el-card shadow="hover" :body-style="{ height: '400px' }">
                     <div class="card-header">
-                        <p class="card-header-title">渠道统计</p>
-                        <p class="card-header-desc">最近一个月的订单来源统计</p>
-                    </div>
-                    <v-chart class="map-chart" :option="mapOptions" />
-                </el-card>
-            </el-col>
-            <el-col :span="7">
-                <el-card shadow="hover" :body-style="{ height: '400px' }">
-                    <div class="card-header">
-                        <p class="card-header-title">排行榜</p>
-                        <p class="card-header-desc">销售商品的热门榜单Top5</p>
+                        <p class="card-header-title">AI 指数排行</p>
+                        <p class="card-header-desc">2026 年 AI 指数 Top5</p>
                     </div>
                     <div>
-                        <div class="rank-item" v-for="(rank, index) in ranks">
+                        <div class="rank-item" v-for="(rank, index) in ranks" :key="rank.title">
                             <div class="rank-item-avatar">{{ index + 1 }}</div>
                             <div class="rank-item-content">
                                 <div class="rank-item-top">
                                     <div class="rank-item-title">{{ rank.title }}</div>
-                                    <div class="rank-item-desc">销量：{{ rank.value }}</div>
+                                    <div class="rank-item-desc">指数：{{ rank.value }}</div>
                                 </div>
                                 <el-progress
                                     :show-text="false"
@@ -127,98 +155,55 @@
 </template>
 
 <script setup lang="ts" name="dashboard">
+import { computed } from 'vue';
 import countup from '@/components/countup.vue';
-import { use, registerMap } from 'echarts/core';
-import { BarChart, LineChart, PieChart, MapChart } from 'echarts/charts';
+import { registerMap, use } from 'echarts/core';
+import { BarChart, LineChart, MapChart, PieChart } from 'echarts/charts';
 import {
     GridComponent,
     TooltipComponent,
     LegendComponent,
-    TitleComponent,
+    TimelineComponent,
     VisualMapComponent,
+    GeoComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
-import { dashOpt1, dashOpt2, mapOptions } from './chart/options';
-import chinaMap from '@/utils/china';
+import worldJson from './chart/world.json';
+import {
+    aiMilestones,
+    buildIndexTrendOption,
+    buildInvestmentBarRaceOption,
+    buildInvestmentPieOption,
+    buildRegionRanks,
+    buildSummaryCards,
+    buildWorldMapOption,
+} from './chart/ai-index-data';
+import { buildIntelligenceTrendOption } from './chart/ai-intelligence-data';
+
 use([
     CanvasRenderer,
     BarChart,
     GridComponent,
     LineChart,
+    MapChart,
     PieChart,
     TooltipComponent,
     LegendComponent,
-    TitleComponent,
+    TimelineComponent,
     VisualMapComponent,
-    MapChart,
+    GeoComponent,
 ]);
-registerMap('china', chinaMap);
-const activities = [
-    {
-        content: '收藏商品',
-        description: 'xxx收藏了你的商品，就是不买',
-        timestamp: '30分钟前',
-        color: '#00bcd4',
-    },
-    {
-        content: '用户评价',
-        description: 'xxx给了某某商品一个差评，吐血啊',
-        timestamp: '55分钟前',
-        color: '#1ABC9C',
-    },
-    {
-        content: '订单提交',
-        description: 'xxx提交了订单，快去收钱吧',
-        timestamp: '1小时前',
-        color: '#3f51b5',
-    },
-    {
-        content: '退款申请',
-        description: 'xxx申请了仅退款，又要亏钱了',
-        timestamp: '15小时前',
-        color: '#f44336',
-    },
-    {
-        content: '商品上架',
-        description: '运营专员瞒着你上架了一辆飞机',
-        timestamp: '1天前',
-        color: '#009688',
-    },
-];
 
-const ranks = [
-    {
-        title: '手机',
-        value: 10000,
-        percent: 80,
-        color: '#f25e43',
-    },
-    {
-        title: '电脑',
-        value: 8000,
-        percent: 70,
-        color: '#00bcd4',
-    },
-    {
-        title: '相机',
-        value: 6000,
-        percent: 60,
-        color: '#64d572',
-    },
-    {
-        title: '衣服',
-        value: 5000,
-        percent: 55,
-        color: '#e9a745',
-    },
-    {
-        title: '书籍',
-        value: 4000,
-        percent: 50,
-        color: '#009688',
-    },
-];
+registerMap('world', worldJson as Parameters<typeof registerMap>[1]);
+
+const summary = buildSummaryCards();
+const ranks = buildRegionRanks();
+const indexTrendOption = computed(() => buildIndexTrendOption());
+const investmentPieOption = computed(() => buildInvestmentPieOption());
+const barRaceOption = computed(() => buildInvestmentBarRaceOption());
+const worldMapOption = buildWorldMapOption();
+const intelligenceTrendOption = buildIntelligenceTrendOption();
 </script>
 
 <style>
@@ -288,6 +273,14 @@ const ranks = [
     height: 400px;
 }
 
+.chart-tall {
+    height: 520px;
+}
+
+.chart-map {
+    height: 480px;
+}
+
 .card-header {
     padding-left: 10px;
     margin-bottom: 20px;
@@ -349,9 +342,5 @@ const ranks = [
 .rank-item-desc {
     font-size: 14px;
     color: #999;
-}
-.map-chart {
-    width: 100%;
-    height: 350px;
 }
 </style>

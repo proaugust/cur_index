@@ -149,6 +149,23 @@ export const askChat = (data: {
     temperature?: number;
 }) => request.post('/chat/ask', data);
 
+// --- zha jinhua ---
+export const startZhaJinhuaGame = () => request.post('/game/start');
+
+export const nextZhaJinhuaRound = () => request.post('/game/next-round');
+
+export const resetZhaJinhuaGame = () => request.post('/game/reset');
+
+export const zhaJinhuaTurn = (playerId: string) =>
+    request.post(`/game/turn/${playerId}`);
+
+export const getZhaJinhuaReferee = () => request.get('/game/referee');
+
+export const getZhaJinhuaStatus = () => request.get('/game/status');
+
+export const setZhaJinhuaAccess = (enabled: boolean) =>
+    request.post('/game/access', { enabled });
+
 // --- feature intros ---
 export interface FeatureIntroRow {
     page_key: string;

@@ -714,6 +714,39 @@ const stopCamera = () => {
     statusText.value = modelsReady.value ? '摄像头已关闭' : statusText.value;
 };
 
+const disposeLoadedNet = (net: { isLoaded: boolean; dispose: () => void }) => {
+    if (!net.isLoaded) return;
+    try {
+        net.dispose();
+    } catch {
+        // ignore dispose errors on teardown
+    }
+};
+
+const releaseFaceModels = () => {
+    if (!faceapi) return;
+    disposeLoadedNet(faceapi.nets.tinyFaceDetector);
+    disposeLoadedNet(faceapi.nets.faceLandmark68TinyNet);
+    disposeLoadedNet(faceapi.nets.faceRecognitionNet);
+    faceapi = null;
+    modelsReady.value = false;
+    modelsLoadPromise = null;
+    detectorOptions = null;
+};
+
+const releasePersonPhotos = () => {
+    for (const userId of Object.keys(personPhotoUrls.value)) {
+        revokeAttendancePersonPhoto(userId);
+    }
+    personPhotoUrls.value = {};
+};
+
+const releaseResources = () => {
+    stopCamera();
+    releaseFaceModels();
+    releasePersonPhotos();
+};
+
 const ensureOverlaySize = (video: HTMLVideoElement) => {
     const canvas = canvasRef.value;
     if (!canvas || !faceapi || overlayReady || video.videoWidth <= 0) return;
@@ -974,14 +1007,14 @@ onMounted(async () => {
 });
 
 onDeactivated(() => {
-    stopCamera();
+    releaseResources();
 });
 
 onBeforeUnmount(() => {
     if (highlightTimer) {
         clearTimeout(highlightTimer);
     }
-    stopCamera();
+    releaseResources();
 });
 </script>
 

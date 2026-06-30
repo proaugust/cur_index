@@ -87,6 +87,12 @@ export const menuData: Menus[] = [
                 index: '/demo-cobol-migrate',
                 titleKey: 'menu.demoCobolMigrate',
             },
+            {
+                id: '89',
+                pid: '8',
+                index: '/demo-zha-jinhua',
+                titleKey: 'menu.demoZhaJinhua',
+            },
         ],
     },
     {

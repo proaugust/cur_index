@@ -20,6 +20,7 @@ MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
     ("86", "智能路由", "8", "/demo-smart-route", None),
     ("87", "人脸打卡", "8", "/demo-attendance", None),
     ("88", "COBOL to Java", "8", "/demo-cobol-migrate", None),
+    ("89", "炸金花", "8", "/demo-zha-jinhua", None),
     ("7", "主题设置", None, "/theme", "Brush"),
     ("6", "附加页面", None, "6", "DocumentAdd"),
     ("61", "个人中心", "6", "/ucenter", None),
@@ -105,6 +106,14 @@ API_PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     # COBOL → Java 迁移示范
     ("88", "run", "执行迁移步骤", "POST", "/cobol_migrate/step/{step}"),
     ("88", "pipeline", "一键全流程", "POST", "/cobol_migrate/pipeline"),
+    # 炸金花
+    ("89", "start", "开始一局", "POST", "/game/start"),
+    ("89", "next-round", "下一局", "POST", "/game/next-round"),
+    ("89", "reset", "重置游戏", "POST", "/game/reset"),
+    ("89", "turn", "玩家出牌", "POST", "/game/turn/{player_id}"),
+    ("89", "referee", "裁判解说", "GET", "/game/referee"),
+    ("89", "status", "牌局状态", "GET", "/game/status"),
+    ("89", "access", "开启/关闭游戏", "POST", "/game/access"),
     # 功能介绍（演示页共用）
     ("8", "feature-intros-list", "功能介绍列表", "GET", "/feature-intros/"),
     ("8", "feature-intros-upsert", "保存功能介绍", "PUT", "/feature-intros/{page_key}/{section_key}"),
@@ -135,6 +144,7 @@ ADMIN_MENU_PERMISSIONS = [
     "86",
     "87",
     "88",
+    "89",
     "7",
     "6",
     "61",
@@ -145,7 +155,10 @@ ADMIN_MENU_PERMISSIONS = [
     "66",
 ]
 
-USER_MENU_PERMISSIONS = ["0", "8", "81", "82", "83", "84", "85", "86", "87", "88"]
+USER_MENU_PERMISSIONS = ["0", "8", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
+
+# 仅管理员角色分配的 API 权限（普通用户即使有菜单 89 也不包含）
+ADMIN_ONLY_API_CODES = frozenset({"89.access"})
 
 
 def api_codes_for_menus(menu_codes: list[str]) -> list[str]:
@@ -153,5 +166,12 @@ def api_codes_for_menus(menu_codes: list[str]) -> list[str]:
     return [code for code in API_CODES if code.split(".", 1)[0] in menus]
 
 
-def default_permissions_for_menus(menu_codes: list[str]) -> list[str]:
-    return sorted(set(menu_codes) | set(api_codes_for_menus(menu_codes)))
+def default_permissions_for_menus(
+    menu_codes: list[str],
+    *,
+    include_admin_only_apis: bool = False,
+) -> list[str]:
+    apis = api_codes_for_menus(menu_codes)
+    if not include_admin_only_apis:
+        apis = [code for code in apis if code not in ADMIN_ONLY_API_CODES]
+    return sorted(set(menu_codes) | set(apis))

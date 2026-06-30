@@ -17,9 +17,10 @@
     </div>
 </template>
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useSidebarStore } from '@/store/sidebar';
 import { useTabsStore } from '@/store/tabs';
+import { prefetchDemoRoutes } from '@/utils/prefetch-demo-routes';
 import vHeader from '@/components/header.vue';
 import vSidebar from '@/components/sidebar.vue';
 import vTabs from '@/components/tabs.vue';
@@ -27,6 +28,10 @@ import vTabs from '@/components/tabs.vue';
 const sidebar = useSidebarStore();
 const tabs = useTabsStore();
 const cachedTabNames = computed(() => tabs.nameList.filter((name) => name !== 'demo-attendance'));
+
+onMounted(() => {
+    prefetchDemoRoutes();
+});
 </script>
 
 <style>
