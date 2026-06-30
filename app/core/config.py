@@ -9,6 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_LOCAL_DB = "postgresql://postgres:postgres@localhost:5435/ai_test"
+# Supabase 东京区 Pooler：Dashboard 给 aws-1，旧文档/Secret 常见误写 aws-0
+_POOLER_AWS0 = "aws-0-ap-northeast-1.pooler.supabase.com"
+_POOLER_AWS1 = "aws-1-ap-northeast-1.pooler.supabase.com"
+
+
+def _normalize_pooler_host(url: str) -> str:
+    return url.replace(_POOLER_AWS0, _POOLER_AWS1)
 
 
 class Settings(BaseSettings):
@@ -39,12 +46,14 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     # Docker/HF 设为 true：API 挂 /api 前缀并托管 static/；本地不设，保持 Vite 代理
     serve_static: bool = False
+    database_url_source: str = ""
 
     @model_validator(mode="after")
     def _resolve_database_url(self) -> Self:
+        source = "local_default"
         if self.database_url.startswith(("postgresql://", "postgresql+")):
-            return self
-        if self.supabase_url and self.supabase_db_password:
+            source = "DATABASE_URL"
+        elif self.supabase_url and self.supabase_db_password:
             ref = self.supabase_url.removeprefix("https://").removeprefix("http://").removesuffix(".supabase.co")
             pwd = urllib.parse.quote_plus(self.supabase_db_password)
             object.__setattr__(
@@ -55,8 +64,15 @@ class Settings(BaseSettings):
                     f"@{self.supabase_pooler_host}:6543/postgres?sslmode=require"
                 ),
             )
+            source = "supabase_compose"
         else:
             object.__setattr__(self, "database_url", _DEFAULT_LOCAL_DB)
+
+        url = _normalize_pooler_host(self.database_url)
+        if url != self.database_url:
+            source = f"{source}+pooler_fix"
+        object.__setattr__(self, "database_url", url)
+        object.__setattr__(self, "database_url_source", source)
         return self
 
     def supabase_client(self):

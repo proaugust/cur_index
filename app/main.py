@@ -74,8 +74,11 @@ def _warmup_in_background() -> None:
 async def lifespan(app: FastAPI):
     env_db = os.getenv("DATABASE_URL")
     logger.info("环境变量 DATABASE_URL: %s", "已设置" if env_db else "未设置")
+    logger.info("数据库连接来源: %s", settings.database_url_source or "unknown")
     db_url = settings.database_url
     db_target = db_url.split("@")[-1] if "@" in db_url else db_url
+    if "pooler_fix" in (settings.database_url_source or ""):
+        logger.warning("DATABASE_URL 含 aws-0 Pooler，已自动改为 aws-1-ap-northeast-1")
     if "localhost" in db_url or "127.0.0.1" in db_url:
         logger.error(
             "DATABASE_URL 仍指向本机 (%s)。HF 请在 Space → Repository secrets 配置与本地 .env 相同的 Pooler 连接串。",
