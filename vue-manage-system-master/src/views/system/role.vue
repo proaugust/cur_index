@@ -13,12 +13,12 @@
             >
                 <template #toolbarBtn>
                     <el-button v-if="canManage" type="warning" :icon="CirclePlusFilled" @click="openCreate">
-                        新增
+                        {{ t('pages.system.add') }}
                     </el-button>
                 </template>
                 <template #status="{ rows }">
-                    <el-tag type="success" v-if="rows.status">启用</el-tag>
-                    <el-tag type="danger" v-else>禁用</el-tag>
+                    <el-tag type="success" v-if="rows.status">{{ t('pages.system.enabled') }}</el-tag>
+                    <el-tag type="danger" v-else>{{ t('pages.system.disabled') }}</el-tag>
                 </template>
                 <template #permissions="{ rows }">
                     <el-button
@@ -28,14 +28,14 @@
                         plain
                         @click="handleEdit(rows)"
                     >
-                        编辑权限
+                        {{ t('pages.system.editPermissions') }}
                     </el-button>
                 </template>
             </TableCustom>
         </div>
 
         <el-dialog
-            :title="isEdit ? '编辑角色' : '新增角色'"
+            :title="isEdit ? t('pages.system.editRole') : t('pages.system.addRole')"
             v-model="visible"
             width="920px"
             destroy-on-close
@@ -45,24 +45,24 @@
             <el-form :model="form" label-width="100px">
                 <el-row :gutter="16">
                     <el-col :span="12">
-                        <el-form-item label="角色名称" required>
-                            <el-input v-model="form.name" placeholder="请输入角色名称" />
+                        <el-form-item :label="t('pages.system.roleName')" required>
+                            <el-input v-model="form.name" :placeholder="t('pages.system.roleName')" />
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="角色标识" required>
-                            <el-input v-model="form.key" :disabled="isEdit" placeholder="如 auditor" />
+                        <el-form-item :label="t('pages.system.roleKey')" required>
+                            <el-input v-model="form.key" :disabled="isEdit" placeholder="auditor" />
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="状态">
-                            <el-switch v-model="form.status" active-text="启用" inactive-text="禁用" />
+                        <el-form-item :label="t('pages.system.status')">
+                            <el-switch v-model="form.status" :active-text="t('pages.system.enabled')" :inactive-text="t('pages.system.disabled')" />
                         </el-form-item>
                     </el-col>
                 </el-row>
             </el-form>
 
-            <el-divider content-position="left">菜单与接口权限</el-divider>
+            <el-divider content-position="left">{{ t('pages.system.menuApiPermissions') }}</el-divider>
             <RolePermission
                 v-if="visible"
                 ref="permRef"
@@ -71,16 +71,16 @@
             />
 
             <template #footer>
-                <el-button @click="closeDialog">取消</el-button>
-                <el-button type="primary" :loading="saving" @click="saveRole">保存</el-button>
+                <el-button @click="closeDialog">{{ t('common.cancel') }}</el-button>
+                <el-button type="primary" :loading="saving" @click="saveRole">{{ t('common.save') }}</el-button>
             </template>
         </el-dialog>
 
-        <el-dialog title="查看详情" v-model="visible1" width="700px" destroy-on-close>
+        <el-dialog :title="t('pages.system.viewDetail')" v-model="visible1" width="700px" destroy-on-close>
             <TableDetail :data="viewData">
                 <template #status="{ rows }">
-                    <el-tag type="success" v-if="rows.status">启用</el-tag>
-                    <el-tag type="danger" v-else>禁用</el-tag>
+                    <el-tag type="success" v-if="rows.status">{{ t('pages.system.enabled') }}</el-tag>
+                    <el-tag type="danger" v-else>{{ t('pages.system.disabled') }}</el-tag>
                 </template>
             </TableDetail>
         </el-dialog>
@@ -88,7 +88,8 @@
 </template>
 
 <script setup lang="ts" name="system-role">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { Role } from '@/types/role';
 import { createRole, deleteRole, fetchMe, fetchRoleData, updateRole } from '@/api';
@@ -99,23 +100,30 @@ import RolePermission from './role-permission.vue';
 import { CirclePlusFilled } from '@element-plus/icons-vue';
 import { FormOptionList } from '@/types/form-option';
 
+const { t } = useI18n();
+
 const canManage = ref(false);
 const saving = ref(false);
 const permRef = ref<InstanceType<typeof RolePermission>>();
 
 const query = reactive({ name: '' });
-const searchOpt = ref<FormOptionList[]>([{ type: 'input', label: '角色名称：', prop: 'name' }]);
+const searchOpt = computed<FormOptionList[]>(() => [{ type: 'input', label: t('pages.system.roleNameLabel'), prop: 'name' }]);
 const handleSearch = () => changePage(1);
 
-const baseColumns = [
-    { type: 'index', label: '序号', width: 55, align: 'center' },
-    { prop: 'name', label: '角色名称' },
-    { prop: 'key', label: '角色标识' },
-    { prop: 'status', label: '状态' },
-    { prop: 'permissions', label: '权限配置', width: 120 },
-    { prop: 'operator', label: '操作', width: 250 },
-];
-const columns = ref(baseColumns);
+const columns = computed(() => {
+    const cols = [
+        { type: 'index', label: t('pages.system.index'), width: 55, align: 'center' },
+        { prop: 'name', label: t('pages.system.roleName') },
+        { prop: 'key', label: t('pages.system.roleKey') },
+        { prop: 'status', label: t('pages.system.status') },
+        { prop: 'permissions', label: t('pages.system.editPermissions'), width: 120 },
+        { prop: 'operator', label: t('pages.system.operator'), width: 250 },
+    ];
+    if (!canManage.value) {
+        return cols.filter((item) => item.prop !== 'operator' && item.prop !== 'permissions');
+    }
+    return cols;
+});
 const page = reactive({ index: 1, size: 10, total: 0 });
 const tableData = ref<Role[]>([]);
 
@@ -130,9 +138,6 @@ const getData = async () => {
 onMounted(async () => {
     const me = await fetchMe();
     canManage.value = me.data.user.level === 1;
-    if (!canManage.value) {
-        columns.value = baseColumns.filter((item) => item.prop !== 'operator' && item.prop !== 'permissions');
-    }
     getData();
 });
 
@@ -171,7 +176,7 @@ const handleEdit = (row: Role) => {
 
 const saveRole = async () => {
     if (!form.value.name.trim() || !form.value.key.trim()) {
-        ElMessage.warning('请填写角色名称和标识');
+        ElMessage.warning(t('pages.system.roleNameRequired'));
         return;
     }
     const permiss = permRef.value?.getCheckedPermissions() || [];
@@ -183,7 +188,7 @@ const saveRole = async () => {
                 status: form.value.status,
                 permiss,
             });
-            ElMessage.success('角色与权限已更新');
+            ElMessage.success(t('pages.system.roleUpdated'));
         } else {
             await createRole({
                 name: form.value.name,
@@ -191,12 +196,12 @@ const saveRole = async () => {
                 status: form.value.status,
                 permiss,
             });
-            ElMessage.success('角色已创建');
+            ElMessage.success(t('pages.system.roleCreated'));
         }
         closeDialog();
         getData();
     } catch {
-        ElMessage.error('保存失败');
+        ElMessage.error(t('pages.system.saveFailed'));
     } finally {
         saving.value = false;
     }
@@ -212,10 +217,10 @@ const viewData = ref({ row: {}, list: [], column: 1 });
 const handleView = (row: Role) => {
     viewData.value.row = { ...row };
     viewData.value.list = [
-        { prop: 'id', label: '角色ID' },
-        { prop: 'name', label: '角色名称' },
-        { prop: 'key', label: '角色标识' },
-        { prop: 'status', label: '角色状态' },
+        { prop: 'id', label: t('pages.system.roleId') },
+        { prop: 'name', label: t('pages.system.roleName') },
+        { prop: 'key', label: t('pages.system.roleKey') },
+        { prop: 'status', label: t('pages.system.roleStatus') },
     ];
     visible1.value = true;
 };
@@ -223,10 +228,10 @@ const handleView = (row: Role) => {
 const handleDelete = async (row: Role) => {
     try {
         await deleteRole(row.id);
-        ElMessage.success('删除成功');
+        ElMessage.success(t('pages.system.deleteSuccess'));
         getData();
     } catch {
-        ElMessage.error('删除失败');
+        ElMessage.error(t('pages.system.deleteFailed'));
     }
 };
 </script>

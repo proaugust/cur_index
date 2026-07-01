@@ -1,3 +1,4 @@
+import logging
 import re
 
 from fastapi import Depends, HTTPException, status
@@ -6,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models import Permission, User
 from app.services.permission_catalog import ROUTE_PERMISSION_MAP
+
+logger = logging.getLogger(__name__)
 
 
 def is_super_admin(user: User) -> bool:
@@ -52,6 +55,13 @@ def require_permission(code: str):
         if is_super_admin(user):
             return user
         if code not in user_permission_codes(user):
+            logger.warning(
+                "权限拒绝 user_id=%s username=%s role=%s code=%s",
+                user.id,
+                user.username,
+                user.role.name if user.role else None,
+                code,
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"缺少权限: {code}")
         return user
 
@@ -66,6 +76,15 @@ def require_api(method: str, path: str):
         if not code:
             return user
         if code not in user_permission_codes(user):
+            logger.warning(
+                "接口权限拒绝 user_id=%s username=%s role=%s %s %s code=%s",
+                user.id,
+                user.username,
+                user.role.name if user.role else None,
+                method,
+                path,
+                code,
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"缺少接口权限: {code}")
         return user
 

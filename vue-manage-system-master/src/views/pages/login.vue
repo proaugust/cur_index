@@ -3,11 +3,11 @@
         <div class="login-container">
             <div class="login-header">
                 <img class="logo mr10" src="../../assets/img/logo.svg" alt="" />
-                <div class="login-title">AI功能演示</div>
+                <div class="login-title">{{ t('pages.login.title') }}</div>
             </div>
             <el-form :model="param" :rules="rules" ref="login" size="large">
                 <el-form-item prop="username">
-                    <el-input v-model="param.username" placeholder="用户名">
+                    <el-input v-model="param.username" :placeholder="t('pages.login.username')">
                         <template #prepend>
                             <el-icon>
                                 <User />
@@ -18,7 +18,7 @@
                 <el-form-item prop="password">
                     <el-input
                         type="password"
-                        placeholder="密码"
+                        :placeholder="t('pages.login.password')"
                         v-model="param.password"
                         @keyup.enter="submitForm(login)"
                     >
@@ -30,24 +30,27 @@
                     </el-input>
                 </el-form-item>
                 <div class="pwd-tips">
-                    <el-checkbox class="pwd-checkbox" v-model="checked" label="记住密码" />
-                    <el-link type="primary" @click="$router.push('/reset-pwd')">忘记密码</el-link>
+                    <el-checkbox class="pwd-checkbox" v-model="checked" :label="t('pages.login.remember')" />
+                    <el-link type="primary" @click="$router.push('/reset-pwd')">{{ t('pages.login.forgot') }}</el-link>
                 </div>
-                <el-button class="login-btn" type="primary" size="large" @click="submitForm(login)">登录</el-button>
-                <p class="login-tips">Tips : 用户名 user1，密码 111111。</p>
+                <el-button class="login-btn" type="primary" size="large" @click="submitForm(login)">{{ t('pages.login.submit') }}</el-button>
+                <p class="login-tips">{{ t('pages.login.tips') }}</p>
             </el-form>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useTabsStore } from '@/store/tabs';
 import { usePermissStore } from '@/store/permiss';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { login as loginApi } from '@/api';
+
+const { t } = useI18n();
 
 interface LoginInfo {
     username: string;
@@ -64,23 +67,23 @@ const param = reactive<LoginInfo>({
     password: defParam ? defParam.password : '111111',
 });
 
-const rules: FormRules = {
+const rules = computed<FormRules>(() => ({
     username: [
         {
             required: true,
-            message: '请输入用户名',
+            message: t('pages.login.usernameRequired'),
             trigger: 'blur',
         },
     ],
-    password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-};
+    password: [{ required: true, message: t('pages.login.passwordRequired'), trigger: 'blur' }],
+}));
 const permiss = usePermissStore();
 const login = ref<FormInstance>();
 const submitForm = (formEl: FormInstance | undefined) => {
     if (!formEl) return;
     formEl.validate(async (valid: boolean) => {
         if (!valid) {
-            ElMessage.error('登录失败');
+            ElMessage.error(t('pages.login.loginFailed'));
             return false;
         }
         try {
@@ -92,7 +95,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
             localStorage.setItem('access_token', data.access_token);
             localStorage.setItem('vuems_name', data.user.username);
             permiss.handleSet(data.permissions);
-            ElMessage.success('登录成功');
+            ElMessage.success(t('pages.login.loginSuccess'));
             router.push('/');
             if (checked.value) {
                 localStorage.setItem('login-param', JSON.stringify({ username: param.username, password: param.password }));
@@ -100,7 +103,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
                 localStorage.removeItem('login-param');
             }
         } catch {
-            ElMessage.error('用户名或密码错误');
+            ElMessage.error(t('pages.login.authFailed'));
         }
     });
 };

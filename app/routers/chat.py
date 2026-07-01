@@ -29,5 +29,5 @@ def ask_chat(
 
     system_prompt = body.system_prompt.strip() if body.system_prompt else _DEFAULT_SYSTEM
     user_prompt = _build_user_prompt(body.question.strip(), body.history)
-    answer = chat_completion(system_prompt, user_prompt, temperature=body.temperature)
+    answer = chat_completion(system_prompt, user_prompt, temperature=body.temperature, caller="chat.ask")
     return schemas.ChatAskResponse(question=body.question, answer=answer)

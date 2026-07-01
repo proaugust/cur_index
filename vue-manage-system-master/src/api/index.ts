@@ -204,6 +204,9 @@ export const login = (data: { username: string; password: string }) =>
 
 export const fetchMe = () => request.get('/auth/me');
 
+export const changePassword = (data: { old_password: string; new_password: string }) =>
+    request.put('/auth/password', data);
+
 export const fetchUserData = (params?: { name?: string; page?: number; page_size?: number }) =>
     request.get('/users/', { params });
 
@@ -272,3 +275,9 @@ export const updateMenu = (
 export const deleteMenu = (code: string) => request.delete(`/menus/${code}`);
 
 export const fetchPermissionTree = () => request.get('/permissions/tree');
+
+export const fetchLlmUsageStats = (params?: { days?: number; exclude_warmup?: boolean }) =>
+    request.get('/llm-usage/stats', { params });
+
+export const fetchLlmUsageRecent = (params?: { limit?: number }) =>
+    request.get('/llm-usage/recent', { params });

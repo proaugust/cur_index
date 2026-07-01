@@ -64,6 +64,36 @@ const COUNTRY_COLORS = [
 
 const LATEST_YEAR = 2026;
 
+export interface DashboardChartTexts {
+    countryLabel: (country: string) => string;
+    aiIndex: string;
+    investmentBillion: string;
+    investmentAxis: string;
+    yearSuffix: string;
+    othersRegion: string;
+    mapHigh: string;
+    mapLow: string;
+    noData: string;
+    formatTooltipIndex: (score: number) => string;
+    formatTooltipInvestment: (v: number) => string;
+    formatTooltipPapers: (v: number) => string;
+}
+
+const DEFAULT_CHART_TEXTS: DashboardChartTexts = {
+    countryLabel: (country) => COUNTRY_LABELS[country] ?? country,
+    aiIndex: 'AI 指数',
+    investmentBillion: '十亿美元',
+    investmentAxis: '投资 (十亿美元)',
+    yearSuffix: ' 年',
+    othersRegion: '其他地区',
+    mapHigh: '高',
+    mapLow: '低',
+    noData: '暂无数据',
+    formatTooltipIndex: (score) => `AI 指数：${score}`,
+    formatTooltipInvestment: (v) => `投资：${v} 十亿美元`,
+    formatTooltipPapers: (v) => `论文：${v} 千篇`,
+};
+
 function parseCsv(raw: string): AiTrendRow[] {
     const lines = raw.trim().split(/\r?\n/);
     return lines.slice(1).map((line) => {
@@ -103,7 +133,7 @@ function countryColor(country: string): string {
     return COUNTRY_COLORS[index >= 0 ? index : 0] ?? '#2d8cf0';
 }
 
-export function buildIndexTrendOption() {
+export function buildIndexTrendOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const years = getYears().map(String);
     const countries = getCountries();
 
@@ -114,7 +144,7 @@ export function buildIndexTrendOption() {
         legend: {
             type: 'scroll',
             top: 0,
-            data: countries.map((country) => COUNTRY_LABELS[country] ?? country),
+            data: countries.map((country) => texts.countryLabel(country)),
         },
         grid: {
             top: '14%',
@@ -131,12 +161,12 @@ export function buildIndexTrendOption() {
         },
         yAxis: {
             type: 'value',
-            name: 'AI 指数',
+            name: texts.aiIndex,
             min: 0,
             max: 105,
         },
         series: countries.map((country) => ({
-            name: COUNTRY_LABELS[country] ?? country,
+            name: texts.countryLabel(country),
             type: 'line',
             smooth: true,
             symbol: 'circle',
@@ -151,7 +181,7 @@ export function buildIndexTrendOption() {
     };
 }
 
-export function buildInvestmentBarRaceOption() {
+export function buildInvestmentBarRaceOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const years = getYears();
     const maxInvestment = Math.ceil(Math.max(...AI_TRENDS_DATA.map((row) => row.investmentBillionsUsd)) * 1.1);
 
@@ -162,7 +192,7 @@ export function buildInvestmentBarRaceOption() {
             yAxis: {
                 type: 'category',
                 inverse: true,
-                data: ranked.map((row) => COUNTRY_LABELS[row.country] ?? row.country),
+                data: ranked.map((row) => texts.countryLabel(row.country)),
                 animationDuration: 300,
                 animationDurationUpdate: 300,
                 max: 13,
@@ -194,7 +224,7 @@ export function buildInvestmentBarRaceOption() {
                 playInterval: 1200,
                 data: years,
                 label: {
-                    formatter: (value: string) => `${value} 年`,
+                    formatter: (value: string) => `${value}${texts.yearSuffix}`,
                 },
                 left: '3%',
                 right: '3%',
@@ -203,7 +233,7 @@ export function buildInvestmentBarRaceOption() {
             tooltip: {
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
-                valueFormatter: (value: number) => `${value} 十亿美元`,
+                valueFormatter: (value: number) => `${value} ${texts.investmentBillion}`,
             },
             grid: {
                 top: '6%',
@@ -215,7 +245,7 @@ export function buildInvestmentBarRaceOption() {
             xAxis: {
                 type: 'value',
                 max: maxInvestment,
-                name: '投资 (十亿美元)',
+                name: texts.investmentAxis,
             },
             yAxis: {
                 type: 'category',
@@ -239,25 +269,25 @@ export function buildInvestmentBarRaceOption() {
     };
 }
 
-export function buildInvestmentPieOption() {
+export function buildInvestmentPieOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const latest = [...rowsByYear(LATEST_YEAR)].sort((a, b) => b.investmentBillionsUsd - a.investmentBillionsUsd).slice(0, 6);
     const othersInvestment = rowsByYear(LATEST_YEAR)
         .filter((row) => !latest.some((item) => item.country === row.country))
         .reduce((sum, row) => sum + row.investmentBillionsUsd, 0);
 
     const pieData = latest.map((row) => ({
-        name: COUNTRY_LABELS[row.country] ?? row.country,
+        name: texts.countryLabel(row.country),
         value: Math.round(row.investmentBillionsUsd * 100) / 100,
     }));
 
     if (othersInvestment > 0) {
-        pieData.push({ name: '其他地区', value: Math.round(othersInvestment * 100) / 100 });
+        pieData.push({ name: texts.othersRegion, value: Math.round(othersInvestment * 100) / 100 });
     }
 
     return {
         tooltip: {
             trigger: 'item',
-            formatter: '{b}: {c} 十亿美元 ({d}%)',
+            formatter: `{b}: {c} ${texts.investmentBillion} ({d}%)`,
         },
         legend: {
             type: 'scroll',
@@ -300,7 +330,7 @@ export function buildSummaryCards() {
     };
 }
 
-export function buildWorldMapOption(year: number = LATEST_YEAR) {
+export function buildWorldMapOption(year: number = LATEST_YEAR, texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const rows = rowsByYear(year);
 
     type MapDataItem = {
@@ -314,7 +344,7 @@ export function buildWorldMapOption(year: number = LATEST_YEAR) {
     const mapData: MapDataItem[] = rows.map((row) => ({
         name: GEO_NAME_MAP[row.country] ?? row.country,
         value: row.aiIndexScore,
-        label: COUNTRY_LABELS[row.country] ?? row.country,
+        label: texts.countryLabel(row.country),
         investment: row.investmentBillionsUsd,
         papers: row.publishedPapersThousands,
     }));
@@ -343,14 +373,14 @@ export function buildWorldMapOption(year: number = LATEST_YEAR) {
 
                 const score = item?.value ?? params.value;
                 if (!item || score == null || Number.isNaN(Number(score))) {
-                    return `${params.name ?? ''}<br/>暂无数据`;
+                    return `${params.name ?? ''}<br/>${texts.noData}`;
                 }
 
                 return [
                     item.label,
-                    `AI 指数：${score}`,
-                    `投资：${item.investment} 十亿美元`,
-                    `论文：${item.papers} 千篇`,
+                    texts.formatTooltipIndex(Number(score)),
+                    texts.formatTooltipInvestment(item.investment),
+                    texts.formatTooltipPapers(item.papers),
                 ].join('<br/>');
             },
         },
@@ -359,7 +389,7 @@ export function buildWorldMapOption(year: number = LATEST_YEAR) {
             max: 100,
             left: 16,
             bottom: 24,
-            text: ['高', '低'],
+            text: [texts.mapHigh, texts.mapLow],
             calculable: true,
             seriesIndex: 0,
             inRange: {
@@ -382,7 +412,7 @@ export function buildWorldMapOption(year: number = LATEST_YEAR) {
         },
         series: [
             {
-                name: 'AI 指数',
+                name: texts.aiIndex,
                 type: 'map',
                 geoIndex: 0,
                 coordinateSystem: 'geo',
@@ -405,12 +435,12 @@ export function buildWorldMapOption(year: number = LATEST_YEAR) {
     };
 }
 
-export function buildRegionRanks() {
+export function buildRegionRanks(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const latest = [...rowsByYear(LATEST_YEAR)].sort((a, b) => b.aiIndexScore - a.aiIndexScore).slice(0, 5);
     const maxScore = latest[0]?.aiIndexScore ?? 100;
 
     return latest.map((row, index) => ({
-        title: COUNTRY_LABELS[row.country] ?? row.country,
+        title: texts.countryLabel(row.country),
         value: row.aiIndexScore,
         percent: Math.round((row.aiIndexScore / maxScore) * 100),
         color: COUNTRY_COLORS[index] ?? '#2d8cf0',

@@ -34,5 +34,5 @@ def organize_meeting(
     text = body.text.strip()
     user_prompt = f"请整理以下会议记录：\n\n{text}"
     system_prompt = _SYSTEM_PROMPTS[body.style]
-    organized = chat_completion(system_prompt, user_prompt, temperature=body.temperature)
+    organized = chat_completion(system_prompt, user_prompt, temperature=body.temperature, caller="meeting.organize")
     return schemas.MeetingOrganizeResponse(original_text=text, organized_text=organized)

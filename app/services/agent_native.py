@@ -25,13 +25,13 @@ from app.services.agent_common import (
 from app.services.llm import chat_completion
 
 
-def _ask(system_prompt: str, user_prompt: str, *, temperature: float) -> str:
-    return chat_completion(system_prompt, user_prompt, temperature=temperature)
+def _ask(system_prompt: str, user_prompt: str, *, temperature: float, caller: str) -> str:
+    return chat_completion(system_prompt, user_prompt, temperature=temperature, caller=caller)
 
 
 def run_single(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
     steps, user_prompt, used_tool = prepare_single_run(question)
-    answer = _ask(SINGLE_ANSWER_SYSTEM, user_prompt, temperature=temperature)
+    answer = _ask(SINGLE_ANSWER_SYSTEM, user_prompt, temperature=temperature, caller="agent.native.single")
     steps.append(
         AgentStepData(
             agent="回答 Agent",
@@ -51,7 +51,12 @@ def run_sequential(question: str, *, temperature: float) -> tuple[list[AgentStep
 
     for i, agent in enumerate(SEQUENTIAL_AGENTS):
         user_prompt = question if i == 0 else context
-        output = _ask(agent["prompt"], user_prompt, temperature=temperature)
+        output = _ask(
+            agent["prompt"],
+            user_prompt,
+            temperature=temperature,
+            caller=f"agent.native.sequential.{i}",
+        )
         steps.append(
             AgentStepData(
                 agent=agent["name"],
@@ -67,7 +72,7 @@ def run_sequential(question: str, *, temperature: float) -> tuple[list[AgentStep
 
 
 def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
-    route_raw = _ask(ROUTE_SYSTEM, question, temperature=min(temperature, 0.2))
+    route_raw = _ask(ROUTE_SYSTEM, question, temperature=min(temperature, 0.2), caller="agent.native.routing.route")
     category = parse_route_category(route_raw)
     specialist = SPECIALISTS[category]
     use_weather = detect_weather_tool(question)
@@ -95,7 +100,12 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
             )
         )
         user_prompt = build_routing_user_prompt(question, tool_output)
-        answer = _ask(ROUTING_ANSWER_WITH_TOOL_SYSTEM, user_prompt, temperature=temperature)
+        answer = _ask(
+            ROUTING_ANSWER_WITH_TOOL_SYSTEM,
+            user_prompt,
+            temperature=temperature,
+            caller="agent.native.routing.weather_answer",
+        )
         steps.append(
             AgentStepData(
                 agent=specialist["name"],
@@ -114,14 +124,19 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
             output="",
         )
     )
-    answer = _ask(specialist["prompt"], question, temperature=temperature)
+    answer = _ask(
+        specialist["prompt"],
+        question,
+        temperature=temperature,
+        caller=f"agent.native.routing.{category}",
+    )
     steps[-1].output = answer
     return steps, answer
 
 
 def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
     steps: list[AgentStepData] = []
-    draft = _ask(GENERATE_SYSTEM, question, temperature=temperature)
+    draft = _ask(GENERATE_SYSTEM, question, temperature=temperature, caller="agent.native.reflection.generate")
     steps.append(
         AgentStepData(
             agent="生成 Agent",
@@ -136,6 +151,7 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
             REVIEW_SYSTEM,
             f"用户问题：{question}\n\n草稿：\n{draft}",
             temperature=min(temperature, 0.3),
+            caller=f"agent.native.reflection.review.{round_num}",
         )
         steps.append(
             AgentStepData(
@@ -161,7 +177,12 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
 
         revise_input = f"用户问题：{question}\n\n当前草稿：\n{draft}\n\n评审意见：\n{review}"
         old_draft = draft
-        draft = _ask(REVISE_SYSTEM, revise_input, temperature=temperature)
+        draft = _ask(
+            REVISE_SYSTEM,
+            revise_input,
+            temperature=temperature,
+            caller=f"agent.native.reflection.revise.{round_num}",
+        )
         steps.append(
             AgentStepData(
                 agent="修订 Agent",

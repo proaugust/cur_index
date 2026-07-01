@@ -10,10 +10,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import BASE_DIR, Settings, settings
+from app.core.http_logging import RequestLoggingMiddleware, register_exception_logging
 from app.database import SessionLocal, engine
 from app.models import Base
-from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
-from app.services.rbac_seed import ensure_permission_schema, seed_rbac
+from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
+from app.services.rbac_seed import seed_rbac
+from app.services.schema_migrate import run_pending_migrations
 
 STATIC_DIR = BASE_DIR / "static"
 # 本地无 static/ 时强制开发模式，避免误设 SERVE_STATIC=1 导致 /api 与 Vite 代理冲突全 404
@@ -36,6 +38,7 @@ API_ROUTERS = (
     cobol_migrate.router,
     feature_intros.router,
     zha_jinhua.router,
+    llm_usage.router,
 )
 
 
@@ -89,7 +92,9 @@ async def lifespan(app: FastAPI):
         logger.info("数据库目标: %s", db_target)
     try:
         Base.metadata.create_all(bind=engine)
-        ensure_permission_schema(engine)
+        migrated = run_pending_migrations(engine)
+        if migrated:
+            logger.info("本次已应用数据库迁移: %s", ", ".join(migrated))
         db = SessionLocal()
         try:
             seed_rbac(db)
@@ -118,6 +123,8 @@ def _register_api_routes(app: FastAPI, *, prefix: str = "") -> None:
 
 
 app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+app.add_middleware(RequestLoggingMiddleware)
+register_exception_logging(app)
 
 if SERVE_STATIC:
     logger.info("生产布局: API 前缀 /api，托管 %s", STATIC_DIR)

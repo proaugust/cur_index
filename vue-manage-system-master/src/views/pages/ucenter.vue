@@ -38,10 +38,10 @@
                 :body-style="{ padding: '20px 50px', height: '100%', boxSizing: 'border-box' }"
             >
                 <el-tabs tab-position="left" v-model="activeName">
-                    <el-tab-pane name="label1" label="消息通知" class="user-tabpane">
+                    <el-tab-pane name="label1" :label="t('pages.ucenter.tabNotify')" class="user-tabpane">
                         <TabsComp />
                     </el-tab-pane>
-                    <el-tab-pane name="label2" label="我的头像" class="user-tabpane">
+                    <el-tab-pane name="label2" :label="t('pages.ucenter.tabAvatar')" class="user-tabpane">
                         <div class="crop-wrap" v-if="activeName === 'label2'">
                             <vueCropper
                                 ref="cropper"
@@ -54,24 +54,24 @@
                             </vueCropper>
                         </div>
                         <el-button class="crop-demo-btn" type="primary"
-                            >选择图片
+                            >{{ t('pages.ucenter.selectImage') }}
                             <input class="crop-input" type="file" name="image" accept="image/*" @change="setImage" />
                         </el-button>
-                        <el-button type="success" @click="saveAvatar">上传并保存</el-button>
+                        <el-button type="success" @click="saveAvatar">{{ t('pages.ucenter.uploadAvatar') }}</el-button>
                     </el-tab-pane>
-                    <el-tab-pane name="label3" label="修改密码" class="user-tabpane">
+                    <el-tab-pane name="label3" :label="t('pages.ucenter.tabPassword')" class="user-tabpane">
                         <el-form class="w500" label-position="top">
-                            <el-form-item label="旧密码：">
+                            <el-form-item :label="t('pages.ucenter.oldPassword')">
                                 <el-input type="password" v-model="form.old"></el-input>
                             </el-form-item>
-                            <el-form-item label="新密码：">
+                            <el-form-item :label="t('pages.ucenter.newPassword')">
                                 <el-input type="password" v-model="form.new"></el-input>
                             </el-form-item>
-                            <el-form-item label="确认新密码：">
+                            <el-form-item :label="t('pages.ucenter.confirmPassword')">
                                 <el-input type="password" v-model="form.new1"></el-input>
                             </el-form-item>
                             <el-form-item>
-                                <el-button type="primary" @click="onSubmit">保存</el-button>
+                                <el-button type="primary" @click="onSubmit">{{ t('common.save') }}</el-button>
                             </el-form-item>
                         </el-form>
                     </el-tab-pane>
@@ -83,10 +83,15 @@
 
 <script setup lang="ts" name="ucenter">
 import { reactive, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { ElMessage } from 'element-plus';
 import { VueCropper } from 'vue-cropper';
 import 'vue-cropper/dist/index.css';
 import avatar from '@/assets/img/img.jpg';
+import { changePassword } from '@/api';
 import TabsComp from '../element/tabs.vue';
+
+const { t } = useI18n();
 
 const name = localStorage.getItem('vuems_name');
 const form = reactive({
@@ -94,7 +99,26 @@ const form = reactive({
     new: '',
     old: '',
 });
-const onSubmit = () => {};
+const onSubmit = async () => {
+    if (!form.old || !form.new || !form.new1) {
+        ElMessage.error(t('pages.ucenter.fillAll'));
+        return;
+    }
+    if (form.new !== form.new1) {
+        ElMessage.error(t('pages.ucenter.passwordMismatch'));
+        return;
+    }
+    try {
+        await changePassword({ old_password: form.old, new_password: form.new });
+        ElMessage.success(t('pages.ucenter.passwordChanged'));
+        form.old = '';
+        form.new = '';
+        form.new1 = '';
+    } catch (e: any) {
+        const detail = e.response?.data?.detail;
+        ElMessage.error(typeof detail === 'string' ? detail : t('pages.ucenter.changeFailed'));
+    }
+};
 
 const activeName = ref('label1');
 

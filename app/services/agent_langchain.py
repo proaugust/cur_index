@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
@@ -26,6 +27,7 @@ from app.services.agent_common import (
     prepare_single_run,
     run_weather_tool,
 )
+from app.services.llm_usage_callback import LlmUsageCallbackHandler
 
 
 def _make_llm(*, temperature: float) -> ChatOpenAI:
@@ -39,15 +41,22 @@ def _make_llm(*, temperature: float) -> ChatOpenAI:
     )
 
 
-def _chain(system_prompt: str, llm: ChatOpenAI):
+def _chain(system_prompt: str, llm: ChatOpenAI) -> Runnable:
     prompt = ChatPromptTemplate.from_messages([("system", system_prompt), ("user", "{input}")])
     return prompt | llm | StrOutputParser()
+
+
+def _invoke(chain: Runnable, user_input: str, caller: str) -> str:
+    return chain.invoke(
+        {"input": user_input},
+        config={"callbacks": [LlmUsageCallbackHandler(caller)]},
+    )
 
 
 def run_single(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
     steps, user_prompt, used_tool = prepare_single_run(question)
     llm = _make_llm(temperature=temperature)
-    answer = _chain(SINGLE_ANSWER_SYSTEM, llm).invoke({"input": user_prompt})
+    answer = _invoke(_chain(SINGLE_ANSWER_SYSTEM, llm), user_prompt, "agent.langchain.single")
     steps.append(
         AgentStepData(
             agent="回答 Agent (LangChain)",
@@ -69,7 +78,7 @@ def run_sequential(question: str, *, temperature: float) -> tuple[list[AgentStep
     for i, agent in enumerate(SEQUENTIAL_AGENTS):
         user_input = question if i == 0 else context
         chain = _chain(agent["prompt"], llm)
-        output = chain.invoke({"input": user_input})
+        output = _invoke(chain, user_input, f"agent.langchain.sequential.{i}")
         steps.append(
             AgentStepData(
                 agent=f"{agent['name']} (LangChain)",
@@ -90,7 +99,7 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
     use_weather = detect_weather_tool(question)
 
     route_chain = _chain(ROUTE_SYSTEM, llm_route)
-    route_raw = route_chain.invoke({"input": question})
+    route_raw = _invoke(route_chain, question, "agent.langchain.routing.route")
     category = parse_route_category(route_raw)
     specialist = SPECIALISTS[category]
 
@@ -117,7 +126,11 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
             )
         )
         user_prompt = build_routing_user_prompt(question, tool_output)
-        answer = _chain(ROUTING_ANSWER_WITH_TOOL_SYSTEM, llm_answer).invoke({"input": user_prompt})
+        answer = _invoke(
+            _chain(ROUTING_ANSWER_WITH_TOOL_SYSTEM, llm_answer),
+            user_prompt,
+            "agent.langchain.routing.weather_answer",
+        )
         steps.append(
             AgentStepData(
                 agent=f"{specialist['name']} (LangChain)",
@@ -129,7 +142,7 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
         return steps, answer
 
     specialist_chain = _chain(specialist["prompt"], llm_answer)
-    answer = specialist_chain.invoke({"input": question})
+    answer = _invoke(specialist_chain, question, f"agent.langchain.routing.{category}")
     steps.append(
         AgentStepData(
             agent=f"{specialist['name']} (LangChain)",
@@ -150,7 +163,7 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
     revise_chain = _chain(REVISE_SYSTEM, llm)
 
     steps: list[AgentStepData] = []
-    draft = generate_chain.invoke({"input": question})
+    draft = _invoke(generate_chain, question, "agent.langchain.reflection.generate")
     steps.append(
         AgentStepData(
             agent="生成 Agent (LangChain)",
@@ -161,7 +174,11 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
     )
 
     for round_num in range(1, REFLECTION_MAX_ROUNDS + 1):
-        review = review_chain.invoke({"input": f"用户问题：{question}\n\n草稿：\n{draft}"})
+        review = _invoke(
+            review_chain,
+            f"用户问题：{question}\n\n草稿：\n{draft}",
+            f"agent.langchain.reflection.review.{round_num}",
+        )
         steps.append(
             AgentStepData(
                 agent="评审 Agent (LangChain)",
@@ -185,8 +202,10 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
             return steps, draft
 
         old_draft = draft
-        draft = revise_chain.invoke(
-            {"input": f"用户问题：{question}\n\n当前草稿：\n{draft}\n\n评审意见：\n{review}"}
+        draft = _invoke(
+            revise_chain,
+            f"用户问题：{question}\n\n当前草稿：\n{draft}\n\n评审意见：\n{review}",
+            f"agent.langchain.reflection.revise.{round_num}",
         )
         steps.append(
             AgentStepData(

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import Permission, Role, User
 from app.schemas_rbac import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
     MeResponse,
@@ -135,6 +136,15 @@ def login(db: Session, payload: LoginRequest) -> LoginResponse:
 
 def get_me(user: User) -> MeResponse:
     return MeResponse(user=_user_brief(user), permissions=_permission_codes(user))
+
+
+def change_password(db: Session, user: User, payload: ChangePasswordRequest) -> None:
+    if not verify_password(payload.old_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="旧密码不正确")
+    if payload.old_password == payload.new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与旧密码相同")
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
 
 
 def list_users(db: Session, actor: User, *, name: str | None = None, page: int = 1, page_size: int = 10) -> UserListResponse:

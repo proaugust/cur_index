@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import re
@@ -53,6 +54,7 @@ def _parse_llm_json(raw: str) -> dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
+        logger.warning("炸金花 LLM 返回非 JSON: %s", raw[:300])
         raise HTTPException(status_code=502, detail=f"大模型返回非 JSON: {raw[:200]}") from exc
 
 
@@ -82,10 +84,12 @@ class ZhaJinhuaGameEngine:
 
     def ensure_game_enabled(self) -> None:
         if not self.game_enabled:
+            logger.warning("炸金花访问被拒: 游戏未开启")
             raise HTTPException(status_code=403, detail="游戏尚未开启，请联系管理员")
 
     def set_game_enabled(self, enabled: bool) -> dict[str, Any]:
         self.game_enabled = enabled
+        logger.info("炸金花开关: enabled=%s", enabled)
         message = "游戏已开启，可以开始对局" if enabled else "游戏已关闭"
         return {"enabled": self.game_enabled, "message": message}
 
@@ -204,6 +208,12 @@ class ZhaJinhuaGameEngine:
         for pid in player_ids:
             self._record_pot(pid, ANTE, "底分")
 
+        logger.info(
+            "炸金花开局 round=%s pot=%s phase=%s",
+            self.game_state["round"],
+            self.game_state["pot"],
+            self.game_state["phase"],
+        )
         return {
             "message": f"第 {self.game_state['round']} 局开始，已发牌并扣除底分 {ANTE} 元",
             "round": self.game_state["round"],
@@ -226,6 +236,7 @@ class ZhaJinhuaGameEngine:
 
     def reset_game(self) -> dict[str, str]:
         self.game_state = self._fresh_state()
+        logger.info("炸金花已重置")
         return {"message": "游戏已重置"}
 
     def _build_player_prompt(self, player_id: str) -> str:
@@ -276,12 +287,20 @@ class ZhaJinhuaGameEngine:
             return self._turn_response(player_id, skipped=True, reason="本局行动次数达上限，强制开牌结算")
 
         system_prompt = self._build_player_prompt(player_id)
+        logger.info(
+            "炸金花出牌开始 round=%s player=%s pot=%s current_bet=%s",
+            self.game_state["round"],
+            player_id,
+            self.game_state["pot"],
+            self.game_state["current_bet"],
+        )
         try:
             raw = chat_completion(
                 system_prompt,
                 "请根据当前局势做出你的下一步决策，严格输出 JSON。",
                 temperature=0.5,
                 json_mode=True,
+                caller="zha_jinhua.player_turn",
             )
         except HTTPException as exc:
             if exc.status_code != 502:
@@ -291,6 +310,7 @@ class ZhaJinhuaGameEngine:
                 "请根据当前局势做出你的下一步决策，严格输出 JSON。",
                 temperature=0.5,
                 json_mode=False,
+                caller="zha_jinhua.player_turn.retry",
             )
 
         decision = _parse_llm_json(raw)
@@ -300,6 +320,7 @@ class ZhaJinhuaGameEngine:
         target_raw = str(decision.get("target", "")).strip()
 
         if action not in VALID_ACTIONS:
+            logger.warning("炸金花非法 action round=%s player=%s action=%s raw=%s", self.game_state["round"], player_id, action, raw[:200])
             raise HTTPException(status_code=502, detail=f"非法 action: {action}")
 
         self._apply_action(player_id, action, amount, thought, target_raw)
@@ -310,6 +331,15 @@ class ZhaJinhuaGameEngine:
         if len(alive) == 1:
             self._settle_round(alive[0])
 
+        logger.info(
+            "炸金花出牌完成 round=%s player=%s action=%s amount=%s target=%s phase=%s",
+            self.game_state["round"],
+            player_id,
+            action,
+            amount,
+            target_raw or None,
+            self.game_state["phase"],
+        )
         return self._turn_response(
             player_id,
             thought=thought,
@@ -479,6 +509,13 @@ class ZhaJinhuaGameEngine:
             f"本局结束，{self.display_name(winner_id)} 从对手处净赢 {net_win} 元"
             f"（池内共 {pot} 元，含自身投入 {settlement['pot_total'] - net_win} 元）"
         )
+        logger.info(
+            "炸金花局结算 round=%s winner=%s pot=%s phase=%s",
+            self.game_state["round"],
+            winner_id,
+            pot,
+            self.game_state["phase"],
+        )
 
     def run_referee_commentary(self) -> str:
         self.ensure_game_enabled()
@@ -493,6 +530,7 @@ class ZhaJinhuaGameEngine:
             referee_prompt,
             "请给出本轮精彩解说。",
             temperature=0.9,
+            caller="zha_jinhua.referee",
         ).strip()
 
     def public_status(self) -> dict[str, Any]:
@@ -529,10 +567,12 @@ class ZhaJinhuaGameEngine:
         }
 
     async def run_player_turn_async(self, player_id: str | None = None) -> dict[str, Any]:
-        return await asyncio.to_thread(self.run_player_turn, player_id)
+        ctx = contextvars.copy_context()
+        return await asyncio.to_thread(ctx.run, self.run_player_turn, player_id)
 
     async def run_referee_commentary_async(self) -> str:
-        return await asyncio.to_thread(self.run_referee_commentary)
+        ctx = contextvars.copy_context()
+        return await asyncio.to_thread(ctx.run, self.run_referee_commentary)
 
 
 _engine: ZhaJinhuaGameEngine | None = None

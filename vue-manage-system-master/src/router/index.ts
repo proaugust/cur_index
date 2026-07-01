@@ -24,6 +24,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "dashboard" */ '../views/dashboard.vue'),
             },
             {
+                path: '/demo-ai-news',
+                name: 'demo-ai-news',
+                meta: {
+                    titleKey: 'route.demoAiNews',
+                    title: 'AI 资讯导航',
+                    permiss: '80',
+                },
+                component: () => import(/* webpackChunkName: "demo-ai-news" */ '../views/demo/ai-news-links.vue'),
+            },
+            {
                 path: '/demo-complaints',
                 name: 'demo-complaints',
                 meta: {
@@ -139,6 +149,15 @@ const routes: RouteRecordRaw[] = [
                     permiss: '13',
                 },
                 component: () => import(/* webpackChunkName: "system-menu" */ '../views/system/menu.vue'),
+            },
+            {
+                path: '/system-llm-usage',
+                name: 'system-llm-usage',
+                meta: {
+                    title: 'LLM 用量',
+                    permiss: '90',
+                },
+                component: () => import(/* webpackChunkName: "system-llm-usage" */ '../views/system/llm-usage.vue'),
             },
             {
                 path: '/table',

@@ -31,6 +31,12 @@ export const menuData: Menus[] = [
                 index: '/system-menu',
                 titleKey: 'menu.systemMenu',
             },
+            {
+                id: '90',
+                pid: '1',
+                index: '/system-llm-usage',
+                titleKey: 'menu.systemLlmUsage',
+            },
         ],
     },
     {
@@ -39,6 +45,12 @@ export const menuData: Menus[] = [
         index: '8',
         icon: 'DataAnalysis',
         children: [
+            {
+                id: '80',
+                pid: '8',
+                index: '/demo-ai-news',
+                titleKey: 'menu.demoAiNews',
+            },
             {
                 id: '81',
                 pid: '8',

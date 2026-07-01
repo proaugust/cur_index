@@ -30,6 +30,11 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=1)
+
+
 class RoleRead(BaseModel):
     id: int
     name: str

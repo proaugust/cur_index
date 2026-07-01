@@ -495,3 +495,58 @@ class ZhaJinhuaStatusResponse(BaseModel):
     last_settlement: ZhaJinhuaSettlement | None = None
     pot_ledger: list[ZhaJinhuaPotEntry] = []
     players: dict[str, ZhaJinhuaPlayerStatus]
+
+
+class LlmUsageCallerStats(BaseModel):
+    caller: str
+    calls: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    share_percent: float
+
+
+class LlmUsageUserStats(BaseModel):
+    user_id: int | None
+    username: str
+    calls: int
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    share_percent: float
+
+
+class LlmUsageStatsResponse(BaseModel):
+    days: int
+    total_calls: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_tokens: int
+    by_caller: list[LlmUsageCallerStats]
+    by_user: list[LlmUsageUserStats]
+
+
+class LlmUsageLogItem(BaseModel):
+    id: int
+    caller: str
+    engine: str
+    model: str
+    request_id: str | None
+    user_id: int | None
+    username: str | None = None
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    latency_ms: int
+    success: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> datetime:
+        return _as_utc_aware(value)
+
+
+class LlmUsageRecentResponse(BaseModel):
+    items: list[LlmUsageLogItem]

@@ -11,7 +11,9 @@ MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
     ("11", "用户管理", "1", "/system-user", None),
     ("12", "角色管理", "1", "/system-role", None),
     ("13", "菜单管理", "1", "/system-menu", None),
+    ("90", "LLM 用量", "1", "/system-llm-usage", None),
     ("8", "业务演示", None, "8", "DataAnalysis"),
+    ("80", "AI 资讯导航", "8", "/demo-ai-news", None),
     ("81", "投诉归类演示", "8", "/demo-complaints", None),
     ("82", "RAG 检索演示", "8", "/demo-rag", None),
     ("83", "AI训练提问", "8", "/demo-ai-chat", None),
@@ -118,6 +120,9 @@ API_PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("8", "feature-intros-list", "功能介绍列表", "GET", "/feature-intros/"),
     ("8", "feature-intros-upsert", "保存功能介绍", "PUT", "/feature-intros/{page_key}/{section_key}"),
     ("8", "feature-intros-seed", "初始化功能介绍", "POST", "/feature-intros/seed"),
+    # LLM 用量统计（管理员）
+    ("90", "stats", "用量统计", "GET", "/llm-usage/stats"),
+    ("90", "recent", "最近调用", "GET", "/llm-usage/recent"),
 ]
 
 MENU_CODES = [code for code, *_ in MENU_PERMISSIONS]
@@ -135,7 +140,11 @@ ADMIN_MENU_PERMISSIONS = [
     "0",
     "1",
     "11",
+    "12",
+    "13",
+    "90",
     "8",
+    "80",
     "81",
     "82",
     "83",
@@ -155,10 +164,10 @@ ADMIN_MENU_PERMISSIONS = [
     "66",
 ]
 
-USER_MENU_PERMISSIONS = ["0", "8", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
+USER_MENU_PERMISSIONS = ["0", "8", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
 
 # 仅管理员角色分配的 API 权限（普通用户即使有菜单 89 也不包含）
-ADMIN_ONLY_API_CODES = frozenset({"89.access"})
+ADMIN_ONLY_API_CODES = frozenset({"89.access", "90.stats", "90.recent"})
 
 
 def api_codes_for_menus(menu_codes: list[str]) -> list[str]:

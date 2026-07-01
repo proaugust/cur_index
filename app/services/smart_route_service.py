@@ -55,7 +55,7 @@ def _classify_by_llm(question: str) -> str:
     if not settings.openai_api_key:
         return _classify_by_keywords(question)
     try:
-        answer = chat_completion(_ROUTE_SYSTEM, question, temperature=0.1)
+        answer = chat_completion(_ROUTE_SYSTEM, question, temperature=0.1, caller="smart_route.dispatch")
         return _normalize_intent(answer)
     except HTTPException:
         logger.warning("智能路由 LLM 分类失败，回退关键词规则", exc_info=True)

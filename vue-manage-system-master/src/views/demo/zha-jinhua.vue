@@ -149,7 +149,7 @@
                         <div class="player-head">
                             <el-icon class="player-icon" :style="{ color: playerColor(pid) }"><UserFilled /></el-icon>
                             <span class="player-name">{{ status.players[pid]?.display_name }}</span>
-                            <el-tag v-if="!status.players[pid]?.alive" type="info" size="small">已弃牌</el-tag>
+                            <el-tag v-if="!status.players[pid]?.alive" type="info" size="small">{{ t('pages.zhaJinhua.folded') }}</el-tag>
                         </div>
 
                         <div class="player-meta">
@@ -439,16 +439,16 @@ type PotLedgerRow = PotEntry & {
 };
 
 const parsePotReason = (reason: string) => {
-    if (reason === '底分') return { actionLabel: '底分', actionKind: 'ante', tagLabel: '' };
+    if (reason === '底分') return { actionLabel: t('pages.zhaJinhua.ante'), actionKind: 'ante', tagLabel: '' };
     if (reason.startsWith('跟注/')) {
         const tag = reason.split('/')[1] ?? '';
-        return { actionLabel: '跟注', actionKind: 'call', tagLabel: tag };
+        return { actionLabel: t('pages.zhaJinhua.call'), actionKind: 'call', tagLabel: tag };
     }
     if (reason.startsWith('加注/')) {
         const tag = reason.split('/')[1] ?? '';
-        return { actionLabel: '加注', actionKind: 'raise', tagLabel: tag };
+        return { actionLabel: t('pages.zhaJinhua.raise'), actionKind: 'raise', tagLabel: tag };
     }
-    if (reason === '比牌') return { actionLabel: '比牌', actionKind: 'compare', tagLabel: '' };
+    if (reason === '比牌') return { actionLabel: t('pages.zhaJinhua.compare'), actionKind: 'compare', tagLabel: '' };
     return { actionLabel: reason, actionKind: 'default', tagLabel: '' };
 };
 

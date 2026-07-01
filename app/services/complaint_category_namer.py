@@ -46,7 +46,7 @@ def suggest_complaint_category(complaint_text: str, *, existing_names: list[str]
 
     if settings.openai_api_key:
         try:
-            raw = chat_completion(_SYSTEM, user_prompt, temperature=0.2)
+            raw = chat_completion(_SYSTEM, user_prompt, temperature=0.2, caller="complaint.category_namer")
             parsed = _parse_json(raw)
             name = _sanitize_name(str(parsed.get("name", "")))
             description = str(parsed.get("description", "")).strip() or complaint_text[:120]

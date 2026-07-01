@@ -5,23 +5,24 @@
             <TableCustom :columns="columns" :tableData="tableData" :total="page.total" :viewFunc="handleView"
                 :delFunc="handleDelete" :page-change="changePage" :editFunc="handleEdit">
                 <template #toolbarBtn>
-                    <el-button type="warning" :icon="CirclePlusFilled" @click="visible = true">新增</el-button>
+                    <el-button type="warning" :icon="CirclePlusFilled" @click="visible = true">{{ t('pages.system.add') }}</el-button>
                 </template>
             </TableCustom>
 
         </div>
-        <el-dialog :title="isEdit ? '编辑' : '新增'" v-model="visible" width="700px" destroy-on-close
+        <el-dialog :title="isEdit ? t('pages.system.edit') : t('pages.system.add')" v-model="visible" width="700px" destroy-on-close
             :close-on-click-modal="false" @close="closeDialog">
             <TableEdit :form-data="rowData" :options="options" :edit="isEdit" :update="updateData" />
         </el-dialog>
-        <el-dialog title="查看详情" v-model="visible1" width="700px" destroy-on-close>
+        <el-dialog :title="t('pages.system.viewDetail')" v-model="visible1" width="700px" destroy-on-close>
             <TableDetail :data="viewData"></TableDetail>
         </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts" name="system-user">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { CirclePlusFilled } from '@element-plus/icons-vue';
 import { User } from '@/types/user';
@@ -31,6 +32,8 @@ import TableDetail from '@/components/table-detail.vue';
 import TableSearch from '@/components/table-search.vue';
 import TableEdit from '@/components/table-edit.vue';
 import { FormOption, FormOptionList } from '@/types/form-option';
+
+const { t } = useI18n();
 
 const roleOptions = ref<{ label: string; value: number; level?: number }[]>([]);
 const currentLevel = ref(99);
@@ -45,6 +48,7 @@ const loadRoles = async () => {
             value: item.id,
             level: item.level,
         }));
+    options.value = buildFormOptions();
     options.value.list = options.value.list.map((item) =>
         item.prop === 'role_id' ? { ...item, opts: roleOptions.value } : item,
     );
@@ -60,20 +64,20 @@ onMounted(async () => {
 const query = reactive({
     name: '',
 });
-const searchOpt = ref<FormOptionList[]>([
-    { type: 'input', label: '用户名：', prop: 'name' }
-])
+const searchOpt = computed<FormOptionList[]>(() => [
+    { type: 'input', label: t('pages.system.usernameLabel'), prop: 'name' },
+]);
 const handleSearch = () => {
     changePage(1);
 };
 
-let columns = ref([
-    { type: 'index', label: '序号', width: 55, align: 'center' },
-    { prop: 'name', label: '用户名' },
-    { prop: 'phone', label: '手机号' },
-    { prop: 'role', label: '角色' },
-    { prop: 'operator', label: '操作', width: 250 },
-])
+const columns = computed(() => [
+    { type: 'index', label: t('pages.system.index'), width: 55, align: 'center' },
+    { prop: 'name', label: t('pages.system.username') },
+    { prop: 'phone', label: t('pages.system.phone') },
+    { prop: 'role', label: t('pages.system.role') },
+    { prop: 'operator', label: t('pages.system.operator'), width: 250 },
+]);
 const page = reactive({
     index: 1,
     size: 10,
@@ -95,17 +99,19 @@ const changePage = (val: number) => {
     getData();
 };
 
-let options = ref<FormOption>({
+const buildFormOptions = (): FormOption => ({
     labelWidth: '100px',
     span: 12,
     list: [
-        { type: 'input', label: '用户名', prop: 'name', required: true },
-        { type: 'input', label: '手机号', prop: 'phone', required: false },
-        { type: 'input', label: '密码', prop: 'password', required: true },
-        { type: 'input', label: '邮箱', prop: 'email', required: false },
-        { type: 'select', label: '角色', prop: 'role_id', required: true, opts: [] },
-    ]
-})
+        { type: 'input', label: t('pages.system.username'), prop: 'name', required: true },
+        { type: 'input', label: t('pages.system.phone'), prop: 'phone', required: false },
+        { type: 'input', label: t('pages.system.password'), prop: 'password', required: true },
+        { type: 'input', label: t('pages.system.email'), prop: 'email', required: false },
+        { type: 'select', label: t('pages.system.role'), prop: 'role_id', required: true, opts: roleOptions.value },
+    ],
+});
+
+let options = ref<FormOption>(buildFormOptions());
 const visible = ref(false);
 const isEdit = ref(false);
 const rowData = ref<Record<string, unknown>>({});
@@ -130,7 +136,7 @@ const updateData = async (form: Record<string, unknown>) => {
                 payload.password = form.password;
             }
             await updateUser(form.id as number, payload);
-            ElMessage.success('更新成功');
+            ElMessage.success(t('pages.system.updateSuccess'));
         } else {
             await createUser({
                 name: form.name as string,
@@ -139,12 +145,12 @@ const updateData = async (form: Record<string, unknown>) => {
                 phone: form.phone as string | undefined,
                 role_id: form.role_id as number,
             });
-            ElMessage.success('创建成功');
+            ElMessage.success(t('pages.system.createSuccess'));
         }
         closeDialog();
         getData();
     } catch {
-        ElMessage.error('操作失败');
+        ElMessage.error(t('pages.system.opFailed'));
     }
 };
 
@@ -159,42 +165,23 @@ const closeDialog = () => {
 
 // 查看详情弹窗相关
 const visible1 = ref(false);
-const viewData = ref({
+const viewData = ref<{ row: Record<string, unknown>; list: { prop: string; label: string }[] }>({
     row: {},
-    list: []
+    list: [],
 });
+const viewFieldList = computed(() => [
+    { prop: 'id', label: t('pages.system.userId') },
+    { prop: 'name', label: t('pages.system.username') },
+    { prop: 'password', label: t('pages.system.password') },
+    { prop: 'email', label: t('pages.system.email') },
+    { prop: 'phone', label: t('pages.system.tel') },
+    { prop: 'role', label: t('pages.system.role') },
+    { prop: 'date', label: t('pages.system.registerDate') },
+]);
+
 const handleView = (row: User) => {
-    viewData.value.row = { ...row }
-    viewData.value.list = [
-        {
-            prop: 'id',
-            label: '用户ID',
-        },
-        {
-            prop: 'name',
-            label: '用户名',
-        },
-        {
-            prop: 'password',
-            label: '密码',
-        },
-        {
-            prop: 'email',
-            label: '邮箱',
-        },
-        {
-            prop: 'phone',
-            label: '电话',
-        },
-        {
-            prop: 'role',
-            label: '角色',
-        },
-        {
-            prop: 'date',
-            label: '注册日期',
-        },
-    ]
+    viewData.value.row = { ...row };
+    viewData.value.list = viewFieldList.value;
     visible1.value = true;
 };
 
@@ -202,12 +189,12 @@ const handleView = (row: User) => {
 const handleDelete = async (row: User) => {
     try {
         await deleteUser(row.id);
-        ElMessage.success('删除成功');
+        ElMessage.success(t('pages.system.deleteSuccess'));
         getData();
     } catch {
-        ElMessage.error('删除失败');
+        ElMessage.error(t('pages.system.deleteFailed'));
     }
-}
+};
 </script>
 
 <style scoped></style>
