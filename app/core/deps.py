@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.security import decode_access_token
 from app.database import SessionLocal
 from app.models import Role, User
-from app.services.llm_usage_service import set_llm_usage_user_id
 
 _bearer = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -50,7 +49,6 @@ def get_current_user(
     if not user.role.status:
         logger.warning("鉴权失败: 角色已禁用 user_id=%s username=%s role=%s", user.id, user.username, user.role.name)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="角色已禁用")
-    set_llm_usage_user_id(user.id)
     return user
 
 

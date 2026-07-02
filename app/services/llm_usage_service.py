@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
@@ -20,6 +20,18 @@ _user_id_var: ContextVar[int | None] = ContextVar("llm_usage_user_id", default=N
 
 def set_llm_usage_user_id(user_id: int | None) -> None:
     _user_id_var.set(user_id)
+
+
+def bind_llm_usage_user_id(user_id: int | None) -> Token | None:
+    """在 async 请求上下文中绑定 user_id，返回 reset 用 token。"""
+    if user_id is None:
+        return None
+    return _user_id_var.set(user_id)
+
+
+def reset_llm_usage_user_id(token: Token | None) -> None:
+    if token is not None:
+        _user_id_var.reset(token)
 
 
 def get_llm_usage_user_id() -> int | None:

@@ -81,10 +81,11 @@ def list_complaint_categories(
 
 @router.get("/stats", response_model=schemas.ComplaintStatsReport)
 def complaint_stats(
+    q: str | None = Query(default=None, description="自然语言聚合查询，由 LLM 解析后统计"),
     service: ComplaintService = Depends(get_complaint_service),
     _: User = Depends(require_permission("81.stats")),
 ) -> schemas.ComplaintStatsReport:
-    return service.get_stats()
+    return service.get_stats(q=q)
 
 
 @router.get("/samples", response_model=schemas.ComplaintSamplesPage)

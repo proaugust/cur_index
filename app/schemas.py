@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer
@@ -179,6 +179,22 @@ class ComplaintStatsCountItem(BaseModel):
     percentage: float
 
 
+class ComplaintStatsFilters(BaseModel):
+    time_from: date | None = None
+    time_to: date | None = None
+    category_name: str | None = None
+    address: str | None = None
+
+
+class ComplaintStatsParsedQuery(BaseModel):
+    intent: Literal["stats", "samples"] = "stats"
+    filters: ComplaintStatsFilters
+    group_by: Literal["address", "category", "day"] | None = None
+    rank: Literal["max", "min"] = "max"
+    limit: int = Field(default=5, ge=1, le=20)
+    original_question: str = ""
+
+
 class ComplaintStatsReport(BaseModel):
     total: int
     classified: int
@@ -187,6 +203,11 @@ class ComplaintStatsReport(BaseModel):
     by_category: list[ComplaintStatsCountItem]
     by_address: list[ComplaintStatsCountItem]
     by_time: list[ComplaintStatsCountItem]
+    parsed_query: ComplaintStatsParsedQuery | None = None
+    total_in_scope: int | None = Field(default=None, description="当前过滤条件下投诉总数")
+    ranked: list[ComplaintStatsCountItem] = Field(default_factory=list, description="自然语言聚合排行结果")
+    data_time_from: date | None = Field(default=None, description="库内投诉最早日期")
+    data_time_to: date | None = Field(default=None, description="库内投诉最晚日期")
 
 
 class ComplaintSeedResult(BaseModel):

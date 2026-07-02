@@ -13,8 +13,8 @@ export const embedComplaints = () =>
 export const classifyComplaints = () =>
     request.post('/complaints/classify');
 
-export const getComplaintStats = () =>
-    request.get('/complaints/stats');
+export const getComplaintStats = (params?: { q?: string }) =>
+    request.get('/complaints/stats', { params });
 
 export const getComplaintCategories = (params?: { name?: string }) =>
     request.get('/complaints/categories', { params });

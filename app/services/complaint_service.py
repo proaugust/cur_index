@@ -8,6 +8,7 @@ from app import crud, models, schemas
 from app.core.config import settings
 from app.services.complaint_categories import CATEGORY_SEEDS, dumps_seed_phrases
 from app.services.complaint_category_namer import suggest_complaint_category
+from app.services.complaint_query_parser import parse_complaint_query
 from app.services.complaint_generator import generate_complaints
 from app.services.complaint_settings import get_classify_threshold, set_classify_threshold
 from app.services.embedding import cosine_similarity, embed_text, embed_texts, mean_vector
@@ -159,9 +160,46 @@ class ComplaintService:
         logger.info("归类完成：共 %s 条，分布 %s", classified, {item.category_name: item.count for item in by_category})
         return schemas.ComplaintClassifyResult(classified=classified, by_category=by_category)
 
-    def get_stats(self) -> schemas.ComplaintStatsReport:
-        total = crud.count_complaints(self.db)
-        classified = crud.count_classified_complaints(self.db)
+    def _filters_from_schema(self, filters: schemas.ComplaintStatsFilters | None) -> crud.ComplaintFilterParams | None:
+        if filters is None:
+            return None
+        return crud.ComplaintFilterParams(
+            time_from=filters.time_from,
+            time_to=filters.time_to,
+            category_name=filters.category_name,
+            address=filters.address,
+        )
+
+    def get_stats(self, q: str | None = None) -> schemas.ComplaintStatsReport:
+        parsed_query: schemas.ComplaintStatsParsedQuery | None = None
+        filter_params: crud.ComplaintFilterParams | None = None
+
+        min_time, max_time = crud.get_complaint_time_bounds(self.db)
+        data_time_from = min_time.date() if min_time else None
+        data_time_to = max_time.date() if max_time else None
+
+        if q and q.strip():
+            parsed_query = parse_complaint_query(
+                q.strip(),
+                data_time_from=data_time_from,
+                data_time_to=data_time_to,
+            )
+            filter_params = self._filters_from_schema(parsed_query.filters)
+
+        has_filters = crud._has_active_filters(filter_params)
+        scope_total = crud.count_complaints(self.db, filter_params if has_filters else None)
+        classified = crud.count_classified_complaints(self.db, filter_params if has_filters else None)
+
+        ranked_rows: list = []
+        if parsed_query and parsed_query.intent == "stats" and parsed_query.group_by:
+            ranked_rows = crud.get_complaint_stats_ranked(
+                self.db,
+                filters=filter_params,
+                group_by=parsed_query.group_by,
+                rank=parsed_query.rank,
+                limit=parsed_query.limit,
+            )
+
         dimensions = [
             schemas.ComplaintStatsDimension(
                 key="category",
@@ -188,19 +226,25 @@ class ComplaintService:
                 schemas.ComplaintStatsCountItem(
                     label=row.label,
                     count=row.count,
-                    percentage=round(row.count / total * 100, 2) if total else 0.0,
+                    percentage=round(row.count / scope_total * 100, 2) if scope_total else 0.0,
                 )
                 for row in rows
             ]
 
+        active_filters = filter_params if has_filters else None
         return schemas.ComplaintStatsReport(
-            total=total,
+            total=scope_total,
             classified=classified,
-            unclassified=total - classified,
+            unclassified=scope_total - classified,
             dimensions=dimensions,
-            by_category=to_items(crud.get_complaint_stats_by_category(self.db)),
-            by_address=to_items(crud.get_complaint_stats_by_address(self.db)),
-            by_time=to_items(crud.get_complaint_stats_by_time(self.db)),
+            by_category=to_items(crud.get_complaint_stats_by_category(self.db, active_filters)),
+            by_address=to_items(crud.get_complaint_stats_by_address(self.db, active_filters)),
+            by_time=to_items(crud.get_complaint_stats_by_time(self.db, active_filters)),
+            parsed_query=parsed_query,
+            total_in_scope=scope_total if has_filters else None,
+            ranked=to_items(ranked_rows),
+            data_time_from=data_time_from,
+            data_time_to=data_time_to,
         )
 
     def search_samples(

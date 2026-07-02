@@ -18,6 +18,64 @@
                 </div>
             </template>
 
+            <div class="nl-query-block">
+                <div class="nl-query-title">{{ t('pages.complaints.nlQueryTitle') }}</div>
+                <div class="nl-query-row">
+                    <el-input
+                        v-model="nlQueryText"
+                        :placeholder="t('pages.complaints.nlQueryPh')"
+                        clearable
+                        @keyup.enter="runNlQuery"
+                    />
+                    <el-button type="primary" :loading="nlQueryLoading" @click="runNlQuery">
+                        {{ t('pages.complaints.nlQueryBtn') }}
+                    </el-button>
+                </div>
+                <div class="nl-query-examples">
+                    <span class="nl-query-examples-label">{{ t('pages.complaints.nlQueryExamples') }}：</span>
+                    <el-button
+                        v-for="(example, index) in nlQueryExamples"
+                        :key="index"
+                        link
+                        type="primary"
+                        size="small"
+                        @click="useNlExample(example)"
+                    >
+                        {{ example }}
+                    </el-button>
+                </div>
+                <div v-if="dataTimeRangeHint" class="nl-query-data-hint">{{ dataTimeRangeHint }}</div>
+                <div
+                    v-if="nlQueryResult || nlQueryError"
+                    ref="nlQueryResultRef"
+                    class="nl-query-result-panel"
+                    :class="{ 'is-warning': nlQueryIsEmpty, 'is-error': !!nlQueryError }"
+                >
+                    <div class="nl-query-result-title">{{ t('pages.complaints.nlQueryResultTitle') }}</div>
+                    <div v-if="nlQueryQuestionText" class="nl-query-result-question">{{ nlQueryQuestionText }}</div>
+                    <div v-if="nlParsedSummary" class="nl-query-result-parsed">{{ nlParsedSummary }}</div>
+                    <div v-if="nlQueryConclusion" class="nl-query-result-conclusion">{{ nlQueryConclusion }}</div>
+                    <el-table
+                        v-if="nlQueryResult?.ranked?.length"
+                        :data="nlQueryResult.ranked"
+                        size="small"
+                        border
+                        stripe
+                        class="nl-query-rank-table"
+                    >
+                        <el-table-column type="index" :label="'#'" width="48" align="center" />
+                        <el-table-column prop="label" :label="nlRankColumnLabel" min-width="160" show-overflow-tooltip />
+                        <el-table-column prop="count" :label="t('pages.complaints.colCount')" width="88" align="right" />
+                        <el-table-column :label="t('pages.complaints.colRate')" width="88" align="right">
+                            <template #default="{ row }">{{ row.percentage }}%</template>
+                        </el-table-column>
+                    </el-table>
+                    <div v-else-if="nlQueryError" class="nl-query-error-text">{{ nlQueryError }}</div>
+                    <div v-else-if="nlQueryZeroHint" class="nl-query-zero-hint">{{ nlQueryZeroHint }}</div>
+                    <div v-else class="nl-query-no-result">{{ t('pages.complaints.nlQueryNoResult') }}</div>
+                </div>
+            </div>
+
             <el-form :inline="true" class="samples-form" @submit.prevent="searchSamples">
                 <el-form-item :label="t('pages.complaints.region')">
                     <el-input v-model="sampleQuery.address" :placeholder="t('pages.complaints.regionPh')" clearable style="width: 160px" />
@@ -375,7 +433,7 @@
 </template>
 
 <script setup lang="ts" name="demo-complaints">
-import { computed, onMounted, ref, shallowRef, type Component } from 'vue';
+import { computed, nextTick, onMounted, ref, shallowRef, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
@@ -425,6 +483,22 @@ interface ComplaintStatsCountItem {
     percentage: number;
 }
 
+interface ComplaintStatsFilters {
+    time_from: string | null;
+    time_to: string | null;
+    category_name: string | null;
+    address: string | null;
+}
+
+interface ComplaintStatsParsedQuery {
+    intent: 'stats' | 'samples';
+    filters: ComplaintStatsFilters;
+    group_by: 'address' | 'category' | 'day' | null;
+    rank: 'max' | 'min';
+    limit: number;
+    original_question: string;
+}
+
 interface ComplaintStatsReport {
     total: number;
     classified: number;
@@ -432,6 +506,11 @@ interface ComplaintStatsReport {
     by_category: ComplaintStatsCountItem[];
     by_address: ComplaintStatsCountItem[];
     by_time: ComplaintStatsCountItem[];
+    parsed_query?: ComplaintStatsParsedQuery | null;
+    total_in_scope?: number | null;
+    ranked?: ComplaintStatsCountItem[];
+    data_time_from?: string | null;
+    data_time_to?: string | null;
 }
 
 type DimensionKey = 'category' | 'address' | 'time';
@@ -491,6 +570,113 @@ const sampleTotal = ref(0);
 const sampleQuery = useCachedRef<SampleQueryState>('complaints:sampleQuery', { ...EMPTY_SAMPLE_QUERY });
 sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value };
 const samplePage = ref({ page: 1, page_size: 10 });
+
+const nlQueryText = ref('');
+const nlQueryLoading = ref(false);
+const nlQueryResult = ref<ComplaintStatsReport | null>(null);
+const nlQueryError = ref('');
+const nlQueryResultRef = ref<HTMLElement | null>(null);
+
+const exampleMonth = computed(() => {
+    const to = stats.value?.data_time_to;
+    if (!to) return new Date().getMonth() + 1;
+    const month = Number.parseInt(to.slice(5, 7), 10);
+    return Number.isNaN(month) ? new Date().getMonth() + 1 : month;
+});
+
+const nlQueryExamples = computed(() => [
+    t('pages.complaints.nlQueryExample1', { month: exampleMonth.value }),
+    t('pages.complaints.nlQueryExample2', { month: exampleMonth.value }),
+    t('pages.complaints.nlQueryExample3', { month: exampleMonth.value }),
+]);
+
+const dataTimeRangeHint = computed(() => {
+    const from = stats.value?.data_time_from;
+    const to = stats.value?.data_time_to;
+    if (!from || !to) return '';
+    return t('pages.complaints.nlQueryDataRange', { from, to });
+});
+
+const nlQueryScopeTotal = computed(() => {
+    const result = nlQueryResult.value;
+    if (!result) return 0;
+    return result.total_in_scope ?? result.total;
+});
+
+const nlQueryIsEmpty = computed(() => nlQueryScopeTotal.value <= 0 && !nlQueryError.value);
+
+const nlQueryQuestionText = computed(() => {
+    const q = nlQueryResult.value?.parsed_query?.original_question;
+    return q ? t('pages.complaints.nlQueryQuestion', { q }) : '';
+});
+
+const nlRankColumnLabel = computed(() => {
+    const groupBy = nlQueryResult.value?.parsed_query?.group_by;
+    if (groupBy === 'category') return t('pages.complaints.colType');
+    if (groupBy === 'day') return t('pages.complaints.colDate');
+    return t('pages.complaints.colRegion');
+});
+
+const nlParsedSummary = computed(() => {
+    const parsed = nlQueryResult.value?.parsed_query;
+    if (!parsed) return '';
+    const parts: string[] = [];
+    const { filters, group_by, rank } = parsed;
+    if (filters.time_from && filters.time_to) {
+        parts.push(t('pages.complaints.nlQueryFilterTime', { from: filters.time_from, to: filters.time_to }));
+    }
+    if (filters.category_name) {
+        parts.push(t('pages.complaints.nlQueryFilterCategory', { name: filters.category_name }));
+    }
+    if (filters.address) {
+        parts.push(t('pages.complaints.nlQueryFilterAddress', { name: filters.address }));
+    }
+    if (group_by) {
+        const dim =
+            group_by === 'category'
+                ? t('pages.complaints.nlQueryGroupCategory')
+                : group_by === 'day'
+                  ? t('pages.complaints.nlQueryGroupDay')
+                  : t('pages.complaints.nlQueryGroupAddress');
+        const rankLabel = rank === 'min' ? t('pages.complaints.nlQueryRankMin') : t('pages.complaints.nlQueryRankMax');
+        parts.push(t('pages.complaints.nlQueryFilterGroup', { dim, rank: rankLabel }));
+    }
+    return parts.length ? t('pages.complaints.nlQueryParsed', { filters: parts.join(' · ') }) : '';
+});
+
+const nlQueryConclusion = computed(() => {
+    const result = nlQueryResult.value;
+    if (!result?.parsed_query || !result.ranked?.length) return '';
+    const scope = nlQueryScopeTotal.value;
+    const head = t('pages.complaints.nlQueryScope', { total: scope });
+    const top = result.ranked[0];
+    const parsed = result.parsed_query;
+    const dim =
+        parsed.group_by === 'category'
+            ? t('pages.complaints.nlQueryGroupCategory')
+            : parsed.group_by === 'day'
+              ? t('pages.complaints.nlQueryGroupDay')
+              : t('pages.complaints.nlQueryGroupAddress');
+    const rankLabel = parsed.rank === 'min' ? t('pages.complaints.nlQueryRankMin') : t('pages.complaints.nlQueryRankMax');
+    const answer = t('pages.complaints.nlQueryRankLine', {
+        rankLabel: `${dim}${rankLabel}`,
+        label: top.label,
+        count: top.count,
+        rate: top.percentage,
+    });
+    return `${head}；${answer}`;
+});
+
+const nlQueryZeroHint = computed(() => {
+    const result = nlQueryResult.value;
+    if (!result?.parsed_query) return '';
+    const scope = result.total_in_scope ?? result.total;
+    if (scope > 0) return '';
+    const from = result.data_time_from ?? stats.value?.data_time_from;
+    const to = result.data_time_to ?? stats.value?.data_time_to;
+    if (!from || !to) return t('pages.complaints.nlQueryZeroHint');
+    return t('pages.complaints.nlQueryZeroHintRange', { from, to });
+});
 
 interface ComplaintCategoryScore {
     category_id: number;
@@ -829,6 +1015,42 @@ function searchSamples() {
     loadSamples();
 }
 
+function useNlExample(example: string) {
+    nlQueryText.value = example;
+    void runNlQuery();
+}
+
+function extractNlQueryError(error: unknown): string {
+    if (error && typeof error === 'object' && 'response' in error) {
+        const detail = (error as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+        if (typeof detail === 'string' && detail.trim()) return detail;
+    }
+    return t('pages.complaints.nlQueryFailed');
+}
+
+async function runNlQuery() {
+    const text = nlQueryText.value.trim();
+    if (!text) {
+        ElMessage.warning(t('pages.complaints.nlQueryEmpty'));
+        return;
+    }
+    nlQueryLoading.value = true;
+    nlQueryError.value = '';
+    try {
+        const { data } = await getComplaintStats({ q: text });
+        nlQueryResult.value = data as ComplaintStatsReport;
+        await nextTick();
+        nlQueryResultRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (error) {
+        nlQueryResult.value = null;
+        nlQueryError.value = extractNlQueryError(error);
+        await nextTick();
+        nlQueryResultRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } finally {
+        nlQueryLoading.value = false;
+    }
+}
+
 function onSamplePageSizeChange(size: number) {
     samplePage.value.page_size = size;
     samplePage.value.page = 1;
@@ -980,6 +1202,109 @@ function viewCategorySamples(categoryName: string) {
 
 .debug-panel {
     margin-top: 20px;
+}
+
+.nl-query-block {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px dashed var(--el-border-color);
+    border-radius: 8px;
+    background: var(--el-fill-color-lighter);
+}
+
+.nl-query-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.nl-query-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.nl-query-row .el-input {
+    flex: 1;
+}
+
+.nl-query-examples {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: center;
+}
+
+.nl-query-examples-label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+}
+
+.nl-query-data-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+}
+
+.nl-query-result-panel {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--el-color-success-light-5);
+    border-left: 4px solid var(--el-color-success);
+    background: var(--el-color-success-light-9);
+}
+
+.nl-query-result-panel.is-warning {
+    border-color: var(--el-color-warning-light-5);
+    border-left-color: var(--el-color-warning);
+    background: var(--el-color-warning-light-9);
+}
+
+.nl-query-result-panel.is-error {
+    border-color: var(--el-color-danger-light-5);
+    border-left-color: var(--el-color-danger);
+    background: var(--el-color-danger-light-9);
+}
+
+.nl-query-result-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--el-text-color-primary);
+}
+
+.nl-query-result-question,
+.nl-query-result-parsed {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--el-text-color-regular);
+    margin-bottom: 4px;
+}
+
+.nl-query-result-conclusion {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.7;
+    margin: 8px 0 10px;
+    color: var(--el-text-color-primary);
+}
+
+.nl-query-rank-table {
+    margin-top: 4px;
+}
+
+.nl-query-error-text,
+.nl-query-no-result {
+    font-size: 13px;
+    color: var(--el-color-danger);
+}
+
+.nl-query-zero-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--el-color-warning-dark-2);
 }
 
 .samples-form {

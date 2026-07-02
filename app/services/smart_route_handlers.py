@@ -1,6 +1,7 @@
 """智能路由 — 各业务接口实现。"""
 
 import re
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -35,7 +36,8 @@ def query_weather(question: str) -> str:
     """天气查询接口：从问题中识别城市并查询实时天气。"""
     city = extract_weather_city(question)
     weather = run_weather_tool(city)
-    return f"调用了天气查询接口：{weather}"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return f"（{now}）调用了天气查询接口：{weather}"
 
 
 def query_employee(question: str, db: Session) -> tuple[str, list[schemas.SmartRouteEmployee]]:

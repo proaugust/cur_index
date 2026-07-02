@@ -27,7 +27,7 @@ ROUTING_ANSWER_WITH_TOOL_SYSTEM = (
 
 CALC_TRIGGER = re.compile(r"等于多少|是多少|计算一下|算一下|多少")
 WEATHER_TRIGGER = re.compile(r"天气|气温|温度|下雨|晴天|刮风|预报")
-DEFAULT_WEATHER_CITY = "Tokyo"
+DEFAULT_WEATHER_CITY = "Beijing"
 
 _CITY_ALIASES: dict[str, str] = {
     "东京": "Tokyo",
@@ -54,6 +54,8 @@ _CITY_WEATHER_PATTERNS = (
     re.compile(r"查(?:一下)?(.+?)的?天气"),
     re.compile(r"(.+?)的?(?:气温|温度|预报)"),
 )
+
+_RAIN_WEATHER_CODES = frozenset({51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99})
 
 _WMO_WEATHER: dict[int, str] = {
     0: "晴空",
@@ -193,7 +195,7 @@ def _normalize_city_query(raw: str) -> str:
 
 
 def extract_weather_city(question: str) -> str:
-    """从问题中提取城市名；未识别时默认东京。"""
+    """从问题中提取城市名；未识别时默认北京。"""
     if not detect_weather_tool(question):
         return DEFAULT_WEATHER_CITY
 
@@ -235,6 +237,55 @@ def _wmo_weather_label(code: int | None) -> str:
     return _WMO_WEATHER.get(code, "多变")
 
 
+def _as_int_code(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return None
+
+
+def _as_float(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _is_rain_code(code: int | None) -> bool:
+    return code in _RAIN_WEATHER_CODES if code is not None else False
+
+
+def _compose_weather_desc(
+    current_code: int | None,
+    current_precip: float | None,
+    daily_code: int | None,
+    daily_precip_sum: float | None,
+    daily_precip_hours: float | None,
+) -> str:
+    """综合瞬时天气与当日降水，避免雨停间隙误报晴朗。"""
+    current_label = _wmo_weather_label(current_code)
+    daily_label = _wmo_weather_label(daily_code)
+
+    raining_now = (current_precip or 0) > 0
+    rainy_today = (daily_precip_sum or 0) >= 0.1 or _is_rain_code(daily_code)
+
+    if raining_now and not _is_rain_code(current_code):
+        current_label = "小雨" if (current_precip or 0) < 1 else "降雨"
+
+    if rainy_today and not _is_rain_code(current_code) and not raining_now:
+        summary = daily_label if daily_label != "多变" or not daily_precip_sum else "有降水"
+        if daily_precip_sum and daily_precip_sum >= 0.1:
+            summary += f"，累计降水 {daily_precip_sum:.1f}mm"
+        if daily_precip_hours and daily_precip_hours >= 1:
+            summary += f"（约 {int(daily_precip_hours)} 小时有降水）"
+        return f"今日{summary}，当前{current_label}"
+
+    if rainy_today and daily_code is not None and daily_code != current_code and _is_rain_code(daily_code):
+        return f"{current_label}（今日{daily_label}）"
+
+    return current_label
+
+
 def run_weather_tool(city: str = DEFAULT_WEATHER_CITY) -> str:
     """调用 Open-Meteo 按城市查询实时天气。"""
     city_query = _normalize_city_query(city.strip()) if city.strip() else DEFAULT_WEATHER_CITY
@@ -246,7 +297,9 @@ def run_weather_tool(city: str = DEFAULT_WEATHER_CITY) -> str:
     params = {
         "latitude": latitude,
         "longitude": longitude,
-        "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+        "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,precipitation",
+        "daily": "weather_code,precipitation_sum,precipitation_hours",
+        "forecast_days": 1,
         "timezone": timezone,
         "wind_speed_unit": "kmh",
     }
@@ -259,11 +312,27 @@ def run_weather_tool(city: str = DEFAULT_WEATHER_CITY) -> str:
         return f"{city_label}天气查询失败：{exc}"
 
     current = data.get("current") or {}
+    daily = data.get("daily") or {}
     temp = current.get("temperature_2m")
     humidity = current.get("relative_humidity_2m")
-    weather_code = current.get("weather_code")
+    weather_code = _as_int_code(current.get("weather_code"))
+    current_precip = _as_float(current.get("precipitation"))
     wind = current.get("wind_speed_10m")
-    desc = _wmo_weather_label(weather_code if isinstance(weather_code, int) else None)
+
+    daily_codes = daily.get("weather_code") or []
+    daily_precip_sums = daily.get("precipitation_sum") or []
+    daily_precip_hours_list = daily.get("precipitation_hours") or []
+    daily_code = _as_int_code(daily_codes[0]) if daily_codes else None
+    daily_precip_sum = _as_float(daily_precip_sums[0]) if daily_precip_sums else None
+    daily_precip_hours = _as_float(daily_precip_hours_list[0]) if daily_precip_hours_list else None
+
+    desc = _compose_weather_desc(
+        weather_code,
+        current_precip,
+        daily_code,
+        daily_precip_sum,
+        daily_precip_hours,
+    )
 
     parts = [city_label]
     if temp is not None:

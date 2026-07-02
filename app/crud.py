@@ -1,9 +1,45 @@
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+
+
+@dataclass(frozen=True)
+class ComplaintFilterParams:
+    time_from: date | None = None
+    time_to: date | None = None
+    category_name: str | None = None
+    address: str | None = None
+    classified: bool | None = None
+
+
+def _complaint_query_with_category(db: Session):
+    return db.query(models.Complaint).join(
+        models.ComplaintCategory, models.Complaint.category_id == models.ComplaintCategory.id, isouter=True
+    )
+
+
+def _apply_complaint_filters(query, filters: ComplaintFilterParams | None):
+    if not filters:
+        return query
+    if filters.address:
+        query = query.filter(models.Complaint.address.ilike(f"%{filters.address}%"))
+    if filters.time_from:
+        query = query.filter(models.Complaint.complaint_time >= datetime.combine(filters.time_from, time.min))
+    if filters.time_to:
+        query = query.filter(
+            models.Complaint.complaint_time < datetime.combine(filters.time_to + timedelta(days=1), time.min)
+        )
+    if filters.category_name:
+        query = query.filter(models.ComplaintCategory.name == filters.category_name)
+    if filters.classified is True:
+        query = query.filter(models.Complaint.category_id.isnot(None))
+    elif filters.classified is False:
+        query = query.filter(models.Complaint.category_id.is_(None))
+    return query
 
 
 def get_items(db: Session) -> list[models.Item]:
@@ -194,12 +230,14 @@ def get_complaints_without_embedding(db: Session) -> list[models.Complaint]:
     return db.query(models.Complaint).filter(models.Complaint.embedding.is_(None)).order_by(models.Complaint.id).all()
 
 
-def count_complaints(db: Session) -> int:
-    return db.query(models.Complaint).count()
+def count_complaints(db: Session, filters: ComplaintFilterParams | None = None) -> int:
+    query = _apply_complaint_filters(_complaint_query_with_category(db), filters)
+    return query.count()
 
 
-def count_classified_complaints(db: Session) -> int:
-    return db.query(models.Complaint).filter(models.Complaint.category_id.isnot(None)).count()
+def count_classified_complaints(db: Session, filters: ComplaintFilterParams | None = None) -> int:
+    query = _apply_complaint_filters(_complaint_query_with_category(db), filters)
+    return query.filter(models.Complaint.category_id.isnot(None)).count()
 
 
 class _ComplaintStatRow:
@@ -208,21 +246,61 @@ class _ComplaintStatRow:
         self.count = count
 
 
-def get_complaint_stats_by_category(db: Session) -> list[_ComplaintStatRow]:
-    rows = (
-        db.query(models.ComplaintCategory.name, func.count(models.Complaint.id))
-        .outerjoin(models.Complaint, models.Complaint.category_id == models.ComplaintCategory.id)
-        .group_by(models.ComplaintCategory.name, models.ComplaintCategory.id)
-        .order_by(models.ComplaintCategory.id)
-        .all()
+def get_complaint_time_bounds(db: Session) -> tuple[datetime | None, datetime | None]:
+    min_time = db.query(func.min(models.Complaint.complaint_time)).scalar()
+    max_time = db.query(func.max(models.Complaint.complaint_time)).scalar()
+    return min_time, max_time
+
+
+def _has_active_filters(filters: ComplaintFilterParams | None) -> bool:
+    if filters is None:
+        return False
+    return any(
+        [
+            filters.time_from is not None,
+            filters.time_to is not None,
+            filters.category_name,
+            filters.address,
+            filters.classified is not None,
+        ]
     )
-    return [_ComplaintStatRow(label=row[0], count=row[1]) for row in rows]
 
 
-def get_complaint_stats_by_address(db: Session) -> list[_ComplaintStatRow]:
+def get_complaint_stats_by_category(
+    db: Session, filters: ComplaintFilterParams | None = None
+) -> list[_ComplaintStatRow]:
+    if not _has_active_filters(filters):
+        rows = (
+            db.query(models.ComplaintCategory.name, func.count(models.Complaint.id))
+            .outerjoin(models.Complaint, models.Complaint.category_id == models.ComplaintCategory.id)
+            .group_by(models.ComplaintCategory.name, models.ComplaintCategory.id)
+            .order_by(models.ComplaintCategory.id)
+            .all()
+        )
+        return [_ComplaintStatRow(label=row[0], count=row[1]) for row in rows]
+
+    query = (
+        db.query(models.ComplaintCategory.name, func.count(models.Complaint.id))
+        .join(models.Complaint, models.Complaint.category_id == models.ComplaintCategory.id)
+    )
+    query = _apply_complaint_filters(query, filters)
+    rows = query.group_by(models.ComplaintCategory.name, models.ComplaintCategory.id).order_by(
+        func.count(models.Complaint.id).desc(), models.ComplaintCategory.id
+    ).all()
+    return [_ComplaintStatRow(label=row[0], count=row[1]) for row in rows if row[1] > 0]
+
+
+def get_complaint_stats_by_address(
+    db: Session, filters: ComplaintFilterParams | None = None
+) -> list[_ComplaintStatRow]:
+    query = db.query(models.Complaint.address, func.count(models.Complaint.id)).select_from(models.Complaint)
+    if filters and filters.category_name:
+        query = query.join(
+            models.ComplaintCategory, models.Complaint.category_id == models.ComplaintCategory.id
+        )
+    query = _apply_complaint_filters(query, filters)
     rows = (
-        db.query(models.Complaint.address, func.count(models.Complaint.id))
-        .filter(models.Complaint.address.isnot(None))
+        query.filter(models.Complaint.address.isnot(None))
         .group_by(models.Complaint.address)
         .order_by(func.count(models.Complaint.id).desc())
         .all()
@@ -230,16 +308,43 @@ def get_complaint_stats_by_address(db: Session) -> list[_ComplaintStatRow]:
     return [_ComplaintStatRow(label=row[0] or "未知", count=row[1]) for row in rows]
 
 
-def get_complaint_stats_by_time(db: Session) -> list[_ComplaintStatRow]:
+def get_complaint_stats_by_time(
+    db: Session, filters: ComplaintFilterParams | None = None
+) -> list[_ComplaintStatRow]:
     period_expr = func.date_trunc("day", models.Complaint.complaint_time).label("period")
+    query = db.query(period_expr, func.count(models.Complaint.id)).select_from(models.Complaint)
+    if filters and filters.category_name:
+        query = query.join(
+            models.ComplaintCategory, models.Complaint.category_id == models.ComplaintCategory.id
+        )
+    query = _apply_complaint_filters(query, filters)
     rows = (
-        db.query(period_expr, func.count(models.Complaint.id))
-        .filter(models.Complaint.complaint_time.isnot(None))
+        query.filter(models.Complaint.complaint_time.isnot(None))
         .group_by(period_expr)
         .order_by(period_expr)
         .all()
     )
     return [_ComplaintStatRow(label=row[0].strftime("%Y-%m-%d"), count=row[1]) for row in rows if row[0] is not None]
+
+
+def get_complaint_stats_ranked(
+    db: Session,
+    *,
+    filters: ComplaintFilterParams | None,
+    group_by: str,
+    rank: str,
+    limit: int,
+) -> list[_ComplaintStatRow]:
+    if group_by == "address":
+        rows = get_complaint_stats_by_address(db, filters)
+    elif group_by == "category":
+        rows = get_complaint_stats_by_category(db, filters)
+    elif group_by == "day":
+        rows = get_complaint_stats_by_time(db, filters)
+    else:
+        return []
+    rows_sorted = sorted(rows, key=lambda row: row.count, reverse=rank == "max")
+    return rows_sorted[:limit]
 
 
 def search_complaints(
@@ -254,23 +359,16 @@ def search_complaints(
     page: int = 1,
     page_size: int = 10,
 ) -> tuple[list[models.Complaint], int]:
-    query = db.query(models.Complaint).join(
-        models.ComplaintCategory, models.Complaint.category_id == models.ComplaintCategory.id, isouter=True
+    filters = ComplaintFilterParams(
+        address=address,
+        time_from=time_from,
+        time_to=time_to,
+        category_name=category_name,
+        classified=classified,
     )
-    if address:
-        query = query.filter(models.Complaint.address.ilike(f"%{address}%"))
+    query = _apply_complaint_filters(_complaint_query_with_category(db), filters)
     if text:
         query = query.filter(models.Complaint.complaint_text.ilike(f"%{text}%"))
-    if time_from:
-        query = query.filter(models.Complaint.complaint_time >= datetime.combine(time_from, time.min))
-    if time_to:
-        query = query.filter(models.Complaint.complaint_time < datetime.combine(time_to + timedelta(days=1), time.min))
-    if category_name:
-        query = query.filter(models.ComplaintCategory.name == category_name)
-    if classified is True:
-        query = query.filter(models.Complaint.category_id.isnot(None))
-    elif classified is False:
-        query = query.filter(models.Complaint.category_id.is_(None))
 
     total = query.count()
     rows = (

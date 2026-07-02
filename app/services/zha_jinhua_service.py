@@ -36,7 +36,7 @@ PLAYER_CONFIG: list[dict[str, str]] = [
     {"id": "Player_3", "role": "数学家", "persona": "player3.md"},
 ]
 
-VALID_ACTIONS = frozenset({"看牌", "跟注", "加注", "比牌", "弃牌"})
+VALID_ACTIONS = frozenset({"跟注", "加注", "比牌", "弃牌"})
 
 
 def _load_prompt(name: str) -> str:
@@ -61,6 +61,14 @@ def _parse_llm_json(raw: str) -> dict[str, Any]:
 def _actual_bet(amount: int, has_looked: bool) -> int:
     """暗注=amount；明注=amount×2。"""
     return amount * 2 if has_looked else amount
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "是"}
+    return bool(value)
 
 
 def _resolve_player_id(raw: str) -> str | None:
@@ -121,6 +129,8 @@ class ZhaJinhuaGameEngine:
             "actions_this_round": 0,
             "pot_ledger": [],
             "pot_step": 0,
+            "last_raiser": None,
+            "pending_respondents": [],
         }
 
     def _record_pot(self, player_id: str, amount: int, reason: str) -> None:
@@ -143,6 +153,55 @@ class ZhaJinhuaGameEngine:
             for entry in self.game_state["pot_ledger"]
             if entry["player_id"] == player_id
         )
+
+    def _required_stake(self, player_id: str, bet_line: int) -> int:
+        has_looked = self.game_state["players"][player_id]["has_looked"]
+        return _actual_bet(bet_line, has_looked)
+
+    def _incremental_to_line(self, player_id: str, bet_line: int) -> int:
+        contributed = self._player_pot_contribution(player_id)
+        required = self._required_stake(player_id, bet_line)
+        return max(0, required - contributed)
+
+    def _charge_to_line(self, player_id: str, bet_line: int, reason: str) -> int:
+        cost = self._incremental_to_line(player_id, bet_line)
+        if cost <= 0:
+            return 0
+        info = self.game_state["players"][player_id]
+        if cost > info["balance"]:
+            raise HTTPException(status_code=400, detail=f"{player_id} 余额不足")
+        info["balance"] -= cost
+        self.game_state["pot"] += cost
+        self._record_pot(player_id, cost, reason)
+        return cost
+
+    def _set_raise_pending(self, raiser_id: str) -> None:
+        alive = self._alive_players()
+        self.game_state["last_raiser"] = raiser_id
+        self.game_state["pending_respondents"] = [pid for pid in alive if pid != raiser_id]
+
+    def _clear_player_pending(self, player_id: str) -> None:
+        pending: list[str] = self.game_state["pending_respondents"]
+        if player_id in pending:
+            pending.remove(player_id)
+
+    def _apply_look(self, player_id: str, look: bool) -> str:
+        if not look:
+            return ""
+        info = self.game_state["players"][player_id]
+        if info["has_looked"]:
+            return ""
+        info["has_looked"] = True
+        return f"{self.display_name(player_id)} 选择 [看牌]，手牌: {format_cards(info['cards'])}"
+
+    def _validate_action(self, player_id: str, action: str) -> None:
+        alive = self._alive_players()
+        if action == "比牌" and len(alive) >= 3:
+            raise HTTPException(status_code=400, detail="三人都在场时不能比牌")
+        if action == "加注":
+            pending: list[str] = self.game_state["pending_respondents"]
+            if pending and player_id not in pending:
+                raise HTTPException(status_code=400, detail="尚有玩家未响应上一手加注，你不能加注")
 
     def display_name(self, player_id: str) -> str:
         meta = self.player_meta[player_id]
@@ -204,6 +263,8 @@ class ZhaJinhuaGameEngine:
         self.game_state["actions_this_round"] = 0
         self.game_state["pot_ledger"] = []
         self.game_state["pot_step"] = 0
+        self.game_state["last_raiser"] = None
+        self.game_state["pending_respondents"] = []
 
         for pid in player_ids:
             self._record_pot(pid, ANTE, "底分")
@@ -246,6 +307,7 @@ class ZhaJinhuaGameEngine:
             for pid in self._alive_players()
             if pid != player_id
         ]
+        alive = self._alive_players()
         return self.player_template.format(
             persona_description=self.personas[player_id].strip(),
             player_name=self.display_name(player_id),
@@ -256,6 +318,7 @@ class ZhaJinhuaGameEngine:
             current_bet=self.game_state["current_bet"],
             other_players_status=self.get_other_players_status(player_id),
             alive_opponents="、".join(opponents) if opponents else "无",
+            alive_count=len(alive),
         )
 
     def run_player_turn(self, player_id: str | None = None) -> dict[str, Any]:
@@ -316,14 +379,21 @@ class ZhaJinhuaGameEngine:
         decision = _parse_llm_json(raw)
         thought = str(decision.get("thought", "")).strip()
         action = str(decision.get("action", "")).strip()
+        look = _parse_bool(decision.get("look", False))
         amount = int(decision.get("amount") or 0)
         target_raw = str(decision.get("target", "")).strip()
 
+        if action == "看牌":
+            raise HTTPException(
+                status_code=502,
+                detail="不能单独看牌；请使用 look:true 搭配跟注/加注/比牌/弃牌",
+            )
         if action not in VALID_ACTIONS:
             logger.warning("炸金花非法 action round=%s player=%s action=%s raw=%s", self.game_state["round"], player_id, action, raw[:200])
             raise HTTPException(status_code=502, detail=f"非法 action: {action}")
 
-        self._apply_action(player_id, action, amount, thought, target_raw)
+        self._validate_action(player_id, action)
+        self._apply_action(player_id, action, amount, thought, target_raw, look=look)
         self.game_state["actions_this_round"] += 1
         self._advance_turn()
 
@@ -382,43 +452,43 @@ class ZhaJinhuaGameEngine:
         amount: int,
         thought: str,
         target_raw: str,
+        *,
+        look: bool = False,
     ) -> None:
         info = self.game_state["players"][player_id]
-        line = ""
+        log_lines: list[str] = []
 
-        if action == "看牌":
-            info["has_looked"] = True
-            line = f"{self.display_name(player_id)} 选择 [看牌]，手牌: {format_cards(info['cards'])}"
-        elif action == "弃牌":
+        look_line = self._apply_look(player_id, look)
+        if look_line:
+            log_lines.append(look_line)
+
+        if action == "弃牌":
             info["alive"] = False
-            line = f"{self.display_name(player_id)} 选择 [弃牌]"
+            self._clear_player_pending(player_id)
+            log_lines.append(f"{self.display_name(player_id)} 选择 [弃牌]")
         elif action == "跟注":
             bet = self.game_state["current_bet"]
-            cost = _actual_bet(bet, info["has_looked"])
-            if cost > info["balance"]:
-                raise HTTPException(status_code=400, detail=f"{player_id} 余额不足")
-            info["balance"] -= cost
-            self.game_state["pot"] += cost
             tag = "明注" if info["has_looked"] else "暗注"
-            self._record_pot(player_id, cost, f"跟注/{tag}")
-            line = f"{self.display_name(player_id)} 选择 [跟注/{tag}], 筹码变动: {cost}元"
+            cost = self._charge_to_line(player_id, bet, f"跟注/{tag}")
+            self._clear_player_pending(player_id)
+            log_lines.append(
+                f"{self.display_name(player_id)} 选择 [跟注/{tag}], 筹码变动: {cost}元"
+            )
         elif action == "加注":
             if amount <= self.game_state["current_bet"]:
                 amount = self.game_state["current_bet"] + 10
             if amount > MAX_RAISE:
                 amount = MAX_RAISE
-            cost = _actual_bet(amount, info["has_looked"])
-            if cost > info["balance"]:
-                raise HTTPException(status_code=400, detail=f"{player_id} 余额不足")
-            info["balance"] -= cost
-            self.game_state["pot"] += cost
-            self.game_state["current_bet"] = amount
             tag = "明注" if info["has_looked"] else "暗注"
-            self._record_pot(player_id, cost, f"加注/{tag}")
-            line = f"{self.display_name(player_id)} 选择 [加注/{tag}], 加注线: {amount}元, 筹码变动: {cost}元"
+            cost = self._charge_to_line(player_id, amount, f"加注/{tag}")
+            self.game_state["current_bet"] = amount
+            self._set_raise_pending(player_id)
+            log_lines.append(
+                f"{self.display_name(player_id)} 选择 [加注/{tag}], 加注线: {amount}元, 筹码变动: {cost}元"
+            )
         elif action == "比牌":
             if not info["has_looked"]:
-                raise HTTPException(status_code=400, detail="比牌前必须先看牌")
+                raise HTTPException(status_code=400, detail="比牌前必须先看牌（请设 look:true）")
             target_id = _resolve_player_id(target_raw)
             if not target_id or target_id == player_id:
                 alive_others = [p for p in self._alive_players() if p != player_id]
@@ -426,23 +496,18 @@ class ZhaJinhuaGameEngine:
                     raise HTTPException(status_code=400, detail="无可比牌对象")
                 target_id = alive_others[0]
             self._do_compare(player_id, target_id)
+            self._clear_player_pending(player_id)
 
         if thought:
             self.game_state["thoughts"].append(f"{self.display_name(player_id)}: {thought}")
-        if line:
-            self.game_state["action_logs"].append(line)
+        self.game_state["action_logs"].extend(log_lines)
 
     def _do_compare(self, challenger_id: str, target_id: str) -> None:
         challenger = self.game_state["players"][challenger_id]
         target = self.game_state["players"][target_id]
         if not target["alive"]:
             raise HTTPException(status_code=400, detail="比牌目标已弃牌")
-        compare_fee = _actual_bet(self.game_state["current_bet"], challenger["has_looked"])
-        if compare_fee > challenger["balance"]:
-            raise HTTPException(status_code=400, detail=f"{challenger_id} 余额不足以比牌")
-        challenger["balance"] -= compare_fee
-        self.game_state["pot"] += compare_fee
-        self._record_pot(challenger_id, compare_fee, "比牌")
+        compare_fee = self._charge_to_line(challenger_id, self.game_state["current_bet"], "比牌")
 
         cmp = compare_two_players(challenger["cards"], target["cards"])
         if cmp > 0:
@@ -456,6 +521,7 @@ class ZhaJinhuaGameEngine:
             winner_id = target_id
 
         self.game_state["players"][loser_id]["alive"] = False
+        self._clear_player_pending(loser_id)
         c_label = hand_label(challenger["cards"])
         t_label = hand_label(target["cards"])
         self.game_state["action_logs"].append(

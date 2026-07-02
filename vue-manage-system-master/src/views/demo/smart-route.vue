@@ -16,6 +16,7 @@
 
             <div class="quick-section">
                 <div class="section-label">{{ t('pages.smartRoute.quickAsk') }}</div>
+                <div class="section-hint">{{ t('pages.smartRoute.weatherHint') }}</div>
                 <div class="quick-buttons">
                     <el-button
                         v-for="item in quickQuestions"
@@ -101,7 +102,7 @@ interface SmartRouteEmployee {
 
 const quickQuestions = computed(() => tm('pages.smartRoute.quickQuestions') as string[]);
 
-const question = useCachedRef('smart-route:question', '');
+const question = useCachedRef('smart-route:question', t('pages.smartRoute.defaultQuestion'));
 const routeMessage = ref('');
 const routeIntent = ref('');
 const routeEmployees = ref<SmartRouteEmployee[]>([]);
@@ -199,6 +200,13 @@ const handleClear = () => {
     margin-bottom: 8px;
     font-size: 14px;
     font-weight: 500;
+}
+
+.section-hint {
+    margin: -4px 0 8px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.5;
 }
 
 .quick-buttons {

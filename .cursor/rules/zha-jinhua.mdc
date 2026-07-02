@@ -28,8 +28,11 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 ## 状态机
 
 - `phase`: `idle` → `betting` → `round_end` → … → `ended`（10 局）
-- 明注 = 暗注线 × 2（已看牌）
-- 比牌：先看牌，指定 `target`，输者出局
+- 明注 = 暗注线 × 2（本回合 `look:true` 或已看牌）
+- 轮到玩家必须 **跟注 / 加注 / 弃牌**；仅 **2 人存活** 时可比牌
+- `look:true` 与压住/比牌/弃牌同回合完成，**禁止单独看牌**
+- 有人加注后 `pending_respondents` 须全员响应，轮次收口后才可再自由加注
+- 跟注/加注/比牌按 **增量** 入池（已入池底分等抵扣）
 - 结算写入 `last_settlement`（手牌、牌型、本局盈亏、累计盈亏）
 
 ## API
@@ -46,7 +49,7 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 ## LLM JSON 输出
 
 ```json
-{"thought":"…","action":"看牌|跟注|加注|比牌|弃牌","amount":0,"target":"Player_2"}
+{"thought":"…","look":false,"action":"跟注|加注|比牌|弃牌","amount":0,"target":"Player_2"}
 ```
 
 ## 禁止
