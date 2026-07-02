@@ -13,7 +13,7 @@ from app.core.config import BASE_DIR, Settings, settings
 from app.core.http_logging import RequestLoggingMiddleware, register_exception_logging
 from app.database import SessionLocal, engine
 from app.models import Base
-from app.routers import attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
+from app.routers import ai_news, attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
 from app.services.rbac_seed import seed_rbac
 from app.services.schema_migrate import run_pending_migrations
 
@@ -37,6 +37,7 @@ API_ROUTERS = (
     my_agent.router,
     cobol_migrate.router,
     feature_intros.router,
+    ai_news.router,
     zha_jinhua.router,
     llm_usage.router,
 )

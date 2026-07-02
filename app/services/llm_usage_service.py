@@ -106,11 +106,46 @@ def _share_percent(value: int, total: int) -> float:
     return round(value / total * 100, 2) if total else 0.0
 
 
-def get_usage_stats(db: Session, *, days: int = 7, exclude_warmup: bool = True) -> dict:
-    since = datetime.utcnow() - timedelta(days=days)
-    base = db.query(LlmUsageLog).filter(LlmUsageLog.created_at >= since)
+def _apply_log_filters(
+    query,
+    db: Session,
+    *,
+    caller: str | None = None,
+    username: str | None = None,
+    user_id: int | None = None,
+    engine: str | None = None,
+    success: bool | None = None,
+    request_id: str | None = None,
+    days: int | None = None,
+    exclude_warmup: bool = True,
+):
     if exclude_warmup:
-        base = base.filter(LlmUsageLog.caller != "warmup")
+        query = query.filter(LlmUsageLog.caller != "warmup")
+    if days is not None:
+        since = datetime.utcnow() - timedelta(days=days)
+        query = query.filter(LlmUsageLog.created_at >= since)
+    if caller:
+        query = query.filter(LlmUsageLog.caller.ilike(f"%{caller.strip()}%"))
+    if user_id is not None:
+        query = query.filter(LlmUsageLog.user_id == user_id)
+    if username:
+        query = query.filter(
+            LlmUsageLog.user_id.in_(
+                db.query(User.id).filter(User.username.ilike(f"%{username.strip()}%"))
+            )
+        )
+    if engine:
+        query = query.filter(LlmUsageLog.engine.ilike(f"%{engine.strip()}%"))
+    if success is not None:
+        query = query.filter(LlmUsageLog.success == success)
+    if request_id:
+        query = query.filter(LlmUsageLog.request_id.ilike(f"%{request_id.strip()}%"))
+    return query
+
+
+def get_usage_stats(db: Session, *, days: int | None = None, exclude_warmup: bool = True) -> dict:
+    base = db.query(LlmUsageLog)
+    base = _apply_log_filters(base, db, days=days, exclude_warmup=exclude_warmup)
 
     caller_rows = (
         base.with_entities(
@@ -181,15 +216,43 @@ def get_usage_stats(db: Session, *, days: int = 7, exclude_warmup: bool = True) 
     }
 
 
-def get_recent_logs(db: Session, *, limit: int = 50) -> list[dict]:
+def query_logs(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 200,
+    caller: str | None = None,
+    username: str | None = None,
+    user_id: int | None = None,
+    engine: str | None = None,
+    success: bool | None = None,
+    request_id: str | None = None,
+    days: int | None = None,
+    exclude_warmup: bool = True,
+) -> tuple[list[dict], int]:
+    base = db.query(LlmUsageLog)
+    base = _apply_log_filters(
+        base,
+        db,
+        caller=caller,
+        username=username,
+        user_id=user_id,
+        engine=engine,
+        success=success,
+        request_id=request_id,
+        days=days,
+        exclude_warmup=exclude_warmup,
+    )
+    total = base.with_entities(func.count(LlmUsageLog.id)).scalar() or 0
     rows = (
-        db.query(LlmUsageLog, User.username)
+        base.with_entities(LlmUsageLog, User.username)
         .outerjoin(User, LlmUsageLog.user_id == User.id)
         .order_by(LlmUsageLog.id.desc())
-        .limit(limit)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
         .all()
     )
-    return [
+    items = [
         {
             "id": log.id,
             "caller": log.caller,
@@ -207,3 +270,9 @@ def get_recent_logs(db: Session, *, limit: int = 50) -> list[dict]:
         }
         for log, username in rows
     ]
+    return items, int(total)
+
+
+def get_recent_logs(db: Session, *, limit: int = 50) -> list[dict]:
+    items, _ = query_logs(db, page=1, page_size=limit)
+    return items

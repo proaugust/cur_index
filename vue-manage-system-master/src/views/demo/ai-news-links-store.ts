@@ -1,5 +1,6 @@
-import { computed } from 'vue';
-import { useCachedRef } from '@/composables/useFormCache';
+import { computed, ref, watch, type Ref } from 'vue';
+import { getAiNewsPrefs, putAiNewsPrefs } from '@/api';
+import { readDemoCache, removeDemoCache } from '@/composables/useFormCache';
 import type { AiNewsLinkDef } from './ai-news-links-data';
 
 export interface AiNewsCustomLink {
@@ -41,9 +42,61 @@ const DEFAULT_PREFS: AiNewsUserPrefs = {
 
 const PALETTE = ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399', '#1E88E5', '#00B388', '#7B1FA2'];
 
-function storageKey(): string {
+const SAVE_DEBOUNCE_MS = 400;
+
+let prefsRef: Ref<AiNewsUserPrefs> | null = null;
+let loadPromise: Promise<void> | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let saveQueued = false;
+let saveInFlight = false;
+let suppressSave = false;
+
+function legacyStorageKey(): string {
     const user = localStorage.getItem('vuems_name') || 'guest';
     return `ai-news:${user}`;
+}
+
+function hasLegacyData(prefs: AiNewsUserPrefs): boolean {
+    return (
+        prefs.hiddenPresetIds.length > 0 ||
+        prefs.customLinks.length > 0 ||
+        prefs.favorites.length > 0
+    );
+}
+
+function isEmptyPrefs(prefs: AiNewsUserPrefs): boolean {
+    return !hasLegacyData(prefs);
+}
+
+function scheduleSave() {
+    if (!prefsRef || suppressSave) return;
+    saveQueued = true;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+        void flushSave();
+    }, SAVE_DEBOUNCE_MS);
+}
+
+async function flushSave(): Promise<void> {
+    if (!prefsRef || !saveQueued) return;
+    saveQueued = false;
+    if (saveInFlight) {
+        scheduleSave();
+        return;
+    }
+    saveInFlight = true;
+    try {
+        await putAiNewsPrefs(prefsRef.value);
+    } catch {
+        saveQueued = true;
+        scheduleSave();
+    } finally {
+        saveInFlight = false;
+        if (saveQueued && !saveTimer) {
+            scheduleSave();
+        }
+    }
 }
 
 function hashString(s: string): number {
@@ -92,9 +145,64 @@ function favKey(ref: AiNewsFavoriteRef): string {
     return `${ref.type}:${ref.id}`;
 }
 
-export function useAiNewsPrefs() {
-    const prefs = useCachedRef<AiNewsUserPrefs>(storageKey(), DEFAULT_PREFS);
+export async function loadAiNewsPrefs(): Promise<void> {
+    if (loadPromise) return loadPromise;
+    loadPromise = (async () => {
+        if (!prefsRef) {
+            prefsRef = ref<AiNewsUserPrefs>({ ...DEFAULT_PREFS });
+        }
+        suppressSave = true;
+        try {
+            const remote = (await getAiNewsPrefs()) as AiNewsUserPrefs;
+            if (isEmptyPrefs(remote)) {
+                const legacy = readDemoCache<AiNewsUserPrefs>(legacyStorageKey(), DEFAULT_PREFS);
+                if (hasLegacyData(legacy)) {
+                    prefsRef.value = {
+                        hiddenPresetIds: [...legacy.hiddenPresetIds],
+                        customLinks: legacy.customLinks.map((c) => ({ ...c })),
+                        favorites: legacy.favorites.map((f) => ({ ...f })),
+                    };
+                    await putAiNewsPrefs(prefsRef.value);
+                    removeDemoCache(legacyStorageKey());
+                    return;
+                }
+            }
+            prefsRef.value = {
+                hiddenPresetIds: [...remote.hiddenPresetIds],
+                customLinks: remote.customLinks.map((c) => ({ ...c })),
+                favorites: remote.favorites.map((f) => ({ ...f })),
+            };
+        } catch {
+            const legacy = readDemoCache<AiNewsUserPrefs>(legacyStorageKey(), DEFAULT_PREFS);
+            prefsRef.value = {
+                hiddenPresetIds: [...legacy.hiddenPresetIds],
+                customLinks: legacy.customLinks.map((c) => ({ ...c })),
+                favorites: legacy.favorites.map((f) => ({ ...f })),
+            };
+        } finally {
+            suppressSave = false;
+        }
+    })();
+    try {
+        await loadPromise;
+    } finally {
+        loadPromise = null;
+    }
+}
 
+export function useAiNewsPrefs() {
+    if (!prefsRef) {
+        prefsRef = ref<AiNewsUserPrefs>({ ...DEFAULT_PREFS });
+        watch(
+            prefsRef,
+            () => {
+                scheduleSave();
+            },
+            { deep: true },
+        );
+    }
+
+    const prefs = prefsRef;
     const hiddenSet = computed(() => new Set(prefs.value.hiddenPresetIds));
 
     const filterPresets = (defs: AiNewsLinkDef[]) =>

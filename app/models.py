@@ -145,6 +145,17 @@ class AttendancePunch(Base):
     person: Mapped["AttendancePerson"] = relationship(back_populates="punches")
 
 
+class AiNewsUserPrefs(Base):
+    __tablename__ = "ai_news_user_prefs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    prefs_json: Mapped[str] = mapped_column(Text, default="{}")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user: Mapped["User"] = relationship()
+
+
 class LlmUsageLog(Base):
     __tablename__ = "llm_usage_logs"
 

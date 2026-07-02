@@ -186,6 +186,31 @@ export const upsertFeatureIntro = (
 
 export const seedFeatureIntros = () => request.post('/feature-intros/seed');
 
+// --- AI news ---
+export interface AiNewsFavoriteRef {
+    type: 'preset' | 'custom';
+    id: string;
+}
+
+export interface AiNewsCustomLink {
+    id: string;
+    url: string;
+    title: string;
+    icon: string;
+    letter: string;
+    color: string;
+}
+
+export interface AiNewsUserPrefs {
+    hiddenPresetIds: string[];
+    customLinks: AiNewsCustomLink[];
+    favorites: AiNewsFavoriteRef[];
+}
+
+export const getAiNewsPrefs = () => request.get<AiNewsUserPrefs>('/ai-news/prefs');
+
+export const putAiNewsPrefs = (data: AiNewsUserPrefs) => request.put('/ai-news/prefs', data);
+
 // --- items ---
 export const listItems = () => request.get('/items/');
 
@@ -276,8 +301,21 @@ export const deleteMenu = (code: string) => request.delete(`/menus/${code}`);
 
 export const fetchPermissionTree = () => request.get('/permissions/tree');
 
-export const fetchLlmUsageStats = (params?: { days?: number; exclude_warmup?: boolean }) =>
+export const fetchLlmUsageStats = (params?: { days?: number | null; exclude_warmup?: boolean }) =>
     request.get('/llm-usage/stats', { params });
 
-export const fetchLlmUsageRecent = (params?: { limit?: number }) =>
+export interface LlmUsageRecentQuery {
+    page?: number;
+    page_size?: number;
+    caller?: string;
+    username?: string;
+    user_id?: number;
+    engine?: string;
+    success?: boolean;
+    request_id?: string;
+    days?: number | null;
+    exclude_warmup?: boolean;
+}
+
+export const fetchLlmUsageRecent = (params?: LlmUsageRecentQuery) =>
     request.get('/llm-usage/recent', { params });

@@ -1,5 +1,5 @@
 <template>
-    <div class="container ai-news-page">
+    <div class="container ai-news-page" v-loading="prefsLoading">
         <el-card shadow="hover">
             <template #header>
                 <div class="page-header">
@@ -146,13 +146,14 @@
 </template>
 
 <script setup lang="ts" name="demo-ai-news">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Close, Star } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { domesticLinkDefs, internationalLinkDefs } from './ai-news-links-data';
 import {
     createCustomLinkFromUrl,
+    loadAiNewsPrefs,
     type ResolvedLink,
     useAiNewsPrefs,
 } from './ai-news-links-store';
@@ -173,7 +174,16 @@ const {
 } = useAiNewsPrefs();
 
 const urlInput = ref('');
+const prefsLoading = ref(true);
 const iconFailed = reactive<Record<string, boolean>>({});
+
+onMounted(async () => {
+    try {
+        await loadAiNewsPrefs();
+    } finally {
+        prefsLoading.value = false;
+    }
+});
 
 const internationalLinks = computed(() =>
     filterPresets(internationalLinkDefs).map(resolvePreset),

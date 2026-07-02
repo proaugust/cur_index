@@ -82,6 +82,9 @@ API_PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("81", "categories", "分类列表", "GET", "/complaints/categories"),
     ("81", "settings", "归类设置", "GET", "/complaints/settings"),
     ("81", "settings", "归类设置", "PUT", "/complaints/settings"),
+    # AI 资讯导航
+    ("80", "prefs", "资讯偏好", "GET", "/ai-news/prefs"),
+    ("80", "prefs", "资讯偏好", "PUT", "/ai-news/prefs"),
     # RAG
     ("82", "import", "导入文档", "POST", "/documents/import"),
     ("82", "listByFile", "按文件名查", "GET", "/documents/listByFile"),

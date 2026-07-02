@@ -82,7 +82,7 @@ export default {
     pages: {
         aiNews: {
             title: 'AI 资讯导航',
-            intro: '以下为国内外常用 AI 资讯站点。可粘贴链接新增站点，点击星标加入收藏，不需要的链接可一键删除。',
+            intro: '以下为国内外常用 AI 资讯站点。可粘贴链接新增站点，点击星标加入收藏；收藏与自定义链接会保存到当前账号，换设备登录可同步。',
             sectionInternational: '国外',
             sectionDomestic: '国内',
             sectionCustom: '我的添加',
@@ -609,9 +609,14 @@ export default {
         llmUsage: {
             title: 'LLM Token 用量统计',
             rangeLabel: '统计范围',
+            daysAll: '全部',
             days7: '近 7 天',
             days30: '近 30 天',
             days90: '近 90 天',
+            all: '全部',
+            filterCaller: '场景关键字',
+            filterUsername: '用户名',
+            filterEngine: '引擎',
             totalTokens: '总 Token',
             totalCalls: '调用次数',
             promptTokens: 'Prompt Token',
@@ -635,6 +640,7 @@ export default {
             no: '否',
             loadStatsFailed: '加载统计失败',
             loadRecentFailed: '加载明细失败',
+            reset: '重置',
         },
         login: {
             title: 'AI功能演示',

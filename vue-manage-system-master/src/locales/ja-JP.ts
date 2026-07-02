@@ -82,7 +82,7 @@ export default {
     pages: {
         aiNews: {
             title: 'AI ニュースナビ',
-            intro: '国内外の主要 AI ニュースサイトへのリンクです。URL を貼り付けて追加、星マークでお気に入りに追加、不要なリンクは削除できます。',
+            intro: '国内外の主要 AI ニュースサイトへのリンクです。URL を貼り付けて追加、星マークでお気に入りに追加できます。お気に入りとカスタムリンクはアカウントに保存され、別端末でも同期されます。',
             sectionInternational: '海外',
             sectionDomestic: '国内',
             sectionCustom: '自分で追加',
@@ -609,9 +609,14 @@ export default {
         llmUsage: {
             title: 'LLM Token 利用量統計',
             rangeLabel: '集計期間',
+            daysAll: 'すべて',
             days7: '直近 7 日',
             days30: '直近 30 日',
             days90: '直近 90 日',
+            all: 'すべて',
+            filterCaller: 'シーンキーワード',
+            filterUsername: 'ユーザー名',
+            filterEngine: 'エンジン',
             totalTokens: '総 Token',
             totalCalls: '呼び出し回数',
             promptTokens: 'Prompt Token',
@@ -635,6 +640,7 @@ export default {
             no: 'いいえ',
             loadStatsFailed: '統計の読み込みに失敗しました',
             loadRecentFailed: '明細の読み込みに失敗しました',
+            reset: 'リセット',
         },
         login: {
             title: 'AI機能デモ',

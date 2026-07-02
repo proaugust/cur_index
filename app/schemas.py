@@ -538,7 +538,7 @@ class LlmUsageUserStats(BaseModel):
 
 
 class LlmUsageStatsResponse(BaseModel):
-    days: int
+    days: int | None = None
     total_calls: int
     total_prompt_tokens: int
     total_completion_tokens: int
@@ -571,3 +571,32 @@ class LlmUsageLogItem(BaseModel):
 
 class LlmUsageRecentResponse(BaseModel):
     items: list[LlmUsageLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AiNewsFavoriteRef(BaseModel):
+    type: Literal["preset", "custom"]
+    id: str
+
+
+class AiNewsCustomLink(BaseModel):
+    id: str
+    url: str
+    title: str
+    icon: str
+    letter: str
+    color: str
+
+
+class AiNewsUserPrefsBody(BaseModel):
+    hiddenPresetIds: list[str] = Field(default_factory=list)
+    customLinks: list[AiNewsCustomLink] = Field(default_factory=list)
+    favorites: list[AiNewsFavoriteRef] = Field(default_factory=list)
+
+
+class AiNewsUserPrefsRead(AiNewsUserPrefsBody):
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
