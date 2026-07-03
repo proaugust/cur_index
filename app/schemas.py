@@ -427,10 +427,21 @@ class AttendancePersonRead(BaseModel):
         return _as_utc_aware(value)
 
 
+class ZhaJinhuaPotEntry(BaseModel):
+    step: int
+    player_id: str
+    display_name: str
+    amount: int
+    reason: str
+    pot_after: int = 0
+    line_stake: int = 0
+
+
 class ZhaJinhuaStartResponse(BaseModel):
     message: str
     round: int
     pot: int
+    pot_ledger: list[ZhaJinhuaPotEntry] = []
 
 
 class ZhaJinhuaMessageResponse(BaseModel):
@@ -445,11 +456,13 @@ class ZhaJinhuaTurnResponse(BaseModel):
     thought: str = ""
     action: str = ""
     amount: int = 0
+    bet_tag: str = ""
     target: str = ""
     pot: int = 0
     balance: int = 0
     phase: str = ""
     current_player_id: str | None = None
+    pot_ledger: list[ZhaJinhuaPotEntry] = []
 
 
 class ZhaJinhuaRefereeResponse(BaseModel):
@@ -470,6 +483,8 @@ class ZhaJinhuaPlayerStatus(BaseModel):
     balance: int
     has_looked: bool
     alive: bool
+    all_in: bool = False
+    forced_all_in: bool = False
     cards: list[str]
     cards_display: str = ""
     hand_label: str = ""
@@ -492,15 +507,8 @@ class ZhaJinhuaSettlement(BaseModel):
     winner_name: str
     pot_total: int
     winner_net_win: int
+    pot_ledger: list[ZhaJinhuaPotEntry] = []
     players: dict[str, ZhaJinhuaSettlementPlayer]
-
-
-class ZhaJinhuaPotEntry(BaseModel):
-    step: int
-    player_id: str
-    display_name: str
-    amount: int
-    reason: str
 
 
 class ZhaJinhuaStatusResponse(BaseModel):
@@ -509,10 +517,13 @@ class ZhaJinhuaStatusResponse(BaseModel):
     pot: int
     current_bet: int
     phase: str
+    early_showdown: bool = False
     game_enabled: bool = False
     last_winner: str | None
     last_winner_name: str | None = None
     current_player_id: str | None = None
+    actions_this_round: int = 0
+    max_actions_per_round: int = 24
     last_settlement: ZhaJinhuaSettlement | None = None
     pot_ledger: list[ZhaJinhuaPotEntry] = []
     players: dict[str, ZhaJinhuaPlayerStatus]

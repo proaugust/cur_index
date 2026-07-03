@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 import urllib.error
 import urllib.request
@@ -26,6 +27,23 @@ def warmup() -> None:
         logger.warning("LLM 预热失败，首次 polished 请求可能更慢", exc_info=True)
 
 
+def _extract_message_content(message: dict, *, caller: str) -> str:
+    """提取最终文本；V4 thinking 模式下 content 可能为空，reasoning 里或含 JSON。"""
+    content = (message.get("content") or "").strip()
+    if content:
+        return content
+    reasoning = (message.get("reasoning_content") or "").strip()
+    if not reasoning:
+        return ""
+    logger.warning(
+        "LLM content 为空，尝试从 reasoning_content 提取 caller=%s len=%s",
+        caller,
+        len(reasoning),
+    )
+    match = re.search(r"\{[\s\S]*\}", reasoning)
+    return match.group().strip() if match else ""
+
+
 def _parse_usage(body: dict) -> tuple[int, int, int]:
     usage = body.get("usage") or {}
     prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
@@ -42,6 +60,7 @@ def chat_completion(
     *,
     temperature: float = 0.3,
     json_mode: bool = False,
+    disable_thinking: bool = False,
     caller: str = "unknown",
     engine: str = "native",
 ) -> str:
@@ -56,6 +75,10 @@ def chat_completion(
     }
     if json_mode:
         body["response_format"] = {"type": "json_object"}
+        body["max_tokens"] = 512
+        disable_thinking = True
+    if disable_thinking:
+        body["thinking"] = {"type": "disabled"}
     payload = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(
         url, data=payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {settings.openai_api_key}"}, method="POST"
@@ -116,8 +139,9 @@ def chat_completion(
         raise HTTPException(status_code=502, detail=f"无法连接大模型服务: {exc.reason}") from exc
 
     elapsed_ms = int((time.perf_counter() - started) * 1000)
+    prompt_tokens, completion_tokens, total_tokens = _parse_usage(body)
     try:
-        content = body["choices"][0]["message"]["content"].strip()
+        message = body["choices"][0]["message"]
     except (KeyError, IndexError, TypeError) as exc:
         logger.warning(
             "LLM 返回格式异常 request_id=%s caller=%s model=%s json_mode=%s %.0fms",
@@ -131,16 +155,38 @@ def chat_completion(
             caller=caller,
             engine=engine,
             model=model,
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
             latency_ms=elapsed_ms,
             success=False,
             request_id=rid,
         )
         raise HTTPException(status_code=502, detail="大模型返回格式异常") from exc
 
-    prompt_tokens, completion_tokens, total_tokens = _parse_usage(body)
+    content = _extract_message_content(message, caller=caller)
+    if not content:
+        logger.warning(
+            "LLM 返回空 content request_id=%s caller=%s model=%s json_mode=%s "
+            "completion_tokens=%s",
+            rid,
+            caller,
+            model,
+            json_mode,
+            completion_tokens,
+        )
+        record_llm_usage(
+            caller=caller,
+            engine=engine,
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            latency_ms=elapsed_ms,
+            success=False,
+            request_id=rid,
+        )
+        raise HTTPException(status_code=502, detail="大模型返回空内容")
     record_llm_usage(
         caller=caller,
         engine=engine,

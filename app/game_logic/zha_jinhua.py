@@ -8,6 +8,9 @@ from typing import Literal
 SUITS = ("H", "D", "C", "S")
 RANKS = ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A")
 
+# 花色决胜：黑桃 > 红桃 > 梅花 > 方块
+SUIT_ORDER: dict[str, int] = {"S": 4, "H": 3, "C": 2, "D": 1}
+
 HandCategory = Literal["leopard", "straight_flush", "flush", "straight", "pair", "high_card"]
 
 _CATEGORY_ORDER: dict[HandCategory, int] = {
@@ -48,6 +51,28 @@ def _card_parts(card: str) -> tuple[str, int]:
     return card[0], _rank_value(card[1:])
 
 
+def _suit_strength(card: str) -> int:
+    return SUIT_ORDER[card[0]]
+
+
+def _max_suit_for_rank(cards: list[str], rank_val: int) -> int:
+    suits = [_suit_strength(c) for c in cards if _card_parts(c)[1] == rank_val]
+    return max(suits) if suits else 0
+
+
+def _rank_suit_keys(cards: list[str]) -> tuple[tuple[int, int], ...]:
+    """按点数降序、同点按花色降序排列，用于金花/单张决胜。"""
+    keys = [(_card_parts(c)[1], _suit_strength(c)) for c in cards]
+    return tuple(sorted(keys, reverse=True))
+
+
+def _straight_high_value(values: list[int]) -> int:
+    uniq = sorted(set(values))
+    if set(uniq) == {14, 2, 3}:
+        return 3
+    return uniq[2] if len(uniq) == 3 else 0
+
+
 def _is_straight(values: list[int]) -> tuple[bool, int]:
     """返回 (是否顺子, 顺子最大牌点)。支持 A-2-3。"""
     uniq = sorted(set(values))
@@ -61,36 +86,56 @@ def _is_straight(values: list[int]) -> tuple[bool, int]:
 
 
 def evaluate_hand(cards: list[str]) -> tuple[int, tuple[int, ...], HandCategory]:
-    """返回 (类别序,  tiebreaker, 类别名)。"""
+    """返回 (类别序, tiebreaker, 类别名)。tiebreaker 含花色权重。"""
     if len(cards) != 3:
         raise ValueError("炸金花需 3 张牌")
 
-    suits = [_card_parts(c)[0] for c in cards]
     values = sorted((_card_parts(c)[1] for c in cards), reverse=True)
-    is_flush = len(set(suits)) == 1
+    is_flush = len({_card_parts(c)[0] for c in cards}) == 1
     is_straight, straight_high = _is_straight(values)
 
     if values[0] == values[1] == values[2]:
-        return _CATEGORY_ORDER["leopard"], (values[0],), "leopard"
+        rank = values[0]
+        return _CATEGORY_ORDER["leopard"], (rank, _max_suit_for_rank(cards, rank)), "leopard"
     if is_straight and is_flush:
-        return _CATEGORY_ORDER["straight_flush"], (straight_high,), "straight_flush"
+        return (
+            _CATEGORY_ORDER["straight_flush"],
+            (straight_high, _max_suit_for_rank(cards, straight_high)),
+            "straight_flush",
+        )
     if is_flush:
-        return _CATEGORY_ORDER["flush"], tuple(values), "flush"
+        flat: list[int] = []
+        for rank, suit in _rank_suit_keys(cards):
+            flat.extend((rank, suit))
+        return _CATEGORY_ORDER["flush"], tuple(flat), "flush"
     if is_straight:
-        return _CATEGORY_ORDER["straight"], (straight_high,), "straight"
+        return (
+            _CATEGORY_ORDER["straight"],
+            (straight_high, _max_suit_for_rank(cards, straight_high)),
+            "straight",
+        )
     if values[0] == values[1] or values[1] == values[2]:
         pair = values[1] if values[0] == values[1] else values[2]
         kicker = values[0] if values[0] != pair else values[2] if values[2] != pair else values[1]
-        return _CATEGORY_ORDER["pair"], (pair, kicker), "pair"
-    return _CATEGORY_ORDER["high_card"], tuple(values), "high_card"
+        return (
+            _CATEGORY_ORDER["pair"],
+            (pair, _max_suit_for_rank(cards, pair), kicker, _max_suit_for_rank(cards, kicker)),
+            "pair",
+        )
+    flat = []
+    for rank, suit in _rank_suit_keys(cards):
+        flat.extend((rank, suit))
+    return _CATEGORY_ORDER["high_card"], tuple(flat), "high_card"
 
 
 def compare_hands(cards_a: list[str], cards_b: list[str]) -> int:
-    """1 表示 A 赢，-1 表示 B 赢，0 表示平局。"""
+    """1 表示 A 赢，-1 表示 B 赢，0 表示平局（同牌同点同花，极罕见）。"""
     score_a = evaluate_hand(cards_a)
     score_b = evaluate_hand(cards_b)
-    if score_a[0] != score_b[0] or score_a[1] != score_b[1]:
-        return 1 if score_a > score_b else -1 if score_a < score_b else 0
+    if score_a > score_b:
+        return 1
+    if score_a < score_b:
+        return -1
     return 0
 
 
@@ -127,3 +172,23 @@ def hand_label(cards: list[str]) -> str:
 def compare_two_players(cards_a: list[str], cards_b: list[str]) -> int:
     """1 表示 A 赢，-1 表示 B 赢，0 表示平局。"""
     return compare_hands(cards_a, cards_b)
+
+
+def stake_at_line_for(
+    bet_line: int,
+    *,
+    actor_has_looked: bool,
+    has_prev_actor: bool = False,
+    compare_target_blind: bool = False,
+) -> int:
+    """按发话规则计算玩家在 bet_line（当前暗注标准）注线下的应付总额（非增量）。
+
+    暗注（蒙牌）：恒 = bet_line。
+    明注（看牌）且本局第一个发话（无上一发话者、且非比蒙牌）：= bet_line。
+    其余明注（有上一发话者，或比牌对象为蒙牌）：= bet_line×2。
+    """
+    if not actor_has_looked:
+        return bet_line
+    if not has_prev_actor and not compare_target_blind:
+        return bet_line
+    return bet_line * 2

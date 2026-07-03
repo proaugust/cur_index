@@ -112,12 +112,12 @@ const handleSearch = () => changePage(1);
 
 const columns = computed(() => {
     const cols = [
-        { type: 'index', label: t('pages.system.index'), width: 55, align: 'center' },
-        { prop: 'name', label: t('pages.system.roleName') },
-        { prop: 'key', label: t('pages.system.roleKey') },
-        { prop: 'status', label: t('pages.system.status') },
-        { prop: 'permissions', label: t('pages.system.editPermissions'), width: 120 },
-        { prop: 'operator', label: t('pages.system.operator'), width: 250 },
+        { type: 'index', label: t('pages.system.index'), width: 55, align: 'center', visible: true },
+        { prop: 'name', label: t('pages.system.roleName'), visible: true },
+        { prop: 'key', label: t('pages.system.roleKey'), visible: true },
+        { prop: 'status', label: t('pages.system.status'), visible: true },
+        { prop: 'permissions', label: t('pages.system.editPermissions'), width: 120, visible: true },
+        { prop: 'operator', label: t('pages.system.operator'), width: 250, visible: true },
     ];
     if (!canManage.value) {
         return cols.filter((item) => item.prop !== 'operator' && item.prop !== 'permissions');

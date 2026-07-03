@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRefs, PropType, ref } from 'vue'
+import { toRefs, PropType, ref, watch } from 'vue'
 import { Delete, Edit, View, Refresh } from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 
@@ -156,11 +156,16 @@ let {
     layout,
 } = toRefs(props)
 
-columns.value.forEach((item) => {
-    if (item.visible === undefined) {
-        item.visible = true
-    }
-})
+const ensureColumnVisible = (cols: any[]) => {
+    cols.forEach((item) => {
+        if (item.visible === undefined) {
+            item.visible = true
+        }
+    })
+}
+
+ensureColumnVisible(columns.value)
+watch(columns, (cols) => ensureColumnVisible(cols), { deep: true })
 
 // 当选择项发生变化时会触发该事件
 const multipleSelection = ref([])

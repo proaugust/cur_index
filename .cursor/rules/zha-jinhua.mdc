@@ -28,12 +28,18 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 ## 状态机
 
 - `phase`: `idle` → `betting` → `round_end` → … → `ended`（10 局）
-- 明注 = 暗注线 × 2（本回合 `look:true` 或已看牌）
-- 轮到玩家必须 **跟注 / 加注 / 弃牌**；仅 **2 人存活** 时可比牌
+- `current_bet` = 当前暗注标准；暗注=×1；明注非首发言=×2（含明注跟明注、跟暗注、比蒙牌）
+- 轮到玩家必须 **跟注 / 加注 / 弃牌**；未弃牌 ≥3 人时禁止比牌，≤2 人时可比牌
 - `look:true` 与压住/比牌/弃牌同回合完成，**禁止单独看牌**
 - 有人加注后 `pending_respondents` 须全员响应，轮次收口后才可再自由加注
 - 跟注/加注/比牌按 **增量** 入池（已入池底分等抵扣）
-- 结算写入 `last_settlement`（手牌、牌型、本局盈亏、累计盈亏）
+- 筹码不足时 **全下**（`all_in`），不再抛 400
+- LLM 失败时 **系统代打**：单张弃牌；至少对子且两人局比牌，三人局跟注至强制开牌
+- 被动全下（筹码不足）：`early_showdown`，禁止再加注，`pending` 清空后提前开牌
+- 强制开牌：`actions_this_round >= 24`、全员 `all_in`、加注周期达上限（三人 3 / 两人 2）、两人闷牌互顶 6 手
+- 同牌同点按花色决胜：黑桃 > 红桃 > 梅花 > 方块
+- 结算写入 `last_settlement`（手牌、牌型、本局盈亏、奖池总额与 `pot_ledger` 快照、累计盈亏）
+- `GET /game/status`：`betting` 返回活 `pot`/`pot_ledger`；`round_end`/`ended` 仍返回本局 `pot_ledger`（下一局 `_begin_round` 清空）；`last_settlement` 含结算快照
 
 ## API
 

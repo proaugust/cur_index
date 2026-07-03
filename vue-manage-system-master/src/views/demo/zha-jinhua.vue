@@ -49,6 +49,12 @@
             <div v-if="status" class="status-bar">
                 <el-tag size="large" type="info">{{ t('pages.zhaJinhua.round', { n: status.round, max: status.max_rounds }) }}</el-tag>
                 <el-tag size="large">{{ t('pages.zhaJinhua.phase') }}: {{ phaseLabel }}</el-tag>
+                <el-tag v-if="status.phase === 'betting'" size="large" type="warning">
+                    {{ t('pages.zhaJinhua.actionProgress', { n: status.actions_this_round ?? 0, max: status.max_actions_per_round ?? 24 }) }}
+                </el-tag>
+                <el-tag v-if="status.early_showdown" size="large" type="danger">
+                    {{ t('pages.zhaJinhua.earlyShowdown') }}
+                </el-tag>
             </div>
 
             <el-alert
@@ -62,8 +68,8 @@
 
             <!-- 牌桌 -->
             <div v-if="gameStarted && status?.players" class="table-layout">
-                <!-- 顶部中央：资金池（单面板 + 明细表） -->
-                <div class="pot-pool">
+                <!-- 本局资金池（下注中 + 局末保留，下一局开始时清空） -->
+                <div v-if="showRoundPotLedger" class="pot-pool">
                     <div class="pot-pool-head">
                         <el-icon class="pot-icon"><Money /></el-icon>
                         <span class="pot-title">{{ t('pages.zhaJinhua.potPool') }}</span>
@@ -83,73 +89,70 @@
                             <span class="pot-summary-amt">{{ item.total }} {{ t('pages.zhaJinhua.yuan') }}</span>
                         </span>
                     </div>
-                    <div v-if="potLedgerRows.length" class="pot-table-wrap">
-                        <table class="pot-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>{{ t('pages.zhaJinhua.potPlayer') }}</th>
-                                    <th>{{ t('pages.zhaJinhua.potAction') }}</th>
-                                    <th>{{ t('pages.zhaJinhua.potAmount') }}</th>
-                                    <th>{{ t('pages.zhaJinhua.potRunning') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="row in potLedgerRows" :key="row.step">
-                                    <td class="col-step">{{ row.step }}</td>
-                                    <td class="col-player" :style="{ color: playerColor(row.player_id) }">
-                                        {{ row.display_name }}
-                                    </td>
-                                    <td class="col-action">
-                                        <span class="pot-action-tag" :class="'pot-action--' + row.actionKind">
-                                            {{ row.actionLabel }}
-                                        </span>
-                                        <span v-if="row.tagLabel" class="pot-action-tag pot-action-tag--sub">
-                                            {{ row.tagLabel }}
-                                        </span>
-                                    </td>
-                                    <td class="col-amt">+{{ row.amount }}</td>
-                                    <td class="col-running">{{ row.running }} {{ t('pages.zhaJinhua.yuan') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <ZhaJinhuaPotLedgerTable
+                        v-if="potLedgerRows.length"
+                        :rows="potLedgerRows"
+                        :row-key-prefix="`r${status.round}`"
+                        :player-color="playerColor"
+                    />
                     <div v-else class="pot-empty">{{ t('pages.zhaJinhua.potEmpty') }}</div>
                 </div>
 
                 <div class="players-row">
                     <div
                         v-for="pid in PLAYER_IDS"
-                        :key="pid"
-                        class="player-panel"
-                        :class="{
-                            active: status.current_player_id === pid && status.phase === 'betting',
-                            folded: !status.players[pid]?.alive,
-                            thinking: thinkingPlayer === pid,
-                        }"
+                        :key="`r${status.round}-${pid}`"
+                        class="player-slot"
+                        :class="{ 'player-slot--betting': status.phase === 'betting' }"
                     >
-                        <!-- 该谁发话：放在玩家头顶 -->
+                        <!-- 该谁发话：绝对定位在预留区内，切换时不挤压面板 -->
                         <div
-                            v-if="status.phase === 'betting' && status.players[pid]?.alive"
-                            class="turn-badge"
-                            :class="{ 'turn-badge--active': status.current_player_id === pid || thinkingPlayer === pid }"
+                            v-if="status.phase === 'betting' && status.players[pid]?.alive && status.current_player_id === pid"
+                            class="turn-mic-float"
                         >
-                            <template v-if="thinkingPlayer === pid">
+                            🎤 {{ t('pages.zhaJinhua.yourTurn') }}
+                        </div>
+
+                        <div
+                            class="player-panel"
+                            :class="{
+                                active: status.current_player_id === pid && status.phase === 'betting',
+                                folded: !status.players[pid]?.alive,
+                                thinking: thinkingPlayer === pid,
+                            }"
+                        >
+                            <div
+                                v-if="status.phase === 'betting' && status.players[pid]?.alive && thinkingPlayer === pid"
+                                class="thinking-badge"
+                            >
                                 <el-icon class="is-loading"><Loading /></el-icon>
                                 {{ t('pages.zhaJinhua.thinking') }}
-                            </template>
-                            <template v-else-if="status.current_player_id === pid">
-                                🎤 {{ t('pages.zhaJinhua.yourTurn') }}
-                            </template>
-                            <template v-else>
+                            </div>
+                            <div
+                                v-else-if="status.phase === 'betting' && status.players[pid]?.alive && status.current_player_id !== pid"
+                                class="status-badge"
+                            >
                                 {{ t('pages.zhaJinhua.waiting') }}
-                            </template>
+                            </div>
+
+                        <!-- 实际行动：右上角角标 -->
+                        <div
+                            v-if="playerLastAction[pid]"
+                            class="player-action-badge"
+                            :class="'action-' + playerLastAction[pid]!.kind"
+                        >
+                            <el-icon class="action-badge-icon"><component :is="playerLastAction[pid]!.icon" /></el-icon>
+                            <span class="action-badge-verb">{{ playerLastAction[pid]!.action }}</span>
+                            <span v-if="playerLastAction[pid]!.detail" class="action-badge-detail">
+                                {{ playerLastAction[pid]!.detail }}
+                            </span>
                         </div>
 
                         <div class="player-head">
                             <el-icon class="player-icon" :style="{ color: playerColor(pid) }"><UserFilled /></el-icon>
                             <span class="player-name">{{ status.players[pid]?.display_name }}</span>
                             <el-tag v-if="!status.players[pid]?.alive" type="info" size="small">{{ t('pages.zhaJinhua.folded') }}</el-tag>
+                            <el-tag v-else-if="status.players[pid]?.all_in" type="warning" size="small">{{ t('pages.zhaJinhua.allIn') }}</el-tag>
                         </div>
 
                         <div class="player-meta">
@@ -197,13 +200,13 @@
                             <div class="thought-label">
                                 <el-icon class="thought-icon"><ChatDotRound /></el-icon>
                                 {{ t('pages.zhaJinhua.thought') }}
-                                <span v-if="thoughtHistory(pid).length" class="thought-count">
-                                    ({{ thoughtHistory(pid).length }})
+                                <span v-if="thoughtsFor(pid).length" class="thought-count">
+                                    ({{ thoughtsFor(pid).length }})
                                 </span>
                             </div>
-                            <div v-if="thoughtHistory(pid).length" class="thought-history">
+                            <div v-if="thoughtsFor(pid).length" class="thought-history">
                                 <div
-                                    v-for="(item, idx) in thoughtHistory(pid)"
+                                    v-for="(item, idx) in thoughtsFor(pid)"
                                     :key="idx"
                                     class="thought-item"
                                 >
@@ -215,18 +218,9 @@
                             <div v-if="thinkingPlayer === pid" class="thought-content thinking-pulse">
                                 {{ t('pages.zhaJinhua.thinking') }}
                             </div>
-                            <div v-else-if="!thoughtHistory(pid).length" class="thought-content thought-empty">—</div>
+                            <div v-else-if="!thoughtsFor(pid).length" class="thought-content thought-empty">—</div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- 中央行动区：仅有实际行动时显示 -->
-                <div v-if="centerAction" class="action-center">
-                    <div class="action-center-inner" :class="'action-' + centerAction.kind">
-                        <el-icon class="action-big-icon"><component :is="centerAction.icon" /></el-icon>
-                        <div class="action-player">{{ centerAction.displayName }}</div>
-                        <div class="action-verb">{{ centerAction.action }}</div>
-                        <div v-if="centerAction.detail" class="action-detail">{{ centerAction.detail }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -236,6 +230,9 @@
                 <div class="settlement-title">
                     <el-icon class="settlement-title-icon"><Trophy /></el-icon>
                     {{ t('pages.zhaJinhua.settlement') }}
+                    <span class="settlement-pot-total">
+                        {{ t('pages.zhaJinhua.potPool') }} {{ settlement.pot_total }} {{ t('pages.zhaJinhua.yuan') }}
+                    </span>
                 </div>
                 <div class="settlement-winner">
                     <el-icon class="winner-icon"><Medal /></el-icon>
@@ -284,7 +281,7 @@
 </template>
 
 <script setup lang="ts" name="demo-zha-jinhua">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
@@ -301,6 +298,7 @@ import {
     CloseBold,
 } from '@element-plus/icons-vue';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
+import ZhaJinhuaPotLedgerTable, { type PotLedgerRow } from './zha-jinhua-pot-ledger-table.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { usePermissStore } from '@/store/permiss';
 import {
@@ -320,6 +318,9 @@ const permiss = usePermissStore();
 type ThoughtItem = { text: string; action: string };
 
 const PLAYER_IDS = ['Player_1', 'Player_2', 'Player_3'] as const;
+const MAX_AUTO_TURNS_ABS = 50;
+/** 本手行动与列表展示后，再切下一家 */
+const TURN_LEDGER_PAUSE_MS = 220;
 
 const emptyThoughtHistory = (): Record<string, ThoughtItem[]> => ({
     Player_1: [],
@@ -327,12 +328,17 @@ const emptyThoughtHistory = (): Record<string, ThoughtItem[]> => ({
     Player_3: [],
 });
 
-type ParsedCard = { suit: string; rank: string; hidden: boolean };
+const emptyPlayerActions = (): Record<string, PlayerAction | null> => ({
+    Player_1: null,
+    Player_2: null,
+    Player_3: null,
+});
 
-type CenterAction = {
+type ParsedCard = { suit: string; rank: string };
+
+type PlayerAction = {
     kind: string;
     icon: object;
-    displayName: string;
     action: string;
     detail?: string;
 };
@@ -342,6 +348,7 @@ type PlayerStatus = {
     balance: number;
     alive: boolean;
     has_looked: boolean;
+    all_in?: boolean;
     cards?: string[];
     cards_display?: string;
     hand_label?: string;
@@ -352,6 +359,7 @@ type Settlement = {
     winner_name: string;
     pot_total: number;
     winner_net_win: number;
+    pot_ledger?: PotEntry[];
     players: Record<string, {
         display_name: string;
         cards_display: string;
@@ -366,6 +374,8 @@ type PotEntry = {
     display_name: string;
     amount: number;
     reason: string;
+    pot_after?: number;
+    line_stake?: number;
 };
 
 type Status = {
@@ -373,8 +383,11 @@ type Status = {
     max_rounds: number;
     pot: number;
     phase: string;
+    early_showdown?: boolean;
     game_enabled?: boolean;
     current_player_id?: string | null;
+    actions_this_round?: number;
+    max_actions_per_round?: number;
     last_settlement?: Settlement | null;
     pot_ledger?: PotEntry[];
     players: Record<string, PlayerStatus>;
@@ -398,9 +411,11 @@ const loading = ref(false);
 const accessLoading = ref(false);
 const simulating = ref(false);
 const status = ref<Status | null>(null);
+/** 丢弃过期的 GET /status 响应，避免并发刷新互相覆盖 */
+let statusFetchSeq = 0;
 const playerThoughtHistory = ref<Record<string, ThoughtItem[]>>(emptyThoughtHistory());
+const playerLastAction = ref<Record<string, PlayerAction | null>>(emptyPlayerActions());
 const thinkingPlayer = ref<string | null>(null);
-const centerAction = ref<CenterAction | null>(null);
 const refereeText = ref('');
 const systemMessages = ref<string[]>([]);
 
@@ -430,43 +445,104 @@ const canNextRound = computed(
 );
 const canSimulate = computed(() => gameEnabled.value && status.value?.phase === 'betting' && !simulating.value);
 const settlement = computed(() => status.value?.last_settlement ?? null);
+const showRoundPotLedger = computed(() => {
+    const phase = status.value?.phase;
+    return phase === 'betting' || phase === 'round_end' || phase === 'ended';
+});
 
-type PotLedgerRow = PotEntry & {
-    actionLabel: string;
-    actionKind: string;
-    tagLabel: string;
-    running: number;
+const parseBetTag = (raw: string) => {
+    if (raw.includes('明注')) {
+        return { tagLabel: t('pages.zhaJinhua.betOpen'), betKind: 'open' as const };
+    }
+    if (raw.includes('暗注')) {
+        return { tagLabel: t('pages.zhaJinhua.betBlind'), betKind: 'blind' as const };
+    }
+    return { tagLabel: raw, betKind: '' as const };
 };
 
 const parsePotReason = (reason: string) => {
-    if (reason === '底分') return { actionLabel: t('pages.zhaJinhua.ante'), actionKind: 'ante', tagLabel: '' };
+    const emptyBet = { tagLabel: '', betKind: '' as const, extraTag: '' };
+    if (reason === '底分') {
+        return { actionLabel: t('pages.zhaJinhua.ante'), actionKind: 'ante', ...emptyBet };
+    }
     if (reason.startsWith('跟注/')) {
-        const tag = reason.split('/')[1] ?? '';
-        return { actionLabel: t('pages.zhaJinhua.call'), actionKind: 'call', tagLabel: tag };
+        const parts = reason.split('/');
+        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
+        return {
+            actionLabel: t('pages.zhaJinhua.call'),
+            actionKind: 'call',
+            tagLabel,
+            betKind,
+            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
+        };
     }
     if (reason.startsWith('加注/')) {
-        const tag = reason.split('/')[1] ?? '';
-        return { actionLabel: t('pages.zhaJinhua.raise'), actionKind: 'raise', tagLabel: tag };
+        const parts = reason.split('/');
+        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
+        return {
+            actionLabel: t('pages.zhaJinhua.raise'),
+            actionKind: 'raise',
+            tagLabel,
+            betKind,
+            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
+        };
     }
-    if (reason === '比牌') return { actionLabel: t('pages.zhaJinhua.compare'), actionKind: 'compare', tagLabel: '' };
-    return { actionLabel: reason, actionKind: 'default', tagLabel: '' };
+    if (reason.startsWith('比牌/')) {
+        const parts = reason.split('/');
+        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
+        return {
+            actionLabel: t('pages.zhaJinhua.compare'),
+            actionKind: 'compare',
+            tagLabel,
+            betKind,
+            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
+        };
+    }
+    if (reason === '比牌') {
+        return { actionLabel: t('pages.zhaJinhua.compare'), actionKind: 'compare', ...emptyBet };
+    }
+    if (reason === '弃牌') {
+        return { actionLabel: t('pages.zhaJinhua.fold'), actionKind: 'fold', ...emptyBet };
+    }
+    if (reason === '开牌' || reason.startsWith('开牌/')) {
+        return { actionLabel: t('pages.zhaJinhua.showdown'), actionKind: 'showdown', ...emptyBet };
+    }
+    return { actionLabel: reason, actionKind: 'default', ...emptyBet };
 };
 
 const potLedgerRows = computed((): PotLedgerRow[] => {
     const ledger = status.value?.pot_ledger ?? [];
-    let running = 0;
-    return ledger.map((entry) => {
-        running += entry.amount;
-        const parsed = parsePotReason(entry.reason);
-        return { ...entry, ...parsed, running };
-    });
+    return buildPotLedgerRows(ledger);
 });
 
-/** 与明细表「池内累计」最后一行保持一致 */
+function buildPotLedgerRows(ledger: PotEntry[]): PotLedgerRow[] {
+    let fallbackRunning = 0;
+    return ledger.map((entry) => {
+        fallbackRunning += entry.amount;
+        const parsed = parsePotReason(entry.reason);
+        const running = entry.pot_after ?? fallbackRunning;
+        const lineStake = entry.line_stake ?? 0;
+        const atLine = entry.amount === 0
+            && lineStake > 0
+            && (parsed.actionKind === 'call' || parsed.actionKind === 'raise' || parsed.actionKind === 'compare');
+        return {
+            step: entry.step,
+            player_id: entry.player_id,
+            display_name: entry.display_name,
+            amount: entry.amount,
+            line_stake: lineStake,
+            running,
+            atLine,
+            ...parsed,
+        };
+    });
+}
+
+/** 奖池总额：仅以 ledger 累计为准，与明细表同源 */
 const potDisplayTotal = computed(() => {
     const rows = potLedgerRows.value;
-    if (rows.length > 0) return rows[rows.length - 1].running;
-    return status.value?.pot ?? 0;
+    if (rows.length) return rows[rows.length - 1].running;
+    return 0;
 });
 
 const potPlayerTotals = computed(() => {
@@ -490,7 +566,7 @@ const potPlayerTotals = computed(() => {
     }[];
 });
 
-const thoughtHistory = (pid: string) => playerThoughtHistory.value[pid] ?? [];
+const thoughtsFor = (pid: string) => playerThoughtHistory.value[pid] ?? [];
 
 const appendThought = (playerId: string, text: string, action: string) => {
     const prev = playerThoughtHistory.value[playerId] ?? [];
@@ -500,7 +576,6 @@ const appendThought = (playerId: string, text: string, action: string) => {
     };
 };
 
-const playerDisplay = (pid: string) => status.value?.players[pid]?.display_name ?? pid;
 const playerColor = (pid: string) => PLAYER_COLORS[pid] ?? '#606266';
 const suitSymbol = (s: string) => SUIT_SYMBOLS[s] ?? s;
 const suitColor = (s: string) => SUIT_COLORS[s] ?? '#303133';
@@ -513,19 +588,28 @@ const formatRankDisplay = (rank: string): string => {
     return rank;
 };
 
-const parseRawCard = (raw: string): ParsedCard => {
-    if (!raw || raw === '?') return { suit: '', rank: '?', hidden: true };
+const parseRawCard = (raw: string): ParsedCard | null => {
+    if (!raw || raw === '?') return null;
     const suit = raw[0];
     const rank = formatRankDisplay(raw.slice(1));
-    return { suit, rank, hidden: false };
+    return { suit, rank };
 };
 
 const cardList = (pid: string): ParsedCard[] => {
     const cards = status.value?.players[pid]?.cards;
     if (!cards?.length) {
-        return [{ hidden: true, suit: '', rank: '-' }, { hidden: true, suit: '', rank: '-' }, { hidden: true, suit: '', rank: '-' }];
+        return [
+            { suit: '', rank: '-' },
+            { suit: '', rank: '-' },
+            { suit: '', rank: '-' },
+        ];
     }
-    return cards.map(parseRawCard).filter((c) => c.rank !== '?');
+    const parsed = cards.map(parseRawCard).filter((c): c is ParsedCard => c !== null);
+    return parsed.length ? parsed : [
+        { suit: '', rank: '-' },
+        { suit: '', rank: '-' },
+        { suit: '', rank: '-' },
+    ];
 };
 
 const parseCardsDisplay = (display?: string): ParsedCard[] => {
@@ -533,44 +617,150 @@ const parseCardsDisplay = (display?: string): ParsedCard[] => {
     return display.split(/\s+/).map((part) => {
         const suitChar = part[0];
         const suitKey = { '♥': 'H', '♦': 'D', '♣': 'C', '♠': 'S' }[suitChar] ?? suitChar;
-        return { suit: suitKey, rank: formatRankDisplay(part.slice(1)), hidden: false };
+        return { suit: suitKey, rank: formatRankDisplay(part.slice(1)) };
     });
 };
 
-const actionIcon = (action: string) => {
-    if (action.includes('看牌')) return View;
-    if (action.includes('跟注')) return Money;
-    if (action.includes('加注')) return Wallet;
-    if (action.includes('比牌')) return Switch;
-    if (action.includes('弃牌')) return CloseBold;
-    return Money;
+const parseActionMeta = (action: string) => {
+    if (action.includes('看牌')) return { kind: 'look', icon: View };
+    if (action.includes('跟注')) return { kind: 'call', icon: Money };
+    if (action.includes('加注')) return { kind: 'raise', icon: Wallet };
+    if (action.includes('比牌')) return { kind: 'compare', icon: Switch };
+    if (action.includes('弃牌')) return { kind: 'fold', icon: CloseBold };
+    return { kind: 'default', icon: Money };
 };
 
-const actionKind = (action: string) => {
-    if (action.includes('看牌')) return 'look';
-    if (action.includes('跟注')) return 'call';
-    if (action.includes('加注')) return 'raise';
-    if (action.includes('比牌')) return 'compare';
-    if (action.includes('弃牌')) return 'fold';
-    return 'default';
-};
-
-const setCenterAction = (displayName: string, action: string, amount: number, target?: string) => {
+const setPlayerAction = (
+    playerId: string,
+    action: string,
+    amount: number,
+    target?: string,
+    justLooked?: boolean,
+    betTag?: string,
+    lineStake?: number,
+) => {
     let detail = '';
-    if (amount > 0) detail = `${t('pages.zhaJinhua.amount')}: ${amount}元`;
+    const isBetAction = action.includes('跟注') || action.includes('加注') || action.includes('比牌');
+    if (isBetAction && lineStake && lineStake > 0) {
+        detail = `+${lineStake}`;
+    } else if (isBetAction && amount === 0) {
+        detail = `+${status.value?.current_bet ?? 0}`;
+    } else if (isBetAction || amount > 0) {
+        detail = `${amount}${t('pages.zhaJinhua.yuan')}`;
+    }
     if (target) detail = detail ? `${detail} → ${target}` : target;
-    centerAction.value = {
-        kind: actionKind(action),
-        icon: actionIcon(action),
-        displayName,
-        action,
-        detail: detail || undefined,
+    const tagSuffix = betTag ? ` · ${betTag}` : '';
+    const actionLabel = justLooked
+        ? `${t('pages.zhaJinhua.looked')} · ${action}${tagSuffix}`
+        : `${action}${tagSuffix}`;
+    const meta = parseActionMeta(action);
+    const kind = justLooked && !action.includes('看牌') ? 'look' : meta.kind;
+    playerLastAction.value = {
+        ...playerLastAction.value,
+        [playerId]: {
+            kind,
+            icon: justLooked ? View : meta.icon,
+            action: actionLabel,
+            detail: detail || undefined,
+        },
     };
 };
 
-const refreshStatus = async () => {
+type TurnSnapshot = {
+    player_id: string;
+    pot: number;
+    phase?: string;
+    pot_ledger?: PotEntry[];
+    current_player_id?: string | null;
+    balance?: number;
+};
+
+/** 作废进行中的 status 请求（开局/下一局/重置前调用） */
+const invalidatePendingStatus = () => {
+    statusFetchSeq += 1;
+};
+
+const ledgerMaxStep = (ledger: PotEntry[] | undefined): number => {
+    if (!ledger?.length) return 0;
+    return ledger.reduce((max, entry) => (entry.step > max ? entry.step : max), 0);
+};
+
+/** 拒绝 ledger 回退（同局 step 变小） */
+const isLedgerRegression = (
+    incoming: PotEntry[],
+    current: PotEntry[],
+    incomingRound: number,
+    currentRound: number,
+): boolean => {
+    if (!current.length || !incoming.length) return false;
+    if (incomingRound < currentRound) return true;
+    if (incomingRound > currentRound) return false;
+    return ledgerMaxStep(incoming) < ledgerMaxStep(current);
+};
+
+const pickLedger = (
+    incoming: PotEntry[] | undefined,
+    current: PotEntry[] | undefined,
+    incomingRound: number,
+    currentRound: number,
+): PotEntry[] => {
+    const inc = incoming ?? [];
+    const cur = current ?? [];
+    if (isLedgerRegression(inc, cur, incomingRound, currentRound)) {
+        return [...cur];
+    }
+    if (inc.length) return [...inc];
+    if (cur.length) return [...cur];
+    return [];
+};
+
+const applyStatusSnapshot = (data: Status) => {
+    const prev = status.value;
+    if (!prev) {
+        status.value = data;
+        return;
+    }
+    status.value = {
+        ...data,
+        pot_ledger: pickLedger(data.pot_ledger, prev.pot_ledger, data.round, prev.round),
+    };
+};
+
+/** turn 返回：以本手 ledger 为准立即同步（含下一位发话者） */
+const patchTurnActResult = (data: TurnSnapshot) => {
+    if (!status.value || !Array.isArray(data.pot_ledger)) return;
+    const cur = status.value;
+    const pid = data.player_id;
+    const prevPlayer = cur.players[pid];
+    status.value = {
+        ...cur,
+        pot: data.pot,
+        phase: data.phase || cur.phase,
+        current_player_id: data.current_player_id ?? cur.current_player_id,
+        pot_ledger: [...data.pot_ledger],
+        players: prevPlayer
+            ? {
+                ...cur.players,
+                [pid]: { ...prevPlayer, balance: data.balance ?? prevPlayer.balance },
+            }
+            : cur.players,
+    };
+};
+
+const applyNextPlayer = (nextPlayerId: string | null | undefined) => {
+    if (!status.value || nextPlayerId === undefined) return;
+    status.value = {
+        ...status.value,
+        current_player_id: nextPlayerId,
+    };
+};
+
+const refreshStatus = async (): Promise<Status | null> => {
+    const reqSeq = ++statusFetchSeq;
     const res = await getZhaJinhuaStatus();
-    status.value = res.data;
+    if (reqSeq !== statusFetchSeq) return null;
+    applyStatusSnapshot(res.data);
+    return status.value;
 };
 
 const showError = (err: unknown) => {
@@ -582,8 +772,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const clearRoundUi = () => {
     playerThoughtHistory.value = emptyThoughtHistory();
+    playerLastAction.value = emptyPlayerActions();
     thinkingPlayer.value = null;
-    centerAction.value = null;
     refereeText.value = '';
 };
 
@@ -592,9 +782,17 @@ const handleStart = async () => {
     try {
         clearRoundUi();
         systemMessages.value = [];
+        invalidatePendingStatus();
         const res = await startZhaJinhuaGame();
         systemMessages.value.push(res.data.message);
         await refreshStatus();
+        if (res.data.pot_ledger?.length && status.value) {
+            status.value = {
+                ...status.value,
+                pot: res.data.pot ?? status.value.pot,
+                pot_ledger: [...res.data.pot_ledger],
+            };
+        }
     } catch (err) {
         showError(err);
     } finally {
@@ -606,9 +804,17 @@ const handleNextRound = async () => {
     loading.value = true;
     try {
         clearRoundUi();
+        invalidatePendingStatus();
         const res = await nextZhaJinhuaRound();
         systemMessages.value.push(res.data.message);
         await refreshStatus();
+        if (res.data.pot_ledger?.length && status.value) {
+            status.value = {
+                ...status.value,
+                pot: res.data.pot ?? status.value.pot,
+                pot_ledger: [...res.data.pot_ledger],
+            };
+        }
     } catch (err) {
         showError(err);
     } finally {
@@ -621,6 +827,7 @@ const handleReset = async () => {
     try {
         clearRoundUi();
         systemMessages.value = [];
+        invalidatePendingStatus();
         const res = await resetZhaJinhuaGame();
         systemMessages.value = [res.data.message];
         await refreshStatus();
@@ -646,22 +853,52 @@ const handleToggleAccess = async () => {
 };
 
 const runOneTurn = async (playerId: string) => {
+    const wasLooked = status.value?.players[playerId]?.has_looked ?? false;
     thinkingPlayer.value = playerId;
-    centerAction.value = null;
     await sleep(350);
 
-    const res = await zhaJinhuaTurn(playerId);
-    const data = res.data;
-    thinkingPlayer.value = null;
+    try {
+        const res = await zhaJinhuaTurn(playerId);
+        const data = res.data;
+        const nextPlayerId = data.current_player_id ?? null;
 
-    if (data.skipped) {
-        systemMessages.value.push(`【${data.display_name}】${data.reason || t('pages.zhaJinhua.skipped')}`);
-    } else {
+        if (data.skipped) {
+            systemMessages.value.push(`【${data.display_name}】${data.reason || t('pages.zhaJinhua.skipped')}`);
+            patchTurnActResult(data);
+            await refreshStatus();
+            applyNextPlayer(nextPlayerId);
+            return data;
+        }
+
         appendThought(playerId, data.thought || '……', data.action);
-        setCenterAction(data.display_name, data.action, data.amount ?? 0, data.target || undefined);
+        patchTurnActResult(data);
+        await refreshStatus();
+        applyNextPlayer(nextPlayerId);
+
+        const justLooked = !wasLooked && (status.value?.players[playerId]?.has_looked ?? false);
+        const lastEntry = data.pot_ledger?.filter((e) => e.player_id === playerId).at(-1);
+        setPlayerAction(
+            playerId,
+            data.action,
+            data.amount ?? 0,
+            data.target || undefined,
+            justLooked,
+            data.bet_tag || undefined,
+            lastEntry?.line_stake,
+        );
+
+        await nextTick();
+        await sleep(TURN_LEDGER_PAUSE_MS);
+        // 以 turn 响应的下一位为准，避免 refresh 未完成时仍停在刚行动玩家
+        applyNextPlayer(nextPlayerId);
+        return data;
+    } catch (err) {
+        showError(err);
+        await refreshStatus().catch(() => undefined);
+        throw err;
+    } finally {
+        thinkingPlayer.value = null;
     }
-    await refreshStatus();
-    return data;
 };
 
 const handleAutoRound = async () => {
@@ -671,7 +908,7 @@ const handleAutoRound = async () => {
         await refreshStatus();
         let guard = 0;
         let hadAction = false;
-        while (status.value?.phase === 'betting' && guard < 24) {
+        while (status.value?.phase === 'betting' && guard < MAX_AUTO_TURNS_ABS) {
             guard += 1;
             const current = status.value?.current_player_id;
             if (!current) break;
@@ -679,9 +916,12 @@ const handleAutoRound = async () => {
             if (!data.skipped) hadAction = true;
         }
 
+        if (status.value?.phase === 'betting') {
+            systemMessages.value.push(t('pages.zhaJinhua.autoStuckHint'));
+        }
+
         if (hadAction) {
             thinkingPlayer.value = '__referee__';
-            centerAction.value = null;
             await sleep(600);
             const refRes = await getZhaJinhuaReferee();
             refereeText.value = refRes.data.referee_voice;
@@ -820,112 +1060,6 @@ refreshStatus().catch(() => undefined);
     color: var(--el-color-success);
 }
 
-.pot-table-wrap {
-    margin-top: 12px;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 2px solid #f5cba7;
-    background: #fff;
-}
-
-.pot-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-}
-
-.pot-table thead {
-    background: #fdebd0;
-}
-
-.pot-table th {
-    padding: 10px 12px;
-    font-weight: 700;
-    color: #7e5109;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.pot-table td {
-    padding: 9px 12px;
-    border-top: 1px solid #f5e6d3;
-    vertical-align: middle;
-}
-
-.pot-table tbody tr:nth-child(even) {
-    background: #fffcf7;
-}
-
-.pot-table tbody tr:hover {
-    background: #fef5e7;
-}
-
-.col-step {
-    width: 48px;
-    color: var(--el-text-color-secondary);
-    font-weight: 600;
-}
-
-.col-player {
-    font-weight: 700;
-    min-width: 120px;
-}
-
-.col-action {
-    min-width: 120px;
-}
-
-.col-amt {
-    font-weight: 800;
-    color: var(--el-color-success);
-    white-space: nowrap;
-}
-
-.col-running {
-    font-weight: 700;
-    color: #d35400;
-    white-space: nowrap;
-}
-
-.pot-action-tag {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.pot-action-tag--sub {
-    margin-left: 4px;
-    font-weight: 600;
-    opacity: 0.85;
-}
-
-.pot-action--ante {
-    background: #ecf0f1;
-    color: #566573;
-}
-
-.pot-action--call {
-    background: #d6eaf8;
-    color: #1a5276;
-}
-
-.pot-action--raise {
-    background: #fadbd8;
-    color: #922b21;
-}
-
-.pot-action--compare {
-    background: #e8daef;
-    color: #6c3483;
-}
-
-.pot-action--default {
-    background: #f4f6f7;
-    color: #566573;
-}
-
 .pot-empty {
     margin-top: 10px;
     text-align: center;
@@ -945,6 +1079,7 @@ refreshStatus().catch(() => undefined);
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+    align-items: start;
 }
 
 @media (max-width: 900px) {
@@ -953,8 +1088,38 @@ refreshStatus().catch(() => undefined);
     }
 }
 
+.player-slot {
+    position: relative;
+    min-width: 0;
+}
+
+.player-slot--betting {
+    padding-top: 44px;
+}
+
+.turn-mic-float {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #d35400;
+    background: linear-gradient(90deg, #fff3cd, #ffeaa7);
+    border: 2px solid #f39c12;
+    box-shadow: 0 4px 14px rgba(243, 156, 18, 0.35);
+    animation: turn-glow 1.5s ease-in-out infinite;
+    white-space: nowrap;
+    z-index: 3;
+    pointer-events: none;
+}
+
 .player-panel {
+    position: relative;
     padding: 16px;
+    padding-top: 36px;
     border-radius: 12px;
     border: 2px solid var(--el-border-color-light);
     background: var(--el-fill-color-blank);
@@ -975,28 +1140,112 @@ refreshStatus().catch(() => undefined);
     opacity: 0.55;
 }
 
-.turn-badge {
-    text-align: center;
+.thinking-badge {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 6px 10px;
-    margin: -8px -8px 10px;
-    border-radius: 8px 8px 0 0;
+    border-radius: 10px 10px 0 0;
     font-size: 13px;
     font-weight: 600;
-    color: var(--el-text-color-secondary);
-    background: var(--el-fill-color-light);
+    color: #b7791f;
+    background: linear-gradient(90deg, #fff8e6, #ffedd5);
 }
 
-.turn-badge--active {
-    background: linear-gradient(90deg, #fff3cd, #ffeaa7);
-    color: #d35400;
-    font-size: 15px;
-    animation: turn-glow 1.5s ease-in-out infinite;
+.status-badge {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    padding: 6px 10px;
+    border-radius: 10px 10px 0 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color-light);
 }
 
 @keyframes turn-glow {
     0%, 100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.3); }
     50% { box-shadow: 0 0 12px 2px rgba(243, 156, 18, 0.45); }
 }
+
+/* ── 玩家右上角行动角标 ── */
+.player-action-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    max-width: calc(100% - 16px);
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 2px solid var(--el-border-color);
+    background: var(--el-fill-color-blank);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    animation: action-badge-in 0.3s ease-out;
+}
+
+@keyframes action-badge-in {
+    from {
+        opacity: 0;
+        transform: scale(0.85) translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.action-badge-icon {
+    font-size: 18px;
+}
+
+.action-badge-verb {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.action-badge-detail {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--el-text-color-secondary);
+    white-space: nowrap;
+}
+
+.player-action-badge.action-call { border-color: #3498db; background: linear-gradient(180deg, #ebf5fb 0%, #fff 100%); }
+.player-action-badge.action-call .action-badge-icon,
+.player-action-badge.action-call .action-badge-verb { color: #2980b9; }
+
+.player-action-badge.action-raise { border-color: #e74c3c; background: linear-gradient(180deg, #fdedec 0%, #fff 100%); }
+.player-action-badge.action-raise .action-badge-icon,
+.player-action-badge.action-raise .action-badge-verb { color: #c0392b; }
+
+.player-action-badge.action-look { border-color: #9b59b6; background: linear-gradient(180deg, #f5eef8 0%, #fff 100%); }
+.player-action-badge.action-look .action-badge-icon,
+.player-action-badge.action-look .action-badge-verb { color: #8e44ad; }
+
+.player-action-badge.action-compare { border-color: #e67e22; background: linear-gradient(180deg, #fef5e7 0%, #fff 100%); }
+.player-action-badge.action-compare .action-badge-icon,
+.player-action-badge.action-compare .action-badge-verb { color: #d35400; }
+
+.player-action-badge.action-fold { border-color: #95a5a6; background: linear-gradient(180deg, #f4f6f7 0%, #fff 100%); }
+.player-action-badge.action-fold .action-badge-icon,
+.player-action-badge.action-fold .action-badge-verb { color: #7f8c8d; }
+
+.player-action-badge.action-default { border-color: var(--el-border-color); }
+.player-action-badge.action-default .action-badge-verb { color: var(--el-text-color-primary); }
 
 .card-mode-tag {
     text-align: center;
@@ -1089,11 +1338,6 @@ refreshStatus().catch(() => undefined);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
-.card-tile.hidden {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-color: #5a67d8;
-}
-
 .card-tile-lg {
     width: 72px;
     height: 98px;
@@ -1109,17 +1353,6 @@ refreshStatus().catch(() => undefined);
     font-size: 22px;
     font-weight: 800;
     line-height: 1.1;
-}
-
-.card-tile.hidden .card-rank {
-    color: #fff;
-    font-size: 26px;
-}
-
-.card-back-icon {
-    font-size: 32px;
-    color: rgba(255, 255, 255, 0.85);
-    margin-bottom: 2px;
 }
 
 .hand-label {
@@ -1219,69 +1452,6 @@ refreshStatus().catch(() => undefined);
     50% { opacity: 0.45; }
 }
 
-/* ── 中央行动区 ── */
-.action-center {
-    display: flex;
-    justify-content: center;
-    padding: 8px 0;
-}
-
-.action-center-inner {
-    min-width: 280px;
-    max-width: 420px;
-    width: 100%;
-    padding: 24px 32px;
-    border-radius: 16px;
-    text-align: center;
-    border: 3px solid var(--el-border-color);
-    background: var(--el-fill-color-blank);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-}
-
-.action-big-icon {
-    font-size: 56px;
-    margin-bottom: 8px;
-}
-
-.action-call .action-big-icon { color: #3498db; }
-.action-raise .action-big-icon { color: #e74c3c; }
-.action-look .action-big-icon { color: #9b59b6; }
-.action-compare .action-big-icon { color: #e67e22; }
-.action-fold .action-big-icon { color: #95a5a6; }
-.action-thinking .action-big-icon { color: var(--el-color-warning); }
-
-.action-call { border-color: #3498db; background: linear-gradient(180deg, #ebf5fb 0%, #fff 100%); }
-.action-raise { border-color: #e74c3c; background: linear-gradient(180deg, #fdedec 0%, #fff 100%); }
-.action-look { border-color: #9b59b6; background: linear-gradient(180deg, #f5eef8 0%, #fff 100%); }
-.action-compare { border-color: #e67e22; background: linear-gradient(180deg, #fef5e7 0%, #fff 100%); }
-.action-fold { border-color: #95a5a6; background: linear-gradient(180deg, #f4f6f7 0%, #fff 100%); }
-
-.action-player {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--el-text-color-primary);
-    margin-bottom: 4px;
-}
-
-.action-verb {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: 2px;
-}
-
-.action-call .action-verb { color: #2980b9; }
-.action-raise .action-verb { color: #c0392b; }
-.action-look .action-verb { color: #8e44ad; }
-.action-compare .action-verb { color: #d35400; }
-.action-fold .action-verb { color: #7f8c8d; }
-
-.action-detail {
-    margin-top: 8px;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--el-text-color-regular);
-}
-
 /* ── 结算区：放大 + 彩色 ── */
 .settlement-section {
     margin-top: 24px;
@@ -1305,6 +1475,13 @@ refreshStatus().catch(() => undefined);
 .settlement-title-icon {
     font-size: 32px;
     color: #f39c12;
+}
+
+.settlement-pot-total {
+    margin-left: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
 }
 
 .settlement-winner {
