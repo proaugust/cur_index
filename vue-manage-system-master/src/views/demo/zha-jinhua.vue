@@ -73,12 +73,12 @@
                     <div class="pot-pool-head">
                         <el-icon class="pot-icon"><Money /></el-icon>
                         <span class="pot-title">{{ t('pages.zhaJinhua.potPool') }}</span>
-                        <span class="pot-total">{{ potDisplayTotal }} {{ t('pages.zhaJinhua.yuan') }}</span>
+                        <span class="pot-total">{{ potView?.total ?? 0 }} {{ t('pages.zhaJinhua.yuan') }}</span>
                     </div>
-                    <div class="pot-summary">
+                    <div v-if="potView?.player_totals?.length" class="pot-summary">
                         <span class="pot-summary-label">{{ t('pages.zhaJinhua.potSummary') }}</span>
                         <span
-                            v-for="item in potPlayerTotals"
+                            v-for="item in potView.player_totals"
                             :key="item.player_id"
                             class="pot-summary-item"
                             :style="{ borderColor: playerColor(item.player_id) }"
@@ -90,8 +90,8 @@
                         </span>
                     </div>
                     <ZhaJinhuaPotLedgerTable
-                        v-if="potLedgerRows.length"
-                        :rows="potLedgerRows"
+                        v-if="potView?.rows?.length"
+                        :rows="potView.rows"
                         :row-key-prefix="`r${status.round}`"
                         :player-color="playerColor"
                     />
@@ -231,7 +231,7 @@
                     <el-icon class="settlement-title-icon"><Trophy /></el-icon>
                     {{ t('pages.zhaJinhua.settlement') }}
                     <span class="settlement-pot-total">
-                        {{ t('pages.zhaJinhua.potPool') }} {{ potDisplayTotal }} {{ t('pages.zhaJinhua.yuan') }}
+                        {{ t('pages.zhaJinhua.potPool') }} {{ potView?.total ?? 0 }} {{ t('pages.zhaJinhua.yuan') }}
                     </span>
                 </div>
                 <div class="settlement-winner">
@@ -378,6 +378,12 @@ type PotEntry = {
     line_stake?: number;
 };
 
+type PotView = {
+    total: number;
+    player_totals: { player_id: string; display_name: string; total: number }[];
+    rows: PotLedgerRow[];
+};
+
 type Status = {
     round: number;
     max_rounds: number;
@@ -388,8 +394,10 @@ type Status = {
     current_player_id?: string | null;
     actions_this_round?: number;
     max_actions_per_round?: number;
+    current_bet?: number;
     last_settlement?: Settlement | null;
     pot_ledger?: PotEntry[];
+    pot_view?: PotView | null;
     players: Record<string, PlayerStatus>;
 };
 
@@ -445,141 +453,9 @@ const canNextRound = computed(
 );
 const canSimulate = computed(() => gameEnabled.value && status.value?.phase === 'betting' && !simulating.value);
 const settlement = computed(() => status.value?.last_settlement ?? null);
-const showRoundPotLedger = computed(() => {
-    const phase = status.value?.phase;
-    return phase === 'betting' || phase === 'round_end' || phase === 'ended';
-});
-
-const parseBetTag = (raw: string) => {
-    if (raw.includes('明注')) {
-        return { tagLabel: t('pages.zhaJinhua.betOpen'), betKind: 'open' as const };
-    }
-    if (raw.includes('暗注')) {
-        return { tagLabel: t('pages.zhaJinhua.betBlind'), betKind: 'blind' as const };
-    }
-    return { tagLabel: raw, betKind: '' as const };
-};
-
-const parsePotReason = (reason: string) => {
-    const emptyBet = { tagLabel: '', betKind: '' as const, extraTag: '' };
-    if (reason === '底分') {
-        return { actionLabel: t('pages.zhaJinhua.ante'), actionKind: 'ante', ...emptyBet };
-    }
-    if (reason.startsWith('跟注/')) {
-        const parts = reason.split('/');
-        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
-        return {
-            actionLabel: t('pages.zhaJinhua.call'),
-            actionKind: 'call',
-            tagLabel,
-            betKind,
-            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
-        };
-    }
-    if (reason.startsWith('加注/')) {
-        const parts = reason.split('/');
-        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
-        return {
-            actionLabel: t('pages.zhaJinhua.raise'),
-            actionKind: 'raise',
-            tagLabel,
-            betKind,
-            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
-        };
-    }
-    if (reason.startsWith('比牌/')) {
-        const parts = reason.split('/');
-        const { tagLabel, betKind } = parseBetTag(parts[1] ?? '');
-        return {
-            actionLabel: t('pages.zhaJinhua.compare'),
-            actionKind: 'compare',
-            tagLabel,
-            betKind,
-            extraTag: parts.includes('全下') ? t('pages.zhaJinhua.allIn') : '',
-        };
-    }
-    if (reason === '比牌') {
-        return { actionLabel: t('pages.zhaJinhua.compare'), actionKind: 'compare', ...emptyBet };
-    }
-    if (reason === '弃牌') {
-        return { actionLabel: t('pages.zhaJinhua.fold'), actionKind: 'fold', ...emptyBet };
-    }
-    if (reason === '开牌' || reason.startsWith('开牌/')) {
-        return { actionLabel: t('pages.zhaJinhua.showdown'), actionKind: 'showdown', ...emptyBet };
-    }
-    return { actionLabel: reason, actionKind: 'default', ...emptyBet };
-};
-
-const potLedgerRows = computed((): PotLedgerRow[] => buildPotLedgerRows(activePotLedger.value));
-
-/** 本局入池明细唯一数据源（下注中 / 局末 / 整局结束均用 status.pot_ledger） */
-const activePotLedger = computed((): PotEntry[] => status.value?.pot_ledger ?? []);
-
-/** 入池金额统一数值化，避免 API/合并后字符串拼接（如 10+'10'→'1010'） */
-const ledgerEntryAmount = (entry: Pick<PotEntry, 'amount'>): number => {
-    const n = Number(entry.amount);
-    return Number.isFinite(n) ? n : 0;
-};
-
-const sumLedgerAmounts = (ledger: PotEntry[]): number =>
-    ledger.reduce((sum, entry) => sum + ledgerEntryAmount(entry), 0);
-
-function buildPotLedgerRows(ledger: PotEntry[]): PotLedgerRow[] {
-    let poolRunning = 0;
-    const playerRunning = new Map<string, number>();
-    return ledger.map((entry) => {
-        const amount = ledgerEntryAmount(entry);
-        poolRunning += amount;
-        const prevPlayer = playerRunning.get(entry.player_id) ?? 0;
-        const nextPlayer = prevPlayer + amount;
-        playerRunning.set(entry.player_id, nextPlayer);
-        const parsed = parsePotReason(entry.reason);
-        const lineStake = Number(entry.line_stake) || amount;
-        const atLine = amount === 0
-            && lineStake > 0
-            && (parsed.actionKind === 'call' || parsed.actionKind === 'raise' || parsed.actionKind === 'compare');
-        return {
-            step: entry.step,
-            player_id: entry.player_id,
-            display_name: entry.display_name,
-            amount,
-            line_stake: lineStake,
-            running: poolRunning,
-            playerRunning: nextPlayer,
-            atLine,
-            ...parsed,
-        };
-    });
-}
-
-/** 奖池总额 = ledger 入池金额之和 = 末行池内累计 = 各玩家入池合计之和 */
-const potDisplayTotal = computed(() => sumLedgerAmounts(activePotLedger.value));
-
-const potPlayerTotals = computed(() => {
-    const totals = new Map<string, { player_id: string; display_name: string; total: number }>();
-    for (const entry of activePotLedger.value) {
-        const inc = ledgerEntryAmount(entry);
-        const prev = totals.get(entry.player_id);
-        if (prev) {
-            prev.total += inc;
-        } else {
-            totals.set(entry.player_id, {
-                player_id: entry.player_id,
-                display_name: entry.display_name,
-                total: inc,
-            });
-        }
-    }
-    return PLAYER_IDS.map((pid) => {
-        const found = totals.get(pid);
-        if (found) return found;
-        return {
-            player_id: pid,
-            display_name: status.value?.players[pid]?.display_name ?? pid,
-            total: 0,
-        };
-    });
-});
+/** 资金池视图：后端 pot_view，前端只读渲染 */
+const potView = computed(() => status.value?.pot_view ?? null);
+const showRoundPotLedger = computed(() => potView.value != null);
 
 const thoughtsFor = (pid: string) => playerThoughtHistory.value[pid] ?? [];
 
@@ -652,11 +528,14 @@ const setPlayerAction = (
     target?: string,
     justLooked?: boolean,
     betTag?: string,
+    displayAmount?: number | null,
 ) => {
     let detail = '';
-    const paid = Number(amount) || 0;
-    if (paid > 0) {
-        detail = `+${paid}`;
+    const shown = displayAmount != null && displayAmount > 0
+        ? displayAmount
+        : (Number(amount) || 0);
+    if (shown > 0) {
+        detail = `+${shown}`;
     }
     if (target) detail = detail ? `${detail} → ${target}` : target;
     const tagSuffix = betTag ? ` · ${betTag}` : '';
@@ -676,13 +555,9 @@ const setPlayerAction = (
     };
 };
 
-type TurnSnapshot = {
-    player_id: string;
-    pot: number;
-    phase?: string;
-    pot_ledger?: PotEntry[];
-    current_player_id?: string | null;
-    balance?: number;
+/** 后端 state 快照：唯一真相源，前端整包替换、不做二次计算 */
+const applyGameState = (data: Status) => {
+    status.value = data;
 };
 
 /** 作废进行中的 status 请求（开局/下一局/重置前调用） */
@@ -690,86 +565,11 @@ const invalidatePendingStatus = () => {
     statusFetchSeq += 1;
 };
 
-const ledgerMaxStep = (ledger: PotEntry[] | undefined): number => {
-    if (!ledger?.length) return 0;
-    return ledger.reduce((max, entry) => (entry.step > max ? entry.step : max), 0);
-};
-
-/** 拒绝 ledger 回退（同局 step 变小） */
-const isLedgerRegression = (
-    incoming: PotEntry[],
-    current: PotEntry[],
-    incomingRound: number,
-    currentRound: number,
-): boolean => {
-    if (!current.length || !incoming.length) return false;
-    if (incomingRound < currentRound) return true;
-    if (incomingRound > currentRound) return false;
-    return ledgerMaxStep(incoming) < ledgerMaxStep(current);
-};
-
-const pickLedger = (
-    incoming: PotEntry[] | undefined,
-    current: PotEntry[] | undefined,
-    incomingRound: number,
-    currentRound: number,
-): PotEntry[] => {
-    const inc = incoming ?? [];
-    const cur = current ?? [];
-    if (isLedgerRegression(inc, cur, incomingRound, currentRound)) {
-        return [...cur];
-    }
-    if (inc.length) return [...inc];
-    if (cur.length) return [...cur];
-    return [];
-};
-
-const applyStatusSnapshot = (data: Status) => {
-    const prev = status.value;
-    if (!prev) {
-        status.value = data;
-        return;
-    }
-    status.value = {
-        ...data,
-        pot_ledger: pickLedger(data.pot_ledger, prev.pot_ledger, data.round, prev.round),
-    };
-};
-
-/** turn 返回：以本手 ledger 为准立即同步（含下一位发话者） */
-const patchTurnActResult = (data: TurnSnapshot) => {
-    if (!status.value || !Array.isArray(data.pot_ledger)) return;
-    const cur = status.value;
-    const pid = data.player_id;
-    const prevPlayer = cur.players[pid];
-    status.value = {
-        ...cur,
-        pot: data.pot,
-        phase: data.phase || cur.phase,
-        current_player_id: data.current_player_id ?? cur.current_player_id,
-        pot_ledger: [...data.pot_ledger],
-        players: prevPlayer
-            ? {
-                ...cur.players,
-                [pid]: { ...prevPlayer, balance: data.balance ?? prevPlayer.balance },
-            }
-            : cur.players,
-    };
-};
-
-const applyNextPlayer = (nextPlayerId: string | null | undefined) => {
-    if (!status.value || nextPlayerId === undefined) return;
-    status.value = {
-        ...status.value,
-        current_player_id: nextPlayerId,
-    };
-};
-
 const refreshStatus = async (): Promise<Status | null> => {
     const reqSeq = ++statusFetchSeq;
     const res = await getZhaJinhuaStatus();
     if (reqSeq !== statusFetchSeq) return null;
-    applyStatusSnapshot(res.data);
+    applyGameState(res.data);
     return status.value;
 };
 
@@ -795,13 +595,10 @@ const handleStart = async () => {
         invalidatePendingStatus();
         const res = await startZhaJinhuaGame();
         systemMessages.value.push(res.data.message);
-        await refreshStatus();
-        if (res.data.pot_ledger?.length && status.value) {
-            status.value = {
-                ...status.value,
-                pot: res.data.pot ?? status.value.pot,
-                pot_ledger: [...res.data.pot_ledger],
-            };
+        if (res.data.state) {
+            applyGameState(res.data.state);
+        } else {
+            await refreshStatus();
         }
     } catch (err) {
         showError(err);
@@ -817,13 +614,10 @@ const handleNextRound = async () => {
         invalidatePendingStatus();
         const res = await nextZhaJinhuaRound();
         systemMessages.value.push(res.data.message);
-        await refreshStatus();
-        if (res.data.pot_ledger?.length && status.value) {
-            status.value = {
-                ...status.value,
-                pot: res.data.pot ?? status.value.pot,
-                pot_ledger: [...res.data.pot_ledger],
-            };
+        if (res.data.state) {
+            applyGameState(res.data.state);
+        } else {
+            await refreshStatus();
         }
     } catch (err) {
         showError(err);
@@ -870,22 +664,17 @@ const runOneTurn = async (playerId: string) => {
     try {
         const res = await zhaJinhuaTurn(playerId);
         const data = res.data;
-        const nextPlayerId = data.current_player_id ?? null;
+        applyGameState(data.state);
 
         if (data.skipped) {
             systemMessages.value.push(`【${data.display_name}】${data.reason || t('pages.zhaJinhua.skipped')}`);
-            patchTurnActResult(data);
-            await refreshStatus();
-            applyNextPlayer(nextPlayerId);
             return data;
         }
 
         appendThought(playerId, data.thought || '……', data.action);
-        patchTurnActResult(data);
-        await refreshStatus();
-        applyNextPlayer(nextPlayerId);
 
-        const justLooked = !wasLooked && (status.value?.players[playerId]?.has_looked ?? false);
+        const justLooked = !wasLooked && (data.state.players[playerId]?.has_looked ?? false);
+        const lastPotRow = data.state.pot_view?.rows.filter((r) => r.player_id === playerId).at(-1);
         setPlayerAction(
             playerId,
             data.action,
@@ -893,12 +682,11 @@ const runOneTurn = async (playerId: string) => {
             data.target || undefined,
             justLooked,
             data.bet_tag || undefined,
+            lastPotRow?.display_amount,
         );
 
         await nextTick();
         await sleep(TURN_LEDGER_PAUSE_MS);
-        // 以 turn 响应的下一位为准，避免 refresh 未完成时仍停在刚行动玩家
-        applyNextPlayer(nextPlayerId);
         return data;
     } catch (err) {
         showError(err);

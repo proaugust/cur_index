@@ -8,11 +8,12 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 
 from app.game_logic.zha_jinhua import (
+    build_pot_view,
     compare_two_players,
     evaluate_hand,
     format_cards,
@@ -155,6 +156,7 @@ class ZhaJinhuaGameEngine:
             "early_showdown": False,
             "last_actor_id": None,
             "last_actor_bet_blind": None,
+            "awaiting_final_compare": False,
         }
 
     def _record_pot(
@@ -183,21 +185,16 @@ class ZhaJinhuaGameEngine:
             }
         )
 
-    def _player_pot_contribution(self, player_id: str) -> int:
-        return sum(
-            entry["amount"]
-            for entry in self.game_state["pot_ledger"]
-            if entry["player_id"] == player_id
-        )
-
     def _stake_at_line_for(
         self,
         player_id: str,
         bet_line: int,
         *,
         compare_target_id: str | None = None,
+        open_debut: bool = False,
+        final_collect_compare: bool = False,
     ) -> int:
-        """按发话规则计算玩家在 bet_line（当前暗注标准）注线下的应付总额（非增量）。"""
+        """按发话规则计算本手线额（非累计抵扣）。"""
         info = self.game_state["players"][player_id]
         last_id = self.game_state.get("last_actor_id")
         prev = self.game_state["players"].get(last_id) if last_id else None
@@ -216,22 +213,38 @@ class ZhaJinhuaGameEngine:
             actor_has_looked=info["has_looked"],
             has_prev_actor=has_prev,
             compare_target_blind=target_blind,
+            open_debut=open_debut,
+            final_collect_compare=final_collect_compare,
         )
 
-    def _incremental_to_line(
+    def _action_stake_cost(
         self,
         player_id: str,
         bet_line: int,
         *,
         compare_target_id: str | None = None,
+        charge_mode: Literal["gross", "raise_delta"] = "gross",
+        open_debut: bool = False,
+        final_collect_compare: bool = False,
     ) -> int:
-        contributed = self._player_pot_contribution(player_id)
-        required = self._stake_at_line_for(
+        """本手应付：跟注/比牌=线额全额；加注=新旧注线下面额之差（不抵扣历史入池）。"""
+        new_face = self._stake_at_line_for(
             player_id,
             bet_line,
             compare_target_id=compare_target_id,
+            open_debut=open_debut,
+            final_collect_compare=final_collect_compare,
         )
-        return max(0, required - contributed)
+        if charge_mode == "raise_delta":
+            current = self.game_state["current_bet"]
+            old_face = self._stake_at_line_for(
+                player_id,
+                current,
+                compare_target_id=compare_target_id,
+                open_debut=False,
+            )
+            return max(0, new_face - old_face)
+        return new_face
 
     def _charge_to_line(
         self,
@@ -240,17 +253,25 @@ class ZhaJinhuaGameEngine:
         reason: str,
         *,
         compare_target_id: str | None = None,
+        charge_mode: Literal["gross", "raise_delta"] = "gross",
+        open_debut: bool = False,
+        final_collect_compare: bool = False,
     ) -> int:
         """扣款并入池；始终写一条 ledger（amount 为本次实际入池）。"""
         line_stake = self._stake_at_line_for(
             player_id,
             bet_line,
             compare_target_id=compare_target_id,
+            open_debut=open_debut,
+            final_collect_compare=final_collect_compare,
         )
-        cost = self._incremental_to_line(
+        cost = self._action_stake_cost(
             player_id,
             bet_line,
             compare_target_id=compare_target_id,
+            charge_mode=charge_mode,
+            open_debut=open_debut,
+            final_collect_compare=final_collect_compare,
         )
         paid = 0
         record_reason = reason
@@ -420,8 +441,9 @@ class ZhaJinhuaGameEngine:
 
     def _validate_action(self, player_id: str, action: str) -> None:
         alive = self._alive_players()
-        if action == "比牌" and len(alive) >= 3:
-            raise HTTPException(status_code=400, detail="三人都在场时不能比牌")
+        if action == "比牌":
+            if len(alive) < 2:
+                raise HTTPException(status_code=400, detail="至少两名玩家在场时才能比牌")
         if action == "加注":
             if self.game_state["early_showdown"]:
                 raise HTTPException(
@@ -500,6 +522,7 @@ class ZhaJinhuaGameEngine:
         self.game_state["early_showdown"] = False
         self.game_state["last_actor_id"] = None
         self.game_state["last_actor_bet_blind"] = None
+        self.game_state["awaiting_final_compare"] = False
 
         for pid in player_ids:
             self.game_state["pot"] += ANTE
@@ -516,9 +539,7 @@ class ZhaJinhuaGameEngine:
         )
         return {
             "message": f"第 {self.game_state['round']} 局开始，已发牌并扣除底分 {ANTE} 元",
-            "round": self.game_state["round"],
-            "pot": self.game_state["pot"],
-            "pot_ledger": list(self.game_state["pot_ledger"]),
+            "state": self.public_status(),
         }
 
     def start_game(self) -> dict[str, Any]:
@@ -762,6 +783,7 @@ class ZhaJinhuaGameEngine:
 
         alive = self._alive_players()
         if len(alive) == 1:
+            self.game_state["awaiting_final_compare"] = False
             self._settle_round(alive[0])
         else:
             self._check_force_showdown()
@@ -796,7 +818,6 @@ class ZhaJinhuaGameEngine:
         bet_tag: str = "",
         target: str = "",
     ) -> dict[str, Any]:
-        info = self.game_state["players"][player_id]
         return {
             "player_id": player_id,
             "display_name": self.display_name(player_id),
@@ -807,11 +828,7 @@ class ZhaJinhuaGameEngine:
             "amount": amount,
             "bet_tag": bet_tag,
             "target": target,
-            "pot": self.game_state["pot"],
-            "balance": info["balance"],
-            "phase": self.game_state["phase"],
-            "current_player_id": self.current_player_id(),
-            "pot_ledger": list(self.game_state["pot_ledger"]),
+            "state": self.public_status(),
         }
 
     def _apply_action(
@@ -841,7 +858,9 @@ class ZhaJinhuaGameEngine:
         elif action == "跟注":
             bet = self.game_state["current_bet"]
             bet_tag = "明注" if info["has_looked"] else "暗注"
-            cost = self._charge_to_line(player_id, bet, f"跟注/{bet_tag}")
+            cost = self._charge_to_line(
+                player_id, bet, f"跟注/{bet_tag}", open_debut=bool(look)
+            )
             self._clear_player_pending(player_id)
             suffix = "（全下）" if info["all_in"] else ""
             log_lines.append(
@@ -854,7 +873,13 @@ class ZhaJinhuaGameEngine:
             if raise_line > MAX_RAISE:
                 raise_line = MAX_RAISE
             bet_tag = "明注" if info["has_looked"] else "暗注"
-            cost = self._charge_to_line(player_id, raise_line, f"加注/{bet_tag}")
+            cost = self._charge_to_line(
+                player_id,
+                raise_line,
+                f"加注/{bet_tag}",
+                charge_mode="raise_delta",
+                open_debut=bool(look),
+            )
             self.game_state["current_bet"] = raise_line
             self._set_raise_pending(player_id)
             suffix = "（全下）" if info["all_in"] else ""
@@ -862,8 +887,6 @@ class ZhaJinhuaGameEngine:
                 f"{self.display_name(player_id)} 选择 [加注/{bet_tag}], 加注线: {raise_line}元, 筹码变动: {cost}元{suffix}"
             )
         elif action == "比牌":
-            if not info["has_looked"]:
-                raise HTTPException(status_code=400, detail="比牌前必须先看牌（请设 look:true）")
             target_id = _resolve_player_id(target_raw)
             if not target_id or target_id == player_id:
                 alive_others = [p for p in self._alive_players() if p != player_id]
@@ -1004,6 +1027,8 @@ class ZhaJinhuaGameEngine:
         phase = self.game_state["phase"]
         is_betting = phase == "betting"
         show_pot_ledger = phase in ("betting", "round_end", "ended")
+        player_ids = [p["id"] for p in PLAYER_CONFIG]
+        display_names = {pid: self.display_name(pid) for pid in player_ids}
         players: dict[str, Any] = {}
         for pid, info in self.game_state["players"].items():
             cards = info["cards"]
@@ -1019,6 +1044,12 @@ class ZhaJinhuaGameEngine:
                 "hand_label": hand_label(cards) if cards else "",
                 "session_pnl": info["balance"] - INITIAL_BALANCE,
             }
+        ledger = list(self.game_state["pot_ledger"]) if show_pot_ledger else []
+        pot_view = (
+            build_pot_view(ledger, player_ids, display_names)
+            if show_pot_ledger
+            else None
+        )
         return {
             "round": self.game_state["round"],
             "max_rounds": self.game_state["max_rounds"],
@@ -1037,7 +1068,8 @@ class ZhaJinhuaGameEngine:
             "actions_this_round": self.game_state["actions_this_round"] if is_betting else 0,
             "max_actions_per_round": MAX_ACTIONS_PER_ROUND,
             "last_settlement": self.game_state["last_settlement"],
-            "pot_ledger": list(self.game_state["pot_ledger"]) if show_pot_ledger else [],
+            "pot_ledger": ledger,
+            "pot_view": pot_view,
             "players": players,
         }
 

@@ -437,11 +437,37 @@ class ZhaJinhuaPotEntry(BaseModel):
     line_stake: int = 0
 
 
+class ZhaJinhuaPotPlayerTotal(BaseModel):
+    player_id: str
+    display_name: str
+    total: int
+
+
+class ZhaJinhuaPotLedgerRow(BaseModel):
+    step: int
+    player_id: str
+    display_name: str
+    amount: int
+    display_amount: int | None = None
+    reason: str
+    line_stake: int = 0
+    pool_running: int = 0
+    player_running: int = 0
+    action_kind: str = "default"
+    bet_kind: str = ""
+    all_in: bool = False
+    at_line: bool = False
+
+
+class ZhaJinhuaPotView(BaseModel):
+    total: int = 0
+    player_totals: list[ZhaJinhuaPotPlayerTotal] = []
+    rows: list[ZhaJinhuaPotLedgerRow] = []
+
+
 class ZhaJinhuaStartResponse(BaseModel):
     message: str
-    round: int
-    pot: int
-    pot_ledger: list[ZhaJinhuaPotEntry] = []
+    state: "ZhaJinhuaStatusResponse"
 
 
 class ZhaJinhuaMessageResponse(BaseModel):
@@ -458,11 +484,7 @@ class ZhaJinhuaTurnResponse(BaseModel):
     amount: int = 0
     bet_tag: str = ""
     target: str = ""
-    pot: int = 0
-    balance: int = 0
-    phase: str = ""
-    current_player_id: str | None = None
-    pot_ledger: list[ZhaJinhuaPotEntry] = []
+    state: "ZhaJinhuaStatusResponse"
 
 
 class ZhaJinhuaRefereeResponse(BaseModel):
@@ -526,6 +548,7 @@ class ZhaJinhuaStatusResponse(BaseModel):
     max_actions_per_round: int = 24
     last_settlement: ZhaJinhuaSettlement | None = None
     pot_ledger: list[ZhaJinhuaPotEntry] = []
+    pot_view: ZhaJinhuaPotView | None = None
     players: dict[str, ZhaJinhuaPlayerStatus]
 
 

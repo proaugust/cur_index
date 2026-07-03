@@ -28,11 +28,12 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 ## 状态机
 
 - `phase`: `idle` → `betting` → `round_end` → … → `ended`（10 局）
-- `current_bet` = 当前暗注标准；暗注=×1；明注非首发言=×2（含明注跟明注、跟暗注、比蒙牌）
-- 轮到玩家必须 **跟注 / 加注 / 弃牌**；未弃牌 ≥3 人时禁止比牌，≤2 人时可比牌
+- `current_bet` = 当前暗注标准；暗注=×1；明注=×2
+- 轮到玩家必须 **跟注 / 加注 / 弃牌**；未弃牌 ≥2 人时可比牌，蒙牌/看牌均可发起
+- 未弃牌人数为 2 时，一人执行 **比牌** 并支付本手筹码后，立即判定输赢、将输家出局；若只剩 1 人，必须直接结算并中断发话循环，禁止继续补常规注
 - `look:true` 与压住/比牌/弃牌同回合完成，**禁止单独看牌**
 - 有人加注后 `pending_respondents` 须全员响应，轮次收口后才可再自由加注
-- 跟注/加注/比牌按 **增量** 入池（已入池底分等抵扣）
+- 跟注/比牌按 **线额全额** 入池（底分另计、不抵扣）；加注按 **新旧注线面额差** 入池
 - 筹码不足时 **全下**（`all_in`），不再抛 400
 - LLM 失败时 **系统代打**：单张弃牌；至少对子且两人局比牌，三人局跟注至强制开牌
 - 被动全下（筹码不足）：`early_showdown`，禁止再加注，`pending` 清空后提前开牌
@@ -40,6 +41,8 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 - 同牌同点按花色决胜：黑桃 > 红桃 > 梅花 > 方块
 - 结算写入 `last_settlement`（手牌、牌型、本局盈亏、奖池总额与 `pot_ledger` 快照、累计盈亏）
 - `GET /game/status`：`betting` 返回活 `pot`/`pot_ledger`；`round_end`/`ended` 仍返回本局 `pot_ledger`（下一局 `_begin_round` 清空）；`last_settlement` 含结算快照
+- **状态驱动**：`public_status()` 为唯一对外局面快照；含 `pot_view`（总额、各玩家合计、明细行及累计列，均由后端 `build_pot_view` 计算）
+- **前端只渲染**：`POST /turn`、`POST /start`、`POST /next-round` 响应均带完整 `state`；前端整包替换，禁止本地重算入池/累计
 
 ## API
 
@@ -50,7 +53,7 @@ Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 | POST | `/game/reset` | 重置 |
 | POST | `/game/turn/{player_id}` | 当前玩家 LLM 决策（须轮到该玩家） |
 | GET | `/game/referee` | 裁判解说 |
-| GET | `/game/status` | 局面 + 结算 |
+| GET | `/game/status` | 局面快照（含 `pot_view`） |
 
 ## LLM JSON 输出
 

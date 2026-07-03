@@ -7,7 +7,7 @@
                     <th>{{ t('pages.zhaJinhua.potPlayer') }}</th>
                     <th>{{ t('pages.zhaJinhua.potAction') }}</th>
                     <th>{{ t('pages.zhaJinhua.potAmount') }}</th>
-                    <th>{{ t('pages.zhaJinhua.potPlayerRunning') }}</th>
+                    <th>{{ t('pages.zhaJinhua.potRunning') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -17,25 +17,27 @@
                         {{ row.display_name }}
                     </td>
                     <td class="col-action">
-                        <span class="pot-action-tag" :class="'pot-action--' + row.actionKind">
-                            {{ row.actionLabel }}
+                        <span class="pot-action-tag" :class="'pot-action--' + row.action_kind">
+                            {{ actionLabel(row.action_kind) }}
                         </span>
                         <span
-                            v-if="row.tagLabel"
+                            v-if="betTagLabel(row.bet_kind)"
                             class="pot-action-tag pot-action-tag--bet"
-                            :class="row.betKind ? 'pot-bet--' + row.betKind : 'pot-bet--unknown'"
+                            :class="row.bet_kind ? 'pot-bet--' + row.bet_kind : 'pot-bet--unknown'"
                         >
-                            {{ row.tagLabel }}
+                            {{ betTagLabel(row.bet_kind) }}
                         </span>
-                        <span v-if="row.extraTag" class="pot-action-tag pot-bet--allin">
-                            {{ row.extraTag }}
+                        <span v-if="row.all_in" class="pot-action-tag pot-bet--allin">
+                            {{ t('pages.zhaJinhua.allIn') }}
                         </span>
                     </td>
                     <td class="col-amt">
-                        <template v-if="potEntryAmount(row) !== null">+{{ potEntryAmount(row) }}</template>
+                        <template v-if="row.display_amount != null && row.display_amount > 0">
+                            +{{ row.display_amount }}
+                        </template>
                         <span v-else class="col-amt-zero">—</span>
                     </td>
-                    <td class="col-running">{{ row.playerRunning }} {{ t('pages.zhaJinhua.yuan') }}</td>
+                    <td class="col-running">{{ row.pool_running }} {{ t('pages.zhaJinhua.yuan') }}</td>
                 </tr>
             </tbody>
         </table>
@@ -45,20 +47,21 @@
 <script setup lang="ts" name="zha-jinhua-pot-ledger-table">
 import { useI18n } from 'vue-i18n';
 
+/** 与后端 ZhaJinhuaPotLedgerRow 一致，前端只渲染 */
 export type PotLedgerRow = {
     step: number;
     player_id: string;
     display_name: string;
     amount: number;
-    line_stake?: number;
-    actionLabel: string;
-    actionKind: string;
-    tagLabel: string;
-    betKind: '' | 'blind' | 'open';
-    extraTag: string;
-    running: number;
-    playerRunning: number;
-    atLine: boolean;
+    display_amount: number | null;
+    reason: string;
+    line_stake: number;
+    pool_running: number;
+    player_running: number;
+    action_kind: string;
+    bet_kind: string;
+    all_in: boolean;
+    at_line: boolean;
 };
 
 defineProps<{
@@ -70,10 +73,22 @@ defineProps<{
 
 const { t } = useI18n();
 
-/** 本手实际入池（与资金池、玩家累计同源，不用线额 line_stake） */
-const potEntryAmount = (row: PotLedgerRow): number | null => {
-    const amount = Number(row.amount) || 0;
-    return amount > 0 ? amount : null;
+const actionLabel = (kind: string): string => {
+    const map: Record<string, string> = {
+        ante: t('pages.zhaJinhua.ante'),
+        call: t('pages.zhaJinhua.call'),
+        raise: t('pages.zhaJinhua.raise'),
+        compare: t('pages.zhaJinhua.compare'),
+        fold: t('pages.zhaJinhua.fold'),
+        showdown: t('pages.zhaJinhua.showdown'),
+    };
+    return map[kind] ?? kind;
+};
+
+const betTagLabel = (betKind: string): string => {
+    if (betKind === 'open') return t('pages.zhaJinhua.betOpen');
+    if (betKind === 'blind') return t('pages.zhaJinhua.betBlind');
+    return '';
 };
 </script>
 
@@ -142,11 +157,6 @@ const potEntryAmount = (row: PotLedgerRow): number | null => {
 .col-amt-zero {
     color: var(--el-text-color-placeholder);
     font-weight: 400;
-}
-
-.col-amt-atline {
-    color: var(--el-color-success);
-    font-weight: 800;
 }
 
 .col-running {

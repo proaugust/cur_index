@@ -180,15 +180,104 @@ def stake_at_line_for(
     actor_has_looked: bool,
     has_prev_actor: bool = False,
     compare_target_blind: bool = False,
+    open_debut: bool = False,
+    final_collect_compare: bool = False,
 ) -> int:
-    """按发话规则计算玩家在 bet_line（当前暗注标准）注线下的应付总额（非增量）。
+    """按发话规则计算本手线额（跟注/比牌每手全额入池，非累计抵扣）。
 
     暗注（蒙牌）：恒 = bet_line。
-    明注（看牌）且本局第一个发话（无上一发话者、且非比蒙牌）：= bet_line。
-    其余明注（有上一发话者，或比牌对象为蒙牌）：= bet_line×2。
+    明注（看牌）：恒 = bet_line×2。
     """
     if not actor_has_looked:
         return bet_line
-    if not has_prev_actor and not compare_target_blind:
-        return bet_line
     return bet_line * 2
+
+
+def parse_pot_entry_meta(reason: str) -> dict[str, str | bool]:
+    """解析 ledger reason → 展示元数据（不含文案，前端 i18n）。"""
+    all_in = "全下" in reason
+    if reason == "底分":
+        return {"action_kind": "ante", "bet_kind": "", "all_in": False}
+    if reason.startswith("跟注/"):
+        tag = reason.split("/")[1] if "/" in reason else ""
+        bet_kind = "open" if "明注" in tag else "blind" if "暗注" in tag else ""
+        return {"action_kind": "call", "bet_kind": bet_kind, "all_in": all_in}
+    if reason.startswith("加注/"):
+        tag = reason.split("/")[1] if "/" in reason else ""
+        bet_kind = "open" if "明注" in tag else "blind" if "暗注" in tag else ""
+        return {"action_kind": "raise", "bet_kind": bet_kind, "all_in": all_in}
+    if reason.startswith("比牌/"):
+        tag = reason.split("/")[1] if "/" in reason else ""
+        bet_kind = "open" if "明注" in tag else "blind" if "暗注" in tag else ""
+        return {"action_kind": "compare", "bet_kind": bet_kind, "all_in": all_in}
+    if reason == "比牌":
+        return {"action_kind": "compare", "bet_kind": "", "all_in": False}
+    if reason == "弃牌":
+        return {"action_kind": "fold", "bet_kind": "", "all_in": False}
+    if reason == "开牌" or reason.startswith("开牌/"):
+        return {"action_kind": "showdown", "bet_kind": "", "all_in": False}
+    return {"action_kind": "default", "bet_kind": "", "all_in": False}
+
+
+def pot_row_display_amount(amount: int) -> int | None:
+    """入池金额列：仅本手实扣；已到线/弃牌等 amount=0 不展示。"""
+    return amount if amount > 0 else None
+
+
+def build_pot_view(
+    ledger: list[dict],
+    player_ids: list[str],
+    display_names: dict[str, str],
+) -> dict:
+    """由 ledger 生成资金池展示视图（总额、各玩家合计、带池内累计列的行）。
+
+    统一口径：入池金额 = 本手实扣 amount（跟注/比牌按线额全额，不抵扣底分等历史入池）；
+    池内累计/各玩家合计/资金池总额均对其累加。
+    """
+    pool_running = 0
+    player_totals: dict[str, int] = {pid: 0 for pid in player_ids}
+    rows: list[dict] = []
+    for entry in ledger:
+        amount = int(entry.get("amount") or 0)
+        pot_row_amount = amount
+        pool_running += pot_row_amount
+        pid = entry["player_id"]
+        player_totals[pid] = player_totals.get(pid, 0) + pot_row_amount
+        meta = parse_pot_entry_meta(str(entry.get("reason") or ""))
+        line_stake = int(entry.get("line_stake") or amount)
+        action_kind = str(meta["action_kind"])
+        at_line = (
+            amount == 0
+            and line_stake > 0
+            and action_kind in ("call", "raise", "compare")
+        )
+        display_amount = pot_row_display_amount(pot_row_amount)
+        rows.append(
+            {
+                "step": int(entry["step"]),
+                "player_id": pid,
+                "display_name": entry.get("display_name") or display_names.get(pid, pid),
+                "amount": amount,
+                "display_amount": display_amount,
+                "reason": entry.get("reason") or "",
+                "line_stake": line_stake,
+                "pool_running": pool_running,
+                "player_running": player_totals[pid],
+                "action_kind": action_kind,
+                "bet_kind": str(meta["bet_kind"]),
+                "all_in": bool(meta["all_in"]),
+                "at_line": at_line,
+            }
+        )
+    return {
+        "total": pool_running,
+        "player_totals": [
+            {
+                "player_id": pid,
+                "display_name": display_names.get(pid, pid),
+                "total": player_totals.get(pid, 0),
+            }
+            for pid in player_ids
+        ],
+        "rows": rows,
+    }
