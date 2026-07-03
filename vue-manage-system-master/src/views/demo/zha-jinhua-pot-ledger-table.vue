@@ -7,7 +7,7 @@
                     <th>{{ t('pages.zhaJinhua.potPlayer') }}</th>
                     <th>{{ t('pages.zhaJinhua.potAction') }}</th>
                     <th>{{ t('pages.zhaJinhua.potAmount') }}</th>
-                    <th>{{ t('pages.zhaJinhua.potRunning') }}</th>
+                    <th>{{ t('pages.zhaJinhua.potPlayerRunning') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,10 +32,10 @@
                         </span>
                     </td>
                     <td class="col-amt">
-                        <template v-if="betLineStake(row) !== null">+{{ betLineStake(row) }}</template>
+                        <template v-if="potEntryAmount(row) !== null">+{{ potEntryAmount(row) }}</template>
                         <span v-else class="col-amt-zero">—</span>
                     </td>
-                    <td class="col-running">{{ row.running }} {{ t('pages.zhaJinhua.yuan') }}</td>
+                    <td class="col-running">{{ row.playerRunning }} {{ t('pages.zhaJinhua.yuan') }}</td>
                 </tr>
             </tbody>
         </table>
@@ -57,6 +57,7 @@ export type PotLedgerRow = {
     betKind: '' | 'blind' | 'open';
     extraTag: string;
     running: number;
+    playerRunning: number;
     atLine: boolean;
 };
 
@@ -69,13 +70,10 @@ defineProps<{
 
 const { t } = useI18n();
 
-const betLineStake = (row: PotLedgerRow): number | null => {
-    const stake = row.line_stake ?? 0;
-    if (stake > 0 && (row.actionKind === 'call' || row.actionKind === 'raise' || row.actionKind === 'compare')) {
-        return stake;
-    }
-    if (row.amount > 0) return row.amount;
-    return null;
+/** 本手实际入池（与资金池、玩家累计同源，不用线额 line_stake） */
+const potEntryAmount = (row: PotLedgerRow): number | null => {
+    const amount = Number(row.amount) || 0;
+    return amount > 0 ? amount : null;
 };
 </script>
 

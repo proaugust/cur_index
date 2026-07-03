@@ -208,6 +208,7 @@ export default {
             potAction: 'アクション',
             potAmount: '入池額',
             potRunning: '累計',
+            potPlayerRunning: 'プレイヤー累計',
             potEmpty: '入池記録なし',
             potAtLine: 'ライン到達',
             potAtLineStake: 'ライン到達（{n}）',

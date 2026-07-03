@@ -75,7 +75,7 @@
                         <span class="pot-title">{{ t('pages.zhaJinhua.potPool') }}</span>
                         <span class="pot-total">{{ potDisplayTotal }} {{ t('pages.zhaJinhua.yuan') }}</span>
                     </div>
-                    <div v-if="potPlayerTotals.length" class="pot-summary">
+                    <div class="pot-summary">
                         <span class="pot-summary-label">{{ t('pages.zhaJinhua.potSummary') }}</span>
                         <span
                             v-for="item in potPlayerTotals"
@@ -231,7 +231,7 @@
                     <el-icon class="settlement-title-icon"><Trophy /></el-icon>
                     {{ t('pages.zhaJinhua.settlement') }}
                     <span class="settlement-pot-total">
-                        {{ t('pages.zhaJinhua.potPool') }} {{ settlement.pot_total }} {{ t('pages.zhaJinhua.yuan') }}
+                        {{ t('pages.zhaJinhua.potPool') }} {{ potDisplayTotal }} {{ t('pages.zhaJinhua.yuan') }}
                     </span>
                 </div>
                 <div class="settlement-winner">
@@ -510,60 +510,75 @@ const parsePotReason = (reason: string) => {
     return { actionLabel: reason, actionKind: 'default', ...emptyBet };
 };
 
-const potLedgerRows = computed((): PotLedgerRow[] => {
-    const ledger = status.value?.pot_ledger ?? [];
-    return buildPotLedgerRows(ledger);
-});
+const potLedgerRows = computed((): PotLedgerRow[] => buildPotLedgerRows(activePotLedger.value));
+
+/** 本局入池明细唯一数据源（下注中 / 局末 / 整局结束均用 status.pot_ledger） */
+const activePotLedger = computed((): PotEntry[] => status.value?.pot_ledger ?? []);
+
+/** 入池金额统一数值化，避免 API/合并后字符串拼接（如 10+'10'→'1010'） */
+const ledgerEntryAmount = (entry: Pick<PotEntry, 'amount'>): number => {
+    const n = Number(entry.amount);
+    return Number.isFinite(n) ? n : 0;
+};
+
+const sumLedgerAmounts = (ledger: PotEntry[]): number =>
+    ledger.reduce((sum, entry) => sum + ledgerEntryAmount(entry), 0);
 
 function buildPotLedgerRows(ledger: PotEntry[]): PotLedgerRow[] {
-    let fallbackRunning = 0;
+    let poolRunning = 0;
+    const playerRunning = new Map<string, number>();
     return ledger.map((entry) => {
-        fallbackRunning += entry.amount;
+        const amount = ledgerEntryAmount(entry);
+        poolRunning += amount;
+        const prevPlayer = playerRunning.get(entry.player_id) ?? 0;
+        const nextPlayer = prevPlayer + amount;
+        playerRunning.set(entry.player_id, nextPlayer);
         const parsed = parsePotReason(entry.reason);
-        const running = entry.pot_after ?? fallbackRunning;
-        const lineStake = entry.line_stake ?? 0;
-        const atLine = entry.amount === 0
+        const lineStake = Number(entry.line_stake) || amount;
+        const atLine = amount === 0
             && lineStake > 0
             && (parsed.actionKind === 'call' || parsed.actionKind === 'raise' || parsed.actionKind === 'compare');
         return {
             step: entry.step,
             player_id: entry.player_id,
             display_name: entry.display_name,
-            amount: entry.amount,
+            amount,
             line_stake: lineStake,
-            running,
+            running: poolRunning,
+            playerRunning: nextPlayer,
             atLine,
             ...parsed,
         };
     });
 }
 
-/** 奖池总额：仅以 ledger 累计为准，与明细表同源 */
-const potDisplayTotal = computed(() => {
-    const rows = potLedgerRows.value;
-    if (rows.length) return rows[rows.length - 1].running;
-    return 0;
-});
+/** 奖池总额 = ledger 入池金额之和 = 末行池内累计 = 各玩家入池合计之和 */
+const potDisplayTotal = computed(() => sumLedgerAmounts(activePotLedger.value));
 
 const potPlayerTotals = computed(() => {
     const totals = new Map<string, { player_id: string; display_name: string; total: number }>();
-    for (const entry of status.value?.pot_ledger ?? []) {
+    for (const entry of activePotLedger.value) {
+        const inc = ledgerEntryAmount(entry);
         const prev = totals.get(entry.player_id);
         if (prev) {
-            prev.total += entry.amount;
+            prev.total += inc;
         } else {
             totals.set(entry.player_id, {
                 player_id: entry.player_id,
                 display_name: entry.display_name,
-                total: entry.amount,
+                total: inc,
             });
         }
     }
-    return PLAYER_IDS.map((pid) => totals.get(pid)).filter(Boolean) as {
-        player_id: string;
-        display_name: string;
-        total: number;
-    }[];
+    return PLAYER_IDS.map((pid) => {
+        const found = totals.get(pid);
+        if (found) return found;
+        return {
+            player_id: pid,
+            display_name: status.value?.players[pid]?.display_name ?? pid,
+            total: 0,
+        };
+    });
 });
 
 const thoughtsFor = (pid: string) => playerThoughtHistory.value[pid] ?? [];
@@ -637,16 +652,11 @@ const setPlayerAction = (
     target?: string,
     justLooked?: boolean,
     betTag?: string,
-    lineStake?: number,
 ) => {
     let detail = '';
-    const isBetAction = action.includes('跟注') || action.includes('加注') || action.includes('比牌');
-    if (isBetAction && lineStake && lineStake > 0) {
-        detail = `+${lineStake}`;
-    } else if (isBetAction && amount === 0) {
-        detail = `+${status.value?.current_bet ?? 0}`;
-    } else if (isBetAction || amount > 0) {
-        detail = `${amount}${t('pages.zhaJinhua.yuan')}`;
+    const paid = Number(amount) || 0;
+    if (paid > 0) {
+        detail = `+${paid}`;
     }
     if (target) detail = detail ? `${detail} → ${target}` : target;
     const tagSuffix = betTag ? ` · ${betTag}` : '';
@@ -876,7 +886,6 @@ const runOneTurn = async (playerId: string) => {
         applyNextPlayer(nextPlayerId);
 
         const justLooked = !wasLooked && (status.value?.players[playerId]?.has_looked ?? false);
-        const lastEntry = data.pot_ledger?.filter((e) => e.player_id === playerId).at(-1);
         setPlayerAction(
             playerId,
             data.action,
@@ -884,7 +893,6 @@ const runOneTurn = async (playerId: string) => {
             data.target || undefined,
             justLooked,
             data.bet_tag || undefined,
-            lastEntry?.line_stake,
         );
 
         await nextTick();

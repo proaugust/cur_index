@@ -166,6 +166,8 @@ class ZhaJinhuaGameEngine:
         always_log: bool = False,
         line_stake: int = 0,
     ) -> None:
+        amount = int(amount)
+        line_stake = int(line_stake or amount)
         if amount <= 0 and not always_log:
             return
         self.game_state["pot_step"] += 1
@@ -176,8 +178,8 @@ class ZhaJinhuaGameEngine:
                 "display_name": self.display_name(player_id),
                 "amount": amount,
                 "reason": reason,
-                "pot_after": self.game_state["pot"],
-                "line_stake": line_stake or amount,
+                "pot_after": int(self.game_state["pot"]),
+                "line_stake": line_stake,
             }
         )
 
@@ -925,10 +927,11 @@ class ZhaJinhuaGameEngine:
         pot: int,
         pot_ledger: list[dict[str, Any]],
     ) -> dict[str, Any]:
+        pot_total = sum(int(entry["amount"]) for entry in pot_ledger)
         winner_contribution = sum(
-            entry["amount"] for entry in pot_ledger if entry["player_id"] == winner_id
+            int(entry["amount"]) for entry in pot_ledger if entry["player_id"] == winner_id
         )
-        winner_net_win = max(pot - winner_contribution, 0)
+        winner_net_win = max(pot_total - winner_contribution, 0)
         details: dict[str, Any] = {}
         for pid, info in self.game_state["players"].items():
             start = self.game_state["round_start_balances"].get(pid, info["balance"])
@@ -947,7 +950,7 @@ class ZhaJinhuaGameEngine:
         return {
             "winner_id": winner_id,
             "winner_name": self.display_name(winner_id),
-            "pot_total": pot,
+            "pot_total": pot_total,
             "winner_net_win": winner_net_win,
             "pot_ledger": list(pot_ledger),
             "players": details,
