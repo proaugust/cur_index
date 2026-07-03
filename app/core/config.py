@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # Docker/HF 设为 true：API 挂 /api 前缀并托管 static/；本地不设，保持 Vite 代理
     serve_static: bool = False
     database_url_source: str = ""
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_enabled: bool = True
+    redis_socket_timeout: float = 2.0
+    complaint_stats_cache_ttl: int = 600
+    complaint_stats_nl_cache_ttl: int = 1800
+    complaint_stats_memory_cache_enabled: bool = True
+    complaint_stats_memory_cache_maxsize: int = 32
+    llm_usage_stats_cache_ttl: int = 90
 
     @model_validator(mode="after")
     def _resolve_database_url(self) -> Self:

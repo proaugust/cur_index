@@ -11,6 +11,7 @@ from app.services.complaint_category_namer import suggest_complaint_category
 from app.services.complaint_query_parser import parse_complaint_query
 from app.services.complaint_generator import generate_complaints
 from app.services.complaint_settings import get_classify_threshold, set_classify_threshold
+from app.services.complaint_stats_cache import get_cached_stats, invalidate_complaint_stats_cache, set_cached_stats
 from app.services.embedding import cosine_similarity, embed_text, embed_texts, mean_vector
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ class ComplaintService:
         for item in created:
             self.db.refresh(item)
         logger.info("分类初始化完成")
+        invalidate_complaint_stats_cache()
         return created
 
     def seed_complaints(self, count: int = 500) -> schemas.ComplaintSeedResult:
@@ -89,6 +91,7 @@ class ComplaintService:
         self.db.commit()
         classified = sum(1 for row in rows if row.category_id is not None)
         logger.info("投诉造数完成，插入 %s 条（已归类 %s 条）", len(rows), classified)
+        invalidate_complaint_stats_cache()
         return schemas.ComplaintSeedResult(inserted=len(rows))
 
     def embed_complaints(self) -> schemas.ComplaintEmbedResult:
@@ -158,6 +161,7 @@ class ComplaintService:
             for name, count in category_counts.items()
         ]
         logger.info("归类完成：共 %s 条，分布 %s", classified, {item.category_name: item.count for item in by_category})
+        invalidate_complaint_stats_cache()
         return schemas.ComplaintClassifyResult(classified=classified, by_category=by_category)
 
     def _filters_from_schema(self, filters: schemas.ComplaintStatsFilters | None) -> crud.ComplaintFilterParams | None:
@@ -171,6 +175,10 @@ class ComplaintService:
         )
 
     def get_stats(self, q: str | None = None) -> schemas.ComplaintStatsReport:
+        cached = get_cached_stats(q)
+        if cached is not None:
+            return cached
+
         parsed_query: schemas.ComplaintStatsParsedQuery | None = None
         filter_params: crud.ComplaintFilterParams | None = None
 
@@ -232,7 +240,7 @@ class ComplaintService:
             ]
 
         active_filters = filter_params if has_filters else None
-        return schemas.ComplaintStatsReport(
+        report = schemas.ComplaintStatsReport(
             total=scope_total,
             classified=classified,
             unclassified=scope_total - classified,
@@ -246,6 +254,8 @@ class ComplaintService:
             data_time_from=data_time_from,
             data_time_to=data_time_to,
         )
+        set_cached_stats(q, report)
+        return report
 
     def search_samples(
         self,
@@ -393,6 +403,7 @@ class ComplaintService:
             category_created,
             similarity,
         )
+        invalidate_complaint_stats_cache()
         return schemas.ComplaintCreateResult(
             complaint=self._to_complaint_read(complaint),
             category_created=category_created,

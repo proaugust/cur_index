@@ -9,9 +9,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app import schemas
 from app.core.http_logging import get_request_id
 from app.database import SessionLocal
 from app.models import LlmUsageLog, User
+from app.services.llm_usage_stats_cache import get_cached_usage_stats, set_cached_usage_stats
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +146,10 @@ def _apply_log_filters(
 
 
 def get_usage_stats(db: Session, *, days: int | None = None, exclude_warmup: bool = True) -> dict:
+    cached = get_cached_usage_stats(days=days, exclude_warmup=exclude_warmup)
+    if cached is not None:
+        return cached.model_dump()
+
     base = db.query(LlmUsageLog)
     base = _apply_log_filters(base, db, days=days, exclude_warmup=exclude_warmup)
 
@@ -205,15 +211,17 @@ def get_usage_stats(db: Session, *, days: int | None = None, exclude_warmup: boo
         for row in user_rows
     ]
 
-    return {
-        "days": days,
-        "total_calls": total_calls,
-        "total_prompt_tokens": total_prompt,
-        "total_completion_tokens": total_completion,
-        "total_tokens": total_tokens,
-        "by_caller": by_caller,
-        "by_user": by_user,
-    }
+    report = schemas.LlmUsageStatsResponse(
+        days=days,
+        total_calls=total_calls,
+        total_prompt_tokens=total_prompt,
+        total_completion_tokens=total_completion,
+        total_tokens=total_tokens,
+        by_caller=by_caller,
+        by_user=by_user,
+    )
+    set_cached_usage_stats(days=days, exclude_warmup=exclude_warmup, report=report)
+    return report.model_dump()
 
 
 def query_logs(

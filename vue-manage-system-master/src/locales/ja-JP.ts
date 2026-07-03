@@ -82,27 +82,41 @@ export default {
     pages: {
         aiNews: {
             title: 'AI ニュースナビ',
-            intro: '国内外の主要 AI ニュースサイトへのリンクです。URL を貼り付けて追加、星マークでお気に入りに追加できます。お気に入りとカスタムリンクはアカウントに保存され、別端末でも同期されます。',
+            intro: '国内外の主要 AI ニュースサイトです。URL を貼り付けると海外/国内欄に自動分類されます。左の ≡ で並べ替え・移動、↑ で先頭に固定。お気に入り・並び順はログインアカウントに同期されます。',
             sectionInternational: '海外',
             sectionDomestic: '国内',
-            sectionCustom: '自分で追加',
             addPlaceholder: 'URL を貼り付け（例：https://example.com）',
             add: '追加',
             favorites: 'お気に入り',
-            favoritesHint: '左のリンクの星マークをクリックしてお気に入りに追加',
-            favoritesEmpty: 'お気に入りはまだありません。星マークをクリックして追加してください',
+            favoritesHint: 'お気に入りはアカウントに同期されます。ドラッグで並べ替え、他欄からドロップで追加',
+            favoritesEmpty: 'お気に入りはまだありません。星マークまたは他欄からドラッグしてください',
             clickToFavorite: 'クリックでお気に入り',
             dragToFavorite: 'クリックでお気に入り',
+            dragHint: '左の ≡ をドラッグして上下に並べ替え、または他欄へ移動。↑ で先頭に固定',
+            pinToTop: 'この欄の先頭へ',
+            dragHandle: 'ドラッグして移動・並べ替え',
+            pinned: '先頭に移動しました',
             delete: 'ナビから削除',
             removeFavorite: 'お気に入りから外す',
             invalidUrl: '有効な URL を入力してください',
             duplicateUrl: 'このリンクは既に存在します',
             added: '追加しました',
+            addedToColumn: '{column} に追加しました',
             removed: '削除しました',
             favorited: 'お気に入りに追加しました',
             unfavorited: 'お気に入りから外しました',
             emptySection: 'リンクがありません',
             open: '開く',
+            devGuides: {
+                paperswithcode:
+                    '技術上限の確認と実装の参照：Task でコード生成・テキスト抽出などを検索し、世界の SOTA モデルと実行可能な GitHub ソースを一覧。Git Clone で半年分の試行錯誤を省略。',
+                huggingfacePapers:
+                    '実装と実戦の落とし穴回避：世界中のエンジニアが毎日 upvote する最新論文。数式より要約と GitHub リンクを見て、Agent フレームワークや OSS モデルを Docker で試す。',
+                jiqizhixin:
+                    'アーキテクチャと原理を素早く理解：中国語の開発者向けメディア。新モデル・Agent 論理を 24 時間以内に図解とコード断片で解説。',
+                openaiResearch:
+                    '大手の技術トレンド追跡：OpenAI 公式研究ブログ。最先端モデル・Agent・製品の技術方針をいち早く把握。',
+            },
             links: {
                 openai: { name: 'OpenAI ニュース', desc: 'OpenAI 公式ニュースと告知' },
                 anthropic: { name: 'Anthropic ニュース', desc: 'Claude および Anthropic の公式動向' },

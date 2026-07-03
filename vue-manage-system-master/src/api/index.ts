@@ -199,12 +199,16 @@ export interface AiNewsCustomLink {
     icon: string;
     letter: string;
     color: string;
+    region?: 'international' | 'domestic';
 }
 
 export interface AiNewsUserPrefs {
     hiddenPresetIds: string[];
     customLinks: AiNewsCustomLink[];
     favorites: AiNewsFavoriteRef[];
+    presetColumns?: Record<string, 'international' | 'domestic'>;
+    internationalOrder?: string[];
+    domesticOrder?: string[];
 }
 
 export const getAiNewsPrefs = () => request.get<AiNewsUserPrefs>('/ai-news/prefs');

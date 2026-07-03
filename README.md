@@ -27,11 +27,11 @@ app/
 
 ## 环境
 
-使用 [uv](https://docs.astral.sh/uv/) + Python 3.13（`D:\Program Files\Python\cpython-3.13.14-windows-x86_64-none`）：
+使用 [uv](https://docs.astral.sh/uv/) + Python 3.12+：
 
 ```bash
 # 首次：创建 .venv 并安装依赖
-uv sync --python "D:\Program Files\Python\cpython-3.13.14-windows-x86_64-none\python.exe"
+uv sync
 
 # 新增依赖后
 uv add <package>
@@ -52,6 +52,11 @@ uv run python -m app.main
 访问 http://127.0.0.1:8000/docs 查看 API 文档。
 
 ## 启动前端
-cd d:\code\py\demo\cur_index\vue-manage-system-master
+
+在仓库根目录执行：
+
+```bash
+cd vue-manage-system-master
 npm install
 npm run dev
+```

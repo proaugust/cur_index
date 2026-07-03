@@ -21,55 +21,109 @@
                 </el-button>
             </div>
 
+            <p class="drag-hint">{{ t('pages.aiNews.dragHint') }}</p>
+
             <el-row :gutter="20" class="columns-row">
                 <el-col :xs="24" :md="8">
-                    <div class="link-section panel-box">
+                    <div
+                        class="link-section panel-box"
+                        :class="{ 'panel-box--drop': dragOverColumn === 'international' }"
+                        @dragover.prevent="onColumnDragOver('international')"
+                        @dragleave="onColumnDragLeave('international')"
+                        @drop.prevent="(event) => onColumnDrop('international', internationalLinks.length, event)"
+                    >
                         <div class="section-label">{{ t('pages.aiNews.sectionInternational') }}</div>
                         <div class="link-list">
-                            <LinkCard
-                                v-for="item in internationalLinks"
+                            <div
+                                v-for="(item, index) in internationalLinks"
                                 :key="item.key"
-                                :item="item"
-                                :name="linkName(item)"
-                                :desc="linkDesc(item)"
-                                :icon-failed="!!iconFailed[item.key]"
-                                :favorited="isFavoriteItem(item)"
-                                @open="openLink"
-                                @icon-error="markIconFailed"
-                                @delete="onDeleteLink"
-                                @favorite="onToggleFavorite"
-                            />
-                            <div v-if="!internationalLinks.length" class="empty-hint">
+                                class="link-item-wrapper"
+                                :class="{
+                                    'link-item-wrapper--insert-before': isInsertBefore('international', index),
+                                    'link-item-wrapper--insert-after': isInsertAfter('international', index),
+                                }"
+                                @dragover.prevent="onItemDragOver('international', index, $event)"
+                                @drop.prevent.stop="(event) => onColumnDrop('international', index, event)"
+                            >
+                                <LinkCard
+                                    :item="item"
+                                    :name="displayName(item)"
+                                    :desc="displayDesc(item)"
+                                    :favorited="isFavoriteItem(item)"
+                                    column="international"
+                                    :index="index"
+                                    @open="openLink"
+                                    @delete="onDeleteLink"
+                                    @favorite="onToggleFavorite"
+                                    @pin-top="onPinTop('international', $event)"
+                                    @drag-end="clearDragState"
+                                />
+                            </div>
+                            <div
+                                v-if="!internationalLinks.length"
+                                class="empty-hint"
+                                @dragover.prevent="onColumnDragOver('international')"
+                                @drop.prevent="(event) => onColumnDrop('international', 0, event)"
+                            >
                                 {{ t('pages.aiNews.emptySection') }}
                             </div>
                         </div>
                     </div>
                 </el-col>
                 <el-col :xs="24" :md="8">
-                    <div class="link-section panel-box">
+                    <div
+                        class="link-section panel-box"
+                        :class="{ 'panel-box--drop': dragOverColumn === 'domestic' }"
+                        @dragover.prevent="onColumnDragOver('domestic')"
+                        @dragleave="onColumnDragLeave('domestic')"
+                        @drop.prevent="(event) => onColumnDrop('domestic', domesticLinks.length, event)"
+                    >
                         <div class="section-label">{{ t('pages.aiNews.sectionDomestic') }}</div>
                         <div class="link-list">
-                            <LinkCard
-                                v-for="item in domesticLinks"
+                            <div
+                                v-for="(item, index) in domesticLinks"
                                 :key="item.key"
-                                :item="item"
-                                :name="linkName(item)"
-                                :desc="linkDesc(item)"
-                                :icon-failed="!!iconFailed[item.key]"
-                                :favorited="isFavoriteItem(item)"
-                                @open="openLink"
-                                @icon-error="markIconFailed"
-                                @delete="onDeleteLink"
-                                @favorite="onToggleFavorite"
-                            />
-                            <div v-if="!domesticLinks.length" class="empty-hint">
+                                class="link-item-wrapper"
+                                :class="{
+                                    'link-item-wrapper--insert-before': isInsertBefore('domestic', index),
+                                    'link-item-wrapper--insert-after': isInsertAfter('domestic', index),
+                                }"
+                                @dragover.prevent="onItemDragOver('domestic', index, $event)"
+                                @drop.prevent.stop="(event) => onColumnDrop('domestic', index, event)"
+                            >
+                                <LinkCard
+                                    :item="item"
+                                    :name="displayName(item)"
+                                    :desc="displayDesc(item)"
+                                    :favorited="isFavoriteItem(item)"
+                                    column="domestic"
+                                    :index="index"
+                                    @open="openLink"
+                                    @delete="onDeleteLink"
+                                    @favorite="onToggleFavorite"
+                                    @pin-top="onPinTop('domestic', $event)"
+                                    @drag-end="clearDragState"
+                                />
+                            </div>
+                            <div
+                                v-if="!domesticLinks.length"
+                                class="empty-hint"
+                                @dragover.prevent="onColumnDragOver('domestic')"
+                                @drop.prevent="(event) => onColumnDrop('domestic', 0, event)"
+                            >
                                 {{ t('pages.aiNews.emptySection') }}
                             </div>
                         </div>
                     </div>
                 </el-col>
                 <el-col :xs="24" :md="8">
-                    <div class="favorites-panel panel-box">
+                    <div
+                        class="favorites-panel panel-box"
+                        :class="{ 'panel-box--drop': dragOverColumn === 'favorites' }"
+                        @dragover.prevent="onColumnDragOver('favorites')"
+                        @dragleave="onColumnDragLeave('favorites')"
+                        @drop.prevent="(event) => onColumnDrop('favorites', favoriteLinks.length, event)"
+                    >
                         <div class="section-label">
                             <el-icon class="fav-icon"><Star /></el-icon>
                             {{ t('pages.aiNews.favorites') }}
@@ -77,83 +131,56 @@
                         <p class="fav-hint">{{ t('pages.aiNews.favoritesHint') }}</p>
                         <div class="link-list link-list--grow">
                             <div
-                                v-for="item in favoriteLinks"
+                                v-for="(item, index) in favoriteLinks"
                                 :key="item.key"
-                                class="link-item link-item--fav"
-                                role="link"
-                                tabindex="0"
-                                @click="openLink(item.url)"
-                                @keydown.enter="openLink(item.url)"
-                                @keydown.space.prevent="openLink(item.url)"
+                                class="link-item-wrapper"
+                                :class="{
+                                    'link-item-wrapper--insert-before': isInsertBefore('favorites', index),
+                                    'link-item-wrapper--insert-after': isInsertAfter('favorites', index),
+                                }"
+                                @dragover.prevent="onItemDragOver('favorites', index, $event)"
+                                @drop.prevent.stop="(event) => onColumnDrop('favorites', index, event)"
                             >
-                                <div
-                                    v-if="iconFailed[item.key]"
-                                    class="site-icon site-icon--letter"
-                                    :style="{ background: item.color, color: letterColor(item.color) }"
-                                >
-                                    {{ item.letter }}
-                                </div>
-                                <img
-                                    v-else
-                                    class="site-icon"
-                                    :src="item.icon"
-                                    :alt="favoriteName(item)"
-                                    loading="lazy"
-                                    @error="markIconFailed(item.key)"
+                                <LinkCard
+                                    :item="item"
+                                    :name="displayName(item)"
+                                    :desc="displayDescForFavorites(item)"
+                                    :favorited="true"
+                                    column="favorites"
+                                    :index="index"
+                                    @open="openLink"
+                                    @delete="onRemoveFavorite"
+                                    @favorite="onRemoveFavorite"
+                                    @pin-top="onPinTop('favorites', $event)"
+                                    @drag-end="clearDragState"
                                 />
-                                <div class="link-info">
-                                    <div class="link-name">{{ favoriteName(item) }}</div>
-                                    <div class="link-url">{{ item.url }}</div>
-                                </div>
-                                <el-button
-                                    class="delete-btn"
-                                    type="danger"
-                                    link
-                                    :title="t('pages.aiNews.removeFavorite')"
-                                    @click.stop="onRemoveFavorite(item)"
-                                >
-                                    <el-icon><Close /></el-icon>
-                                </el-button>
                             </div>
-                            <div v-if="!favoriteLinks.length" class="fav-empty fav-empty--grow">
+                            <div
+                                v-if="!favoriteLinks.length"
+                                class="fav-empty fav-empty--grow"
+                                @dragover.prevent="onColumnDragOver('favorites')"
+                                @drop.prevent="(event) => onColumnDrop('favorites', 0, event)"
+                            >
                                 {{ t('pages.aiNews.favoritesEmpty') }}
                             </div>
                         </div>
                     </div>
                 </el-col>
             </el-row>
-
-            <div v-if="customLinks.length" class="link-section custom-section">
-                <div class="section-label">{{ t('pages.aiNews.sectionCustom') }}</div>
-                <div class="link-list">
-                    <LinkCard
-                        v-for="item in customLinks"
-                        :key="item.key"
-                        :item="item"
-                        :name="item.type === 'custom' ? customTitle(item.id) : linkName(item)"
-                        :desc="item.type === 'custom' ? item.url : linkDesc(item)"
-                        :icon-failed="!!iconFailed[item.key]"
-                        :favorited="isFavoriteItem(item)"
-                        @open="openLink"
-                        @icon-error="markIconFailed"
-                        @delete="onDeleteLink"
-                        @favorite="onToggleFavorite"
-                    />
-                </div>
-            </div>
         </el-card>
     </div>
 </template>
 
 <script setup lang="ts" name="demo-ai-news">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Close, Star } from '@element-plus/icons-vue';
+import { Star } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { domesticLinkDefs, internationalLinkDefs } from './ai-news-links-data';
 import {
     createCustomLinkFromUrl,
+    favoriteDevGuideKey,
     loadAiNewsPrefs,
+    type AiNewsColumnId,
     type ResolvedLink,
     useAiNewsPrefs,
 } from './ai-news-links-store';
@@ -162,20 +189,41 @@ import LinkCard from './ai-news-link-card.vue';
 const { t } = useI18n();
 const {
     prefs,
-    filterPresets,
-    resolvePreset,
-    resolveCustom,
+    buildColumnLinks,
+    buildFavoriteLinks,
     hidePreset,
     removeCustom,
     addCustom,
     addFavorite,
     removeFavorite,
     isFavorite,
+    pinToTop,
+    moveItem,
 } = useAiNewsPrefs();
 
 const urlInput = ref('');
 const prefsLoading = ref(true);
-const iconFailed = reactive<Record<string, boolean>>({});
+const dragOverColumn = ref<AiNewsColumnId | null>(null);
+const dragInsertIndex = ref<number | null>(null);
+
+const columnLength = (column: AiNewsColumnId) => {
+    if (column === 'international') return internationalLinks.value.length;
+    if (column === 'domestic') return domesticLinks.value.length;
+    return favoriteLinks.value.length;
+};
+
+const resolveInsertIndex = (column: AiNewsColumnId, index: number, event: DragEvent) => {
+    const el = event.currentTarget as HTMLElement | null;
+    if (!el) return index;
+    const rect = el.getBoundingClientRect();
+    const insertAfter = event.clientY - rect.top > rect.height / 2;
+    return insertAfter ? index + 1 : index;
+};
+
+const setDragInsert = (column: AiNewsColumnId, index: number) => {
+    dragOverColumn.value = column;
+    dragInsertIndex.value = index;
+};
 
 onMounted(async () => {
     try {
@@ -185,35 +233,9 @@ onMounted(async () => {
     }
 });
 
-const internationalLinks = computed(() =>
-    filterPresets(internationalLinkDefs).map(resolvePreset),
-);
-const domesticLinks = computed(() => filterPresets(domesticLinkDefs).map(resolvePreset));
-const customLinks = computed(() => prefs.value.customLinks.map(resolveCustom));
-
-const presetMap = computed(() => {
-    const map = new Map<string, ResolvedLink>();
-    for (const d of [...internationalLinkDefs, ...domesticLinkDefs]) {
-        map.set(d.id, resolvePreset(d));
-    }
-    return map;
-});
-
-const favoriteLinks = computed(() => {
-    const result: ResolvedLink[] = [];
-    for (const ref of prefs.value.favorites) {
-        if (ref.type === 'preset') {
-            const link = presetMap.value.get(ref.id);
-            if (link && !prefs.value.hiddenPresetIds.includes(ref.id)) {
-                result.push(link);
-            }
-        } else {
-            const custom = prefs.value.customLinks.find((c) => c.id === ref.id);
-            if (custom) result.push(resolveCustom(custom));
-        }
-    }
-    return result;
-});
+const internationalLinks = computed(() => buildColumnLinks('international'));
+const domesticLinks = computed(() => buildColumnLinks('domestic'));
+const favoriteLinks = computed(() => buildFavoriteLinks());
 
 const customTitle = (id: string) => prefs.value.customLinks.find((c) => c.id === id)?.title ?? '';
 
@@ -227,28 +249,72 @@ const linkDesc = (item: ResolvedLink) => {
     return t(`pages.aiNews.links.${item.presetId}.desc`);
 };
 
-const favoriteName = (item: ResolvedLink) => {
-    if (item.type === 'custom') return customTitle(item.id);
-    const id = item.presetId ?? item.id;
-    return t(`pages.aiNews.links.${id}.name`);
-};
+const displayName = (item: ResolvedLink) => linkName(item);
+const displayDesc = (item: ResolvedLink) => linkDesc(item);
 
-const markIconFailed = (key: string) => {
-    iconFailed[key] = true;
-};
-
-const letterColor = (bg: string) => {
-    const hex = bg.replace('#', '');
-    if (hex.length !== 6) return '#fff';
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.62 ? '#303133' : '#ffffff';
+const displayDescForFavorites = (item: ResolvedLink) => {
+    const guideKey = favoriteDevGuideKey(item);
+    if (guideKey) {
+        const msg = t(`pages.aiNews.devGuides.${guideKey}`);
+        if (msg && msg !== `pages.aiNews.devGuides.${guideKey}`) return msg;
+    }
+    return linkDesc(item);
 };
 
 const openLink = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
+};
+
+const parseDragPayload = (event: DragEvent) => {
+    const raw = event.dataTransfer?.getData('application/x-ai-news-link');
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as { key: string; column: AiNewsColumnId; index: number };
+    } catch {
+        return null;
+    }
+};
+
+const onColumnDragOver = (column: AiNewsColumnId) => {
+    setDragInsert(column, columnLength(column));
+};
+
+const onColumnDragLeave = (column: AiNewsColumnId) => {
+    if (dragOverColumn.value === column) {
+        dragOverColumn.value = null;
+        dragInsertIndex.value = null;
+    }
+};
+
+const onItemDragOver = (column: AiNewsColumnId, index: number, event: DragEvent) => {
+    setDragInsert(column, resolveInsertIndex(column, index, event));
+};
+
+const clearDragState = () => {
+    dragOverColumn.value = null;
+    dragInsertIndex.value = null;
+};
+
+const isInsertBefore = (column: AiNewsColumnId, index: number) =>
+    dragOverColumn.value === column && dragInsertIndex.value === index;
+
+const isInsertAfter = (column: AiNewsColumnId, index: number) =>
+    dragOverColumn.value === column && dragInsertIndex.value === index + 1;
+
+const onColumnDrop = (toColumn: AiNewsColumnId, toIndex: number, event: DragEvent) => {
+    const payload = parseDragPayload(event);
+    const insertAt = dragInsertIndex.value ?? toIndex;
+    clearDragState();
+    if (!payload) return;
+    if (payload.column === toColumn && (insertAt === payload.index || insertAt === payload.index + 1)) {
+        return;
+    }
+    moveItem(payload.key, payload.column, toColumn, insertAt);
+};
+
+const onPinTop = (column: AiNewsColumnId, item: ResolvedLink) => {
+    pinToTop(column, item.key);
+    ElMessage.success(t('pages.aiNews.pinned'));
 };
 
 const onAddUrl = () => {
@@ -262,7 +328,11 @@ const onAddUrl = () => {
         return;
     }
     urlInput.value = '';
-    ElMessage.success(t('pages.aiNews.added'));
+    const columnLabel =
+        link.region === 'domestic'
+            ? t('pages.aiNews.sectionDomestic')
+            : t('pages.aiNews.sectionInternational');
+    ElMessage.success(t('pages.aiNews.addedToColumn', { column: columnLabel }));
 };
 
 const onDeleteLink = (item: ResolvedLink) => {
@@ -276,6 +346,7 @@ const onDeleteLink = (item: ResolvedLink) => {
 
 const onRemoveFavorite = (item: ResolvedLink) => {
     removeFavorite({ type: item.type, id: item.id });
+    ElMessage.success(t('pages.aiNews.unfavorited'));
 };
 
 const isFavoriteItem = (item: ResolvedLink) =>
@@ -311,16 +382,22 @@ const onToggleFavorite = (item: ResolvedLink) => {
 }
 
 .page-intro {
-    margin: 0 0 20px;
+    margin: 0 0 12px;
     font-size: 14px;
     color: #666;
     line-height: 1.6;
 }
 
+.drag-hint {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: #909399;
+}
+
 .add-bar {
     display: flex;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .add-bar .el-input {
@@ -344,10 +421,12 @@ const onToggleFavorite = (item: ResolvedLink) => {
     border-radius: 10px;
     background: #fff;
     min-height: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.custom-section {
-    margin-top: 20px;
+.panel-box--drop {
+    border-color: #409eff;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.12);
 }
 
 .link-section {
@@ -377,6 +456,32 @@ const onToggleFavorite = (item: ResolvedLink) => {
 
 .link-list--grow {
     flex: 1;
+}
+
+.link-item-wrapper {
+    width: 100%;
+    position: relative;
+}
+
+.link-item-wrapper--insert-before::before,
+.link-item-wrapper--insert-after::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #409eff;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.link-item-wrapper--insert-before::before {
+    top: -7px;
+}
+
+.link-item-wrapper--insert-after::after {
+    bottom: -7px;
 }
 
 .empty-hint {
@@ -415,66 +520,6 @@ const onToggleFavorite = (item: ResolvedLink) => {
     align-items: center;
     justify-content: center;
     min-height: 120px;
-}
-
-.link-item--fav {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid #ebeef5;
-    border-radius: 8px;
-    cursor: pointer;
-    background: #fff;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.link-item--fav:hover {
-    border-color: #f3d19e;
-    box-shadow: 0 2px 8px rgba(230, 162, 60, 0.12);
-}
-
-.site-icon {
-    flex-shrink: 0;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    object-fit: contain;
-    background: #f5f7fa;
-    padding: 2px;
-}
-
-.site-icon--letter {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 0;
-    line-height: 1;
-}
-
-.link-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.link-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #303133;
-    margin-bottom: 4px;
-}
-
-.link-url {
-    font-size: 12px;
-    color: #a8abb2;
-    word-break: break-all;
-}
-
-.delete-btn {
-    flex-shrink: 0;
-    margin-top: 2px;
 }
 
 @media (max-width: 992px) {

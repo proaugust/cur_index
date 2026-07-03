@@ -1,12 +1,24 @@
 <template>
     <div
         class="link-item"
+        :class="{ 'link-item--dragging': dragging }"
         role="link"
         tabindex="0"
         @click="emit('open', item.url)"
         @keydown.enter="emit('open', item.url)"
         @keydown.space.prevent="emit('open', item.url)"
     >
+        <button
+            type="button"
+            class="drag-handle"
+            draggable="true"
+            :title="dragTitle"
+            @click.stop
+            @dragstart="onDragStart"
+            @dragend="onDragEnd"
+        >
+            <el-icon><Rank /></el-icon>
+        </button>
         <el-button
             class="fav-btn"
             link
@@ -19,7 +31,7 @@
             </el-icon>
         </el-button>
         <div
-            v-if="iconFailed"
+            v-if="showLetter"
             class="site-icon site-icon--letter"
             :style="{ background: item.color, color: letterColor(item.color) }"
         >
@@ -27,21 +39,26 @@
         </div>
         <img
             v-else
+            :key="iconRenderKey"
             class="site-icon"
-            :src="item.icon"
+            :src="iconSrc"
             :alt="name"
             loading="lazy"
-            @error="emit('icon-error', item.key)"
+            @error="onIconError"
         />
         <div class="link-info">
             <div class="link-name">{{ name }}</div>
             <div class="link-desc">{{ desc }}</div>
             <div class="link-url">{{ item.url }}</div>
         </div>
-        <span class="open-hint">
-            {{ openLabel }}
-            <el-icon class="open-icon"><TopRight /></el-icon>
-        </span>
+        <el-button
+            class="pin-btn"
+            link
+            :title="pinTitle"
+            @click.stop="emit('pin-top', item)"
+        >
+            <el-icon><Top /></el-icon>
+        </el-button>
         <el-button
             class="delete-btn"
             type="danger"
@@ -55,32 +72,69 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Delete, Star, StarFilled, TopRight } from '@element-plus/icons-vue';
-import type { ResolvedLink } from './ai-news-links-store';
+import { Delete, Rank, Star, StarFilled, Top } from '@element-plus/icons-vue';
+import { faviconUrlForHost, type AiNewsColumnId, type ResolvedLink } from './ai-news-links-store';
 
-defineProps<{
+const props = defineProps<{
     item: ResolvedLink;
     name: string;
     desc: string;
-    iconFailed: boolean;
     favorited: boolean;
+    column: AiNewsColumnId;
+    index: number;
 }>();
 
 const emit = defineEmits<{
     open: [url: string];
-    'icon-error': [key: string];
     delete: [item: ResolvedLink];
     favorite: [item: ResolvedLink];
+    'pin-top': [item: ResolvedLink];
+    'drag-start': [payload: { key: string; column: AiNewsColumnId; index: number; event: DragEvent }];
+    'drag-end': [];
 }>();
 
 const { t } = useI18n();
+const dragging = ref(false);
+const iconSrc = ref(props.item.icon);
+const showLetter = ref(false);
+const iconRenderKey = ref(0);
 
 const favoriteTitle = computed(() => t('pages.aiNews.clickToFavorite'));
 const favoritedTitle = computed(() => t('pages.aiNews.removeFavorite'));
 const deleteTitle = computed(() => t('pages.aiNews.delete'));
-const openLabel = computed(() => t('pages.aiNews.open'));
+const pinTitle = computed(() => t('pages.aiNews.pinToTop'));
+const dragTitle = computed(() => t('pages.aiNews.dragHandle'));
+
+const resetIconState = () => {
+    iconSrc.value = props.item.icon;
+    showLetter.value = false;
+    iconRenderKey.value += 1;
+};
+
+watch(
+    () => [props.item.key, props.item.icon] as const,
+    () => {
+        resetIconState();
+    },
+);
+
+const onIconError = () => {
+    if (showLetter.value) return;
+    try {
+        const host = new URL(props.item.url).hostname;
+        const fallback = faviconUrlForHost(host);
+        if (iconSrc.value !== fallback) {
+            iconSrc.value = fallback;
+            iconRenderKey.value += 1;
+            return;
+        }
+    } catch {
+        // ignore
+    }
+    showLetter.value = true;
+};
 
 const letterColor = (bg: string) => {
     const hex = bg.replace('#', '');
@@ -91,14 +145,36 @@ const letterColor = (bg: string) => {
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     return luminance > 0.62 ? '#303133' : '#ffffff';
 };
+
+const onDragStart = (event: DragEvent) => {
+    dragging.value = true;
+    event.dataTransfer?.setData(
+        'application/x-ai-news-link',
+        JSON.stringify({ key: props.item.key, column: props.column, index: props.index }),
+    );
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+    }
+    emit('drag-start', {
+        key: props.item.key,
+        column: props.column,
+        index: props.index,
+        event,
+    });
+};
+
+const onDragEnd = () => {
+    dragging.value = false;
+    emit('drag-end');
+};
 </script>
 
 <style scoped>
 .link-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 14px 12px 14px 10px;
+    gap: 8px;
+    padding: 14px 10px 14px 8px;
     border: 1px solid #ebeef5;
     border-radius: 8px;
     cursor: pointer;
@@ -111,9 +187,38 @@ const letterColor = (bg: string) => {
     box-shadow: 0 2px 8px rgba(64, 158, 255, 0.08);
 }
 
+.link-item--dragging {
+    opacity: 0.55;
+}
+
 .link-item:focus-visible {
     outline: 2px solid #409eff;
     outline-offset: 2px;
+}
+
+.drag-handle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #c0c4cc;
+    cursor: grab;
+}
+
+.drag-handle:hover {
+    color: #409eff;
+    background: #ecf5ff;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
 }
 
 .fav-btn {
@@ -131,6 +236,19 @@ const letterColor = (bg: string) => {
 
 .fav-btn__icon--active {
     color: #e6a23c;
+}
+
+.pin-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 32px;
+    padding: 0;
+    margin: 0;
+    color: #909399;
+}
+
+.pin-btn:hover {
+    color: #409eff;
 }
 
 .site-icon {
@@ -176,19 +294,6 @@ const letterColor = (bg: string) => {
     font-size: 12px;
     color: #a8abb2;
     word-break: break-all;
-}
-
-.open-hint {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    margin-top: 2px;
-    font-size: 14px;
-    color: #409eff;
-}
-
-.open-icon {
-    margin-left: 2px;
 }
 
 .delete-btn {

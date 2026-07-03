@@ -588,12 +588,16 @@ class AiNewsCustomLink(BaseModel):
     icon: str
     letter: str
     color: str
+    region: Literal["international", "domestic"] | None = None
 
 
 class AiNewsUserPrefsBody(BaseModel):
     hiddenPresetIds: list[str] = Field(default_factory=list)
     customLinks: list[AiNewsCustomLink] = Field(default_factory=list)
     favorites: list[AiNewsFavoriteRef] = Field(default_factory=list)
+    presetColumns: dict[str, Literal["international", "domestic"]] = Field(default_factory=dict)
+    internationalOrder: list[str] = Field(default_factory=list)
+    domesticOrder: list[str] = Field(default_factory=list)
 
 
 class AiNewsUserPrefsRead(AiNewsUserPrefsBody):

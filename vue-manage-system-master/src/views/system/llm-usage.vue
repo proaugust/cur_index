@@ -37,13 +37,13 @@
             <template #header>
                 <span>{{ t('pages.llmUsage.byUser') }}</span>
             </template>
-            <el-table :data="stats.by_user" stripe size="small" :empty-text="t('pages.llmUsage.emptyData')">
-                <el-table-column prop="username" :label="t('pages.llmUsage.user')" min-width="140" show-overflow-tooltip />
-                <el-table-column prop="calls" :label="t('pages.llmUsage.calls')" width="100" align="right" />
-                <el-table-column prop="prompt_tokens" label="Prompt" width="110" align="right" />
+            <el-table :data="stats.by_user" stripe class="summary-table" :fit="false" :empty-text="t('pages.llmUsage.emptyData')">
+                <el-table-column prop="username" :label="t('pages.llmUsage.user')" width="110" show-overflow-tooltip />
+                <el-table-column prop="calls" :label="t('pages.llmUsage.calls')" width="96" align="right" />
+                <el-table-column prop="prompt_tokens" label="Prompt" width="108" align="right" />
                 <el-table-column prop="completion_tokens" label="Completion" width="120" align="right" />
-                <el-table-column prop="total_tokens" :label="t('pages.llmUsage.totalTokens')" width="110" align="right" sortable />
-                <el-table-column :label="t('pages.llmUsage.share')" width="90" align="right">
+                <el-table-column prop="total_tokens" :label="t('pages.llmUsage.totalTokens')" width="108" align="right" sortable />
+                <el-table-column :label="t('pages.llmUsage.share')" width="80" align="right">
                     <template #default="{ row }">{{ row.share_percent }}%</template>
                 </el-table-column>
             </el-table>
@@ -53,13 +53,13 @@
             <template #header>
                 <span>{{ t('pages.llmUsage.byCaller') }}</span>
             </template>
-            <el-table :data="stats.by_caller" stripe size="small" :empty-text="t('pages.llmUsage.emptyData')">
-                <el-table-column prop="caller" :label="t('pages.llmUsage.caller')" min-width="220" show-overflow-tooltip />
-                <el-table-column prop="calls" :label="t('pages.llmUsage.calls')" width="100" align="right" />
-                <el-table-column prop="prompt_tokens" label="Prompt" width="110" align="right" />
+            <el-table :data="stats.by_caller" stripe class="summary-table" :fit="false" :empty-text="t('pages.llmUsage.emptyData')">
+                <el-table-column prop="caller" :label="t('pages.llmUsage.caller')" width="220" show-overflow-tooltip />
+                <el-table-column prop="calls" :label="t('pages.llmUsage.calls')" width="96" align="right" />
+                <el-table-column prop="prompt_tokens" label="Prompt" width="108" align="right" />
                 <el-table-column prop="completion_tokens" label="Completion" width="120" align="right" />
-                <el-table-column prop="total_tokens" :label="t('pages.llmUsage.totalTokens')" width="110" align="right" sortable />
-                <el-table-column :label="t('pages.llmUsage.share')" width="90" align="right">
+                <el-table-column prop="total_tokens" :label="t('pages.llmUsage.totalTokens')" width="108" align="right" sortable />
+                <el-table-column :label="t('pages.llmUsage.share')" width="80" align="right">
                     <template #default="{ row }">{{ row.share_percent }}%</template>
                 </el-table-column>
             </el-table>
@@ -102,7 +102,7 @@
                 </el-form-item>
             </el-form>
 
-            <el-table :data="recentItems" stripe size="small" :empty-text="t('pages.llmUsage.emptyRecords')">
+            <el-table :data="recentItems" stripe :empty-text="t('pages.llmUsage.emptyRecords')">
                 <el-table-column prop="id" label="ID" width="70" />
                 <el-table-column prop="created_at" :label="t('pages.llmUsage.time')" width="175">
                     <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
@@ -118,7 +118,7 @@
                 <el-table-column prop="latency_ms" :label="t('pages.llmUsage.latency')" width="100" align="right" />
                 <el-table-column :label="t('pages.llmUsage.success')" width="70" align="center">
                     <template #default="{ row }">
-                        <el-tag :type="row.success ? 'success' : 'danger'" size="small">
+                        <el-tag :type="row.success ? 'success' : 'danger'">
                             {{ row.success ? t('pages.llmUsage.yes') : t('pages.llmUsage.no') }}
                         </el-tag>
                     </template>
@@ -301,6 +301,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.llm-usage-page {
+    --el-font-size-extra-small: 13px;
+    --el-font-size-small: 14px;
+    --el-font-size-base: 15px;
+    --el-font-size-medium: 17px;
+    --el-font-size-large: 19px;
+    --el-font-size-extra-large: 21px;
+}
+
 .llm-usage-page .page-header {
     display: flex;
     align-items: center;
@@ -310,7 +319,7 @@ onMounted(() => {
 }
 
 .page-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
 }
 
@@ -322,11 +331,16 @@ onMounted(() => {
 
 .toolbar-label {
     color: var(--el-text-color-secondary);
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .summary-row {
     margin-top: 4px;
+}
+
+.summary-table {
+    width: auto !important;
+    max-width: 100%;
 }
 
 .recent-filter {

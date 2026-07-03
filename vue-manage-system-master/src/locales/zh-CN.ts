@@ -82,27 +82,41 @@ export default {
     pages: {
         aiNews: {
             title: 'AI 资讯导航',
-            intro: '以下为国内外常用 AI 资讯站点。可粘贴链接新增站点，点击星标加入收藏；收藏与自定义链接会保存到当前账号，换设备登录可同步。',
+            intro: '以下为国内外常用 AI 资讯站点。可粘贴链接新增站点，系统会自动归入国外或国内栏目；拖动左侧把手可排序或移到其它栏目，↑ 可置顶。所有偏好（含收藏与排序）均同步到当前登录账号。',
             sectionInternational: '国外',
             sectionDomestic: '国内',
-            sectionCustom: '我的添加',
             addPlaceholder: '粘贴网址，例如 https://example.com',
             add: '新增',
             favorites: '我的收藏',
-            favoritesHint: '点击左侧链接的星标即可加入收藏',
-            favoritesEmpty: '暂无收藏，点击星标添加喜欢的链接',
+            favoritesHint: '收藏随账号同步；可拖动排序，从其它栏目拖入可加入收藏',
+            favoritesEmpty: '暂无收藏，点击星标或从其它栏目拖入',
             clickToFavorite: '点击收藏',
             dragToFavorite: '点击收藏',
+            dragHint: '拖动每条左侧 ≡ 把手可在本栏上下排序，或拖到其它栏目；↑ 一键置顶',
+            pinToTop: '置顶到本栏第一行',
+            dragHandle: '拖动排序或移动到其他栏目',
+            pinned: '已置顶',
             delete: '从导航中删除',
             removeFavorite: '移出收藏',
             invalidUrl: '请输入有效的网址',
             duplicateUrl: '该链接已存在',
             added: '已添加',
+            addedToColumn: '已添加到{column}',
             removed: '已删除',
             favorited: '已加入收藏',
             unfavorited: '已移出收藏',
             emptySection: '暂无链接',
             open: '打开',
+            devGuides: {
+                paperswithcode:
+                    '查技术上限与抄作业：按 Task 搜代码生成、文本提取等能力，直接看全球 SOTA 模型与可跑的 GitHub 源码，Git Clone 能少走大半年弯路。',
+                huggingfacePapers:
+                    '看应用落地与实战避坑：全球工程师每日点赞的最新论文；不必啃公式，看摘要与 GitHub 链接，好玩的 Agent 框架或开源模型可直接本地 Docker 部署试玩。',
+                jiqizhixin:
+                    '学大牛架构与通俗原理：纯中文、开发者友好；新模型与 Agent 逻辑常在 24 小时内出中文架构图解与核心代码片段，最快理解「这东西怎么用代码实现」。',
+                openaiResearch:
+                    '追巨头技术风向：OpenAI 官方研究博客，第一时间了解前沿模型、Agent 与产品背后的技术路线。',
+            },
             links: {
                 openai: { name: 'OpenAI 新闻', desc: 'OpenAI 官方新闻与公告' },
                 anthropic: { name: 'Anthropic 新闻', desc: 'Claude 及 Anthropic 官方动态' },
