@@ -16,7 +16,7 @@ def list_users(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("11.list")),
+    current_user: User = Depends(require_permission("11.list", name="用户列表")),
 ) -> UserListResponse:
     return rbac_service.list_users(db, current_user, name=name, page=page, page_size=page_size)
 
@@ -25,7 +25,7 @@ def list_users(
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("11.create")),
+    current_user: User = Depends(require_permission("11.create", name="创建用户")),
 ) -> UserRead:
     return rbac_service.create_user(db, current_user, payload)
 
@@ -35,7 +35,7 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("11.update")),
+    current_user: User = Depends(require_permission("11.update", name="更新用户")),
 ) -> UserRead:
     return rbac_service.update_user(db, current_user, user_id, payload)
 
@@ -44,7 +44,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("11.delete")),
+    current_user: User = Depends(require_permission("11.delete", name="删除用户")),
 ) -> dict[str, str]:
     rbac_service.delete_user(db, current_user, user_id)
     return {"message": "ok"}

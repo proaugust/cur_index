@@ -470,6 +470,10 @@ class ZhaJinhuaStartResponse(BaseModel):
     state: "ZhaJinhuaStatusResponse"
 
 
+class ZhaJinhuaRedealRequest(BaseModel):
+    mode: str = "random"
+
+
 class ZhaJinhuaMessageResponse(BaseModel):
     message: str
 
@@ -507,6 +511,8 @@ class ZhaJinhuaPlayerStatus(BaseModel):
     alive: bool
     all_in: bool = False
     forced_all_in: bool = False
+    eliminated: bool = False
+    offline_reason: str = ""
     cards: list[str]
     cards_display: str = ""
     hand_label: str = ""
@@ -522,6 +528,9 @@ class ZhaJinhuaSettlementPlayer(BaseModel):
     balance: int
     session_pnl: int
     alive: bool
+    all_in: bool = False
+    eliminated: bool = False
+    offline_reason: str = ""
 
 
 class ZhaJinhuaSettlement(BaseModel):
@@ -536,6 +545,7 @@ class ZhaJinhuaSettlement(BaseModel):
 class ZhaJinhuaStatusResponse(BaseModel):
     round: int
     max_rounds: int
+    deal_serial: int = 0
     pot: int
     current_bet: int
     phase: str
@@ -544,6 +554,9 @@ class ZhaJinhuaStatusResponse(BaseModel):
     last_winner: str | None
     last_winner_name: str | None = None
     current_player_id: str | None = None
+    current_turn_idx: int = 0
+    last_actor_id: str | None = None
+    last_actor_name: str | None = None
     actions_this_round: int = 0
     max_actions_per_round: int = 24
     last_settlement: ZhaJinhuaSettlement | None = None

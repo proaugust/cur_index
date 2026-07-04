@@ -154,6 +154,9 @@ export const startZhaJinhuaGame = () => request.post('/game/start');
 
 export const nextZhaJinhuaRound = () => request.post('/game/next-round');
 
+export const redealZhaJinhuaRound = (mode: 'all_big' | 'all_small' | 'random') =>
+    request.post('/game/redeal', { mode });
+
 export const resetZhaJinhuaGame = () => request.post('/game/reset');
 
 export const zhaJinhuaTurn = (playerId: string) =>

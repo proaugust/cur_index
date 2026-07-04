@@ -14,7 +14,7 @@ router = APIRouter(prefix="/smart-route", tags=["smart-route"])
 def dispatch_smart_route(
     body: schemas.SmartRouteRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("86.dispatch")),
+    _: User = Depends(require_permission("86.dispatch", name="智能分发")),
 ) -> schemas.SmartRouteResponse:
     intent, message, employees = route_question(body.question, db)
     return schemas.SmartRouteResponse(

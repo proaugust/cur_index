@@ -6,6 +6,7 @@ import asyncio
 import contextvars
 import json
 import logging
+import random
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -18,6 +19,7 @@ from app.game_logic.zha_jinhua import (
     evaluate_hand,
     format_cards,
     hand_label,
+    hand_strength_score,
     judge_winner,
     shuffle_and_deal,
     stake_at_line_for,
@@ -28,19 +30,35 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "routers" / "prompts"
 ANTE = 5
-MAX_RAISE = 100
-INITIAL_BALANCE = 1000
+MAX_RAISE = 1000
+INITIAL_BALANCE = 10000
 MAX_ROUNDS = 10
 MAX_ACTIONS_PER_ROUND = 24
 MAX_RAISE_CYCLES = 3
 MAX_RAISE_CYCLES_HEADS_UP = 2
 MAX_BLIND_STALL_ACTIONS = 6
+STRONG_HAND_SCORE_MIN = 1000
+BIG_PAIR_SCORE_MIN = 425
 
 PLAYER_CONFIG: list[dict[str, str]] = [
     {"id": "Player_1", "role": "赌徒", "persona": "player1.md"},
     {"id": "Player_2", "role": "老炮", "persona": "player2.md"},
     {"id": "Player_3", "role": "数学家", "persona": "player3.md"},
 ]
+
+ALL_BIG_HANDS: list[list[str]] = [
+    ["H2", "H9", "HK"],  # 金花
+    ["S5", "S6", "S7"],  # 顺金
+    ["HA", "DA", "SA"],  # AAA 豹子
+]
+
+REDEAL_PRESETS: dict[str, dict[str, list[str]]] = {
+    "all_small": {
+        "Player_1": ["H2", "D7", "SK"],  # 单张
+        "Player_2": ["D3", "C8", "HQ"],  # 单张
+        "Player_3": ["C4", "D9", "SA"],  # 单张
+    },
+}
 
 VALID_ACTIONS = frozenset({"跟注", "加注", "比牌", "弃牌"})
 
@@ -74,11 +92,6 @@ def _parse_llm_json(raw: str) -> dict[str, Any]:
     logger.warning("炸金花 LLM 返回非 JSON: %s", raw[:300] if raw else "(empty)")
     detail = f"大模型返回非 JSON: {raw[:200]}" if raw else "大模型返回空内容，无法解析决策"
     raise HTTPException(status_code=502, detail=detail) from last_exc
-
-
-def _actual_bet(amount: int, has_looked: bool) -> int:
-    """明注面额 = 暗注标准×2（仅工具；发话扣款以 stake_at_line_for 为准，首发言明注除外）。"""
-    return amount * 2 if has_looked else amount
 
 
 def _parse_bool(value: Any) -> bool:
@@ -129,6 +142,8 @@ class ZhaJinhuaGameEngine:
                 "alive": True,
                 "all_in": False,
                 "forced_all_in": False,
+                "eliminated": False,
+                "offline_reason": "",
                 "role": cfg["role"],
                 "session_pnl": 0,
             }
@@ -137,6 +152,7 @@ class ZhaJinhuaGameEngine:
             "max_rounds": MAX_ROUNDS,
             "pot": 0,
             "current_bet": ANTE,
+            "deal_serial": 0,
             "phase": "idle",
             "action_logs": [],
             "thoughts": [],
@@ -289,7 +305,6 @@ class ZhaJinhuaGameEngine:
                 info["forced_all_in"] = True
                 self.game_state["pot"] += paid
                 record_reason = f"{reason}/全下"
-                self._mark_early_showdown(player_id)
             else:
                 paid = cost
                 info["balance"] -= paid
@@ -310,9 +325,10 @@ class ZhaJinhuaGameEngine:
 
     def _clear_player_pending(self, player_id: str) -> None:
         pending: list[str] = self.game_state["pending_respondents"]
+        was_pending = player_id in pending
         if player_id in pending:
             pending.remove(player_id)
-        if not pending and self.game_state["last_raiser"]:
+        if was_pending and not pending and self.game_state["last_raiser"]:
             self.game_state["raise_cycles_completed"] += 1
 
     def _all_alive_all_in(self) -> bool:
@@ -335,21 +351,6 @@ class ZhaJinhuaGameEngine:
         ]
         return len(can_bet) <= 1 and not self.game_state["pending_respondents"]
 
-    def _mark_early_showdown(self, player_id: str) -> None:
-        if self.game_state["early_showdown"]:
-            return
-        self.game_state["early_showdown"] = True
-        note = (
-            f"{self.display_name(player_id)} 筹码不足被动全下，"
-            "本局禁止再加注，当前响应结束后提前开牌"
-        )
-        self.game_state["action_logs"].append(note)
-        logger.info(
-            "炸金花提前开牌标记 round=%s player=%s",
-            self.game_state["round"],
-            player_id,
-        )
-
     def _all_alive_blind(self) -> bool:
         alive = self._alive_players()
         return bool(alive) and all(not self.game_state["players"][pid]["has_looked"] for pid in alive)
@@ -360,6 +361,13 @@ class ZhaJinhuaGameEngine:
         if alive_count == 2:
             return MAX_RAISE_CYCLES_HEADS_UP
         return None
+
+    def _active_player_ids(self) -> list[str]:
+        return [
+            pid
+            for pid in self.game_state["turn_order"]
+            if not self.game_state["players"][pid].get("eliminated", False)
+        ]
 
     def _track_blind_stall_after_action(self, action: str, looked_this_turn: bool) -> None:
         if looked_this_turn or action in {"弃牌", "比牌"}:
@@ -394,12 +402,6 @@ class ZhaJinhuaGameEngine:
         alive = self._alive_players()
         if len(alive) <= 1:
             return False
-        if (
-            self.game_state["early_showdown"]
-            and not self.game_state["pending_respondents"]
-        ):
-            self._force_showdown("有人筹码不足全下，提前开牌结算")
-            return True
         if self.game_state["actions_this_round"] >= MAX_ACTIONS_PER_ROUND:
             self._force_showdown("本局行动次数达上限，强制开牌结算")
             return True
@@ -413,6 +415,7 @@ class ZhaJinhuaGameEngine:
         if (
             cycle_limit is not None
             and self.game_state["raise_cycles_completed"] >= cycle_limit
+            and self.game_state["current_bet"] < MAX_RAISE
         ):
             label = "两人" if len(alive) == 2 else "三人"
             self._force_showdown(
@@ -445,11 +448,6 @@ class ZhaJinhuaGameEngine:
             if len(alive) < 2:
                 raise HTTPException(status_code=400, detail="至少两名玩家在场时才能比牌")
         if action == "加注":
-            if self.game_state["early_showdown"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail="有人已筹码不足全下，本局禁止再加注",
-                )
             pending: list[str] = self.game_state["pending_respondents"]
             if pending and player_id not in pending:
                 raise HTTPException(status_code=400, detail="尚有玩家未响应上一手加注，你不能加注")
@@ -459,7 +457,12 @@ class ZhaJinhuaGameEngine:
         return f"{player_id}（{meta['role']}）"
 
     def _alive_players(self) -> list[str]:
-        return [pid for pid in self.game_state["turn_order"] if self.game_state["players"][pid]["alive"]]
+        return [
+            pid
+            for pid in self.game_state["turn_order"]
+            if self.game_state["players"][pid]["alive"]
+            and not self.game_state["players"][pid].get("eliminated", False)
+        ]
 
     def current_player_id(self) -> str | None:
         alive = self._alive_players()
@@ -490,20 +493,36 @@ class ZhaJinhuaGameEngine:
         if self.game_state["round"] >= MAX_ROUNDS and self.game_state["phase"] == "ended":
             raise HTTPException(status_code=400, detail="已完成 10 局，请重置后再开")
 
+        player_ids = self._active_player_ids()
+        if len(player_ids) < 2:
+            winner_id = player_ids[0] if player_ids else self.game_state.get("last_winner")
+            self.game_state["phase"] = "ended"
+            self.game_state["last_winner"] = winner_id
+            winner_name = self.display_name(winner_id) if winner_id else "无人"
+            return {
+                "message": f"只剩 {winner_name} 仍有筹码，游戏结束",
+                "state": self.public_status(),
+            }
         self.game_state["round"] += 1
-        player_ids = [p["id"] for p in PLAYER_CONFIG]
+        self.game_state["deal_serial"] += 1
         dealt = shuffle_and_deal(player_ids)
         self.game_state["round_start_balances"] = {}
 
-        for pid in player_ids:
+        for pid in self.game_state["turn_order"]:
             p = self.game_state["players"][pid]
             self.game_state["round_start_balances"][pid] = p["balance"]
+            if p.get("eliminated", False):
+                p["cards"] = []
+                p["has_looked"] = False
+                p["alive"] = False
+                p["all_in"] = False
+                p["forced_all_in"] = False
+                continue
             p["cards"] = dealt[pid]
             p["has_looked"] = False
             p["alive"] = True
             p["all_in"] = False
             p["forced_all_in"] = False
-            p["balance"] -= ANTE
 
         self.game_state["pot"] = 0
         self.game_state["current_bet"] = ANTE
@@ -525,8 +544,15 @@ class ZhaJinhuaGameEngine:
         self.game_state["awaiting_final_compare"] = False
 
         for pid in player_ids:
-            self.game_state["pot"] += ANTE
-            self._record_pot(pid, ANTE, "底分")
+            p = self.game_state["players"][pid]
+            ante_paid = min(ANTE, p["balance"])
+            p["balance"] -= ante_paid
+            if ante_paid < ANTE:
+                p["all_in"] = True
+                p["forced_all_in"] = True
+            self.game_state["pot"] += ante_paid
+            reason = "底分/全下" if ante_paid < ANTE else "底分"
+            self._record_pot(pid, ante_paid, reason, always_log=True, line_stake=ANTE)
 
         # 底分写入 ledger 后再暴露 betting，避免 GET /status 看到空明细
         self.game_state["phase"] = "betting"
@@ -556,6 +582,49 @@ class ZhaJinhuaGameEngine:
             raise HTTPException(status_code=400, detail="已完成全部 10 局")
         return self._begin_round()
 
+    def redeal_round(self, mode: str = "random") -> dict[str, Any]:
+        self.ensure_game_enabled()
+        if self.game_state["phase"] != "betting":
+            raise HTTPException(status_code=400, detail="只有开局发牌后、玩家行动前才能重新发牌")
+        if self.game_state["actions_this_round"] > 0:
+            raise HTTPException(status_code=400, detail="本局已有玩家行动，不能再重新发牌")
+
+        player_ids = self._active_player_ids()
+        normalized_mode = (mode or "random").strip()
+        if normalized_mode == "random":
+            dealt = shuffle_and_deal(player_ids)
+            mode_label = "随机牌"
+        elif normalized_mode == "all_big":
+            hands = [list(cards) for cards in ALL_BIG_HANDS]
+            random.shuffle(hands)
+            dealt = {pid: hands[idx] for idx, pid in enumerate(player_ids)}
+            mode_label = "全员大牌（随机分配）"
+        elif normalized_mode in REDEAL_PRESETS:
+            dealt = {
+                pid: list(REDEAL_PRESETS[normalized_mode][pid])
+                for pid in player_ids
+            }
+            mode_label = "全员小牌"
+        else:
+            raise HTTPException(status_code=400, detail="未知重新发牌模式")
+
+        self.game_state["deal_serial"] += 1
+        for pid in player_ids:
+            player = self.game_state["players"][pid]
+            player["cards"] = dealt[pid]
+            player["has_looked"] = False
+
+        self.game_state["action_logs"].append(f"系统重新发牌：{mode_label}，本局尚未行动，已替换所有玩家手牌")
+        logger.info(
+            "炸金花重新发牌 round=%s mode=%s",
+            self.game_state["round"],
+            normalized_mode,
+        )
+        return {
+            "message": f"已重新发牌为「{mode_label}」，本局尚未行动，可开始自动本局",
+            "state": self.public_status(),
+        }
+
     def reset_game(self) -> dict[str, str]:
         self.game_state = self._fresh_state()
         logger.info("炸金花已重置")
@@ -576,17 +645,14 @@ class ZhaJinhuaGameEngine:
                 "勿无限闷牌跟注/加注，僵持过久系统将强制开牌。"
             )
         early_showdown_note = ""
-        if self.game_state["early_showdown"]:
-            early_showdown_note = (
-                "【提前开牌】有人筹码不足已全下：本局禁止再加注，"
-                "仅可跟注/弃牌/（两人时）比牌；本轮响应结束后将开牌。"
-            )
         return self.player_template.format(
             persona_description=self.personas[player_id].strip(),
             player_name=self.display_name(player_id),
             balance=info["balance"],
             cards=",".join(info["cards"]) if info["has_looked"] else "未看牌（不可见）",
             has_looked="是" if info["has_looked"] else "否",
+            hand_label=hand_label(info["cards"]) if info["has_looked"] else "未看牌",
+            hand_score=hand_strength_score(info["cards"]) if info["has_looked"] else "未看牌",
             pot=self.game_state["pot"],
             current_bet=self.game_state["current_bet"],
             other_players_status=self.get_other_players_status(player_id),
@@ -660,9 +726,12 @@ class ZhaJinhuaGameEngine:
                 action,
             )
             return self._llm_fallback_turn(player_id)
-        if action == "加注" and self.game_state["early_showdown"]:
-            action = "跟注"
-            amount = 0
+        action, amount, target_raw = self._correct_strong_seen_hand_fold(
+            player_id, action, amount, target_raw, will_look=look
+        )
+        action, amount, target_raw = self._correct_capped_raise(
+            player_id, action, amount, target_raw, will_look=look
+        )
 
         return self._finalize_player_turn(
             player_id,
@@ -672,6 +741,103 @@ class ZhaJinhuaGameEngine:
             target_raw=target_raw,
             look=look,
         )
+
+    def _is_strong_seen_hand(self, player_id: str, *, will_look: bool = False) -> bool:
+        info = self.game_state["players"][player_id]
+        if not info["has_looked"] and not will_look:
+            return False
+        _, _, category = evaluate_hand(info["cards"])
+        score = hand_strength_score(info["cards"])
+        if category == "pair":
+            return score >= BIG_PAIR_SCORE_MIN
+        return score >= STRONG_HAND_SCORE_MIN
+
+    def _correct_strong_seen_hand_fold(
+        self,
+        player_id: str,
+        action: str,
+        amount: int,
+        target_raw: str,
+        *,
+        will_look: bool = False,
+    ) -> tuple[str, int, str]:
+        """已看牌大牌不允许被 LLM 误判成弃牌。"""
+        if action != "弃牌" or not self._is_strong_seen_hand(player_id, will_look=will_look):
+            return action, amount, target_raw
+
+        alive_others = [pid for pid in self._alive_players() if pid != player_id]
+        label = hand_label(self.game_state["players"][player_id]["cards"])
+        if self.game_state["current_bet"] >= MAX_RAISE:
+            corrected_action = "跟注"
+            corrected_target = ""
+        elif len(alive_others) == 1 or self.game_state["current_bet"] >= MAX_RAISE:
+            corrected_action = "比牌"
+            corrected_target = alive_others[0] if alive_others else ""
+        else:
+            corrected_action = "跟注"
+            corrected_target = ""
+        note = (
+            f"{self.display_name(player_id)} 已看牌为{label}，"
+            f"系统拦截异常弃牌，改为{corrected_action}"
+        )
+        self.game_state["action_logs"].append(note)
+        logger.info(
+            "炸金花大牌弃牌纠偏 round=%s player=%s hand=%s action=%s",
+            self.game_state["round"],
+            player_id,
+            label,
+            corrected_action,
+        )
+        return corrected_action, 0, corrected_target
+
+    def _correct_capped_raise(
+        self,
+        player_id: str,
+        action: str,
+        amount: int,
+        target_raw: str,
+        *,
+        will_look: bool = False,
+    ) -> tuple[str, int, str]:
+        """注线到顶后禁止 0 元空加注；大牌继续跟注，低筹码再收口。"""
+        if action != "加注" or self.game_state["current_bet"] < MAX_RAISE:
+            return action, amount, target_raw
+
+        alive_others = [pid for pid in self._alive_players() if pid != player_id]
+        if not alive_others:
+            return "跟注", 0, ""
+
+        info = self.game_state["players"][player_id]
+        label = hand_label(info["cards"])
+        corrected_target = _resolve_player_id(target_raw) or alive_others[0]
+        if info["has_looked"] or will_look:
+            score = hand_strength_score(info["cards"])
+            if self._is_strong_seen_hand(player_id, will_look=will_look):
+                corrected_action = "跟注"
+                corrected_target = ""
+            elif score >= BIG_PAIR_SCORE_MIN:
+                corrected_action = "跟注"
+                corrected_target = ""
+            else:
+                corrected_action = "弃牌"
+                corrected_target = ""
+        else:
+            corrected_action = "跟注"
+            corrected_target = ""
+
+        note = (
+            f"{self.display_name(player_id)} 当前注线已到 {MAX_RAISE}，"
+            f"系统拦截空加注，按{label}改为{corrected_action}"
+        )
+        self.game_state["action_logs"].append(note)
+        logger.info(
+            "炸金花封顶加注纠偏 round=%s player=%s hand=%s action=%s",
+            self.game_state["round"],
+            player_id,
+            label,
+            corrected_action,
+        )
+        return corrected_action, 0, corrected_target
 
     def _request_player_decision(self, player_id: str, system_prompt: str) -> dict[str, Any] | None:
         user_msg = "请根据当前局势做出你的下一步决策，严格输出 JSON。"
@@ -969,6 +1135,9 @@ class ZhaJinhuaGameEngine:
                 "balance": info["balance"],
                 "session_pnl": info["session_pnl"],
                 "alive": info["alive"],
+                "all_in": info["all_in"],
+                "eliminated": info.get("eliminated", False),
+                "offline_reason": info.get("offline_reason", ""),
             }
         return {
             "winner_id": winner_id,
@@ -986,11 +1155,21 @@ class ZhaJinhuaGameEngine:
         if pot > 0:
             winner["balance"] += pot
         self.game_state["pot"] = 0
+        eliminated_names: list[str] = []
+        for pid, info in self.game_state["players"].items():
+            if info["balance"] <= 0 and not info.get("eliminated", False):
+                info["balance"] = 0
+                info["alive"] = False
+                info["all_in"] = True
+                info["eliminated"] = True
+                info["offline_reason"] = "筹码输光，已下线"
+                eliminated_names.append(self.display_name(pid))
         # pot_ledger 保留至下一局 _begin_round 再清空，供局末继续展示
         self.game_state["last_winner"] = winner_id
         settlement = self._build_settlement(winner_id, pot, ledger_snapshot)
         self.game_state["last_settlement"] = settlement
-        if self.game_state["round"] >= MAX_ROUNDS:
+        active_left = self._active_player_ids()
+        if self.game_state["round"] >= MAX_ROUNDS or len(active_left) < 2:
             self.game_state["phase"] = "ended"
         else:
             self.game_state["phase"] = "round_end"
@@ -999,6 +1178,8 @@ class ZhaJinhuaGameEngine:
             f"本局结束，{self.display_name(winner_id)} 从对手处净赢 {net_win} 元"
             f"（池内共 {pot} 元，含自身投入 {settlement['pot_total'] - net_win} 元）"
         )
+        for name in eliminated_names:
+            self.game_state["action_logs"].append(f"{name} 筹码输光，已下线")
         logger.info(
             "炸金花局结算 round=%s winner=%s pot=%s phase=%s",
             self.game_state["round"],
@@ -1039,6 +1220,8 @@ class ZhaJinhuaGameEngine:
                 "alive": info["alive"],
                 "all_in": info["all_in"],
                 "forced_all_in": info.get("forced_all_in", False),
+                "eliminated": info.get("eliminated", False),
+                "offline_reason": info.get("offline_reason", ""),
                 "cards": cards,
                 "cards_display": format_cards(cards) if cards else "",
                 "hand_label": hand_label(cards) if cards else "",
@@ -1053,6 +1236,7 @@ class ZhaJinhuaGameEngine:
         return {
             "round": self.game_state["round"],
             "max_rounds": self.game_state["max_rounds"],
+            "deal_serial": self.game_state["deal_serial"],
             "pot": self.game_state["pot"] if is_betting else 0,
             "current_bet": self.game_state["current_bet"] if is_betting else 0,
             "phase": phase,
@@ -1065,6 +1249,13 @@ class ZhaJinhuaGameEngine:
                 else None
             ),
             "current_player_id": self.current_player_id() if is_betting else None,
+            "current_turn_idx": self.game_state["current_turn_idx"] if is_betting else 0,
+            "last_actor_id": self.game_state["last_actor_id"] if is_betting else None,
+            "last_actor_name": (
+                self.display_name(self.game_state["last_actor_id"])
+                if is_betting and self.game_state["last_actor_id"]
+                else None
+            ),
             "actions_this_round": self.game_state["actions_this_round"] if is_betting else 0,
             "max_actions_per_round": MAX_ACTIONS_PER_ROUND,
             "last_settlement": self.game_state["last_settlement"],

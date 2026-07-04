@@ -169,6 +169,28 @@ def hand_label(cards: list[str]) -> str:
     return _CATEGORY_LABELS[evaluate_hand(cards)[2]]
 
 
+def hand_strength_score(cards: list[str]) -> int:
+    """给 LLM 决策用的牌力分；胜负仍以 evaluate_hand/compare_hands 为准。"""
+    _, tiebreaker, category = evaluate_hand(cards)
+    if category == "high_card":
+        ranks = list(tiebreaker[::2])
+        return 100 + (ranks[0] - 2) * 5 + (ranks[1] - 2) * 2 + (ranks[2] - 2)
+    if category == "pair":
+        pair_rank, _, kicker, _ = tiebreaker
+        return 200 + (pair_rank - 2) * 25 + (kicker - 2)
+    if category == "straight":
+        high_rank = tiebreaker[0]
+        return 1000 + high_rank * 70
+    if category == "flush":
+        ranks = list(tiebreaker[::2])
+        return 2000 + (ranks[0] - 2) * 400 + (ranks[1] - 2) * 25 + (ranks[2] - 2)
+    if category == "straight_flush":
+        high_rank = tiebreaker[0]
+        return 10000 + high_rank * 1200
+    rank, suit = tiebreaker
+    return 30000 + rank * 1000 + suit
+
+
 def compare_two_players(cards_a: list[str], cards_b: list[str]) -> int:
     """1 表示 A 赢，-1 表示 B 赢，0 表示平局。"""
     return compare_hands(cards_a, cards_b)

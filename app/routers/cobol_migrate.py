@@ -34,7 +34,7 @@ def _pack(step: int, step_name: str, agent_steps, payload: dict) -> schemas.Cobo
 @router.post("/step/{step}", response_model=schemas.CobolMigrateStepResponse)
 def run_migrate_step(
     step: int,
-    _: User = Depends(require_permission("88.run")),
+    _: User = Depends(require_permission("88.run", name="执行迁移步骤")),
 ) -> schemas.CobolMigrateStepResponse:
     try:
         packed = run_step(step)
@@ -45,7 +45,7 @@ def run_migrate_step(
 
 @router.post("/pipeline", response_model=schemas.CobolMigratePipelineResponse)
 def run_migrate_pipeline(
-    _: User = Depends(require_permission("88.pipeline")),
+    _: User = Depends(require_permission("88.pipeline", name="一键全流程")),
 ) -> schemas.CobolMigratePipelineResponse:
     results = [_pack(*item) for item in run_pipeline()]
     return schemas.CobolMigratePipelineResponse(results=results)

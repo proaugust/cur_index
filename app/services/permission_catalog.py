@@ -1,8 +1,4 @@
-"""菜单与接口权限目录（前后端对齐的唯一来源）。"""
-
-from typing import Literal
-
-PermType = Literal["menu", "api"]
+"""内置菜单目录与默认角色权限策略。"""
 
 # menu: code, name, parent_code, route_path, icon
 MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
@@ -53,89 +49,7 @@ MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
     ("292", "图标 292", "2", "/icon", None),
 ]
 
-# api: menu_code, api_id, name, method, path
-API_PERMISSIONS: list[tuple[str, str, str, str, str]] = [
-    # 用户管理
-    ("11", "list", "用户列表", "GET", "/users/"),
-    ("11", "create", "创建用户", "POST", "/users/"),
-    ("11", "update", "更新用户", "PUT", "/users/{user_id}"),
-    ("11", "delete", "删除用户", "DELETE", "/users/{user_id}"),
-    # 角色管理
-    ("12", "list", "角色列表", "GET", "/roles/"),
-    ("12", "create", "创建角色", "POST", "/roles/"),
-    ("12", "update", "更新角色", "PUT", "/roles/{role_id}"),
-    ("12", "permissions", "分配权限", "PUT", "/roles/{role_id}/permissions"),
-    ("12", "delete", "删除角色", "DELETE", "/roles/{role_id}"),
-    # 菜单管理
-    ("13", "list", "菜单列表", "GET", "/menus/"),
-    ("13", "create", "创建菜单", "POST", "/menus/"),
-    ("13", "update", "更新菜单", "PUT", "/menus/{code}"),
-    ("13", "delete", "删除菜单", "DELETE", "/menus/{code}"),
-    # 投诉归类
-    ("81", "init-categories", "初始化分类", "POST", "/complaints/init-categories"),
-    ("81", "seed", "造数", "POST", "/complaints/seed"),
-    ("81", "embed", "向量化", "POST", "/complaints/embed"),
-    ("81", "classify", "执行归类", "POST", "/complaints/classify"),
-    ("81", "stats", "多维统计", "GET", "/complaints/stats"),
-    ("81", "samples", "样本列表", "GET", "/complaints/samples"),
-    ("81", "create", "新增投诉", "POST", "/complaints"),
-    ("81", "categories", "分类列表", "GET", "/complaints/categories"),
-    ("81", "settings", "归类设置", "GET", "/complaints/settings"),
-    ("81", "settings", "归类设置", "PUT", "/complaints/settings"),
-    # AI 资讯导航
-    ("80", "prefs", "资讯偏好", "GET", "/ai-news/prefs"),
-    ("80", "prefs", "资讯偏好", "PUT", "/ai-news/prefs"),
-    # RAG
-    ("82", "import", "导入文档", "POST", "/documents/import"),
-    ("82", "listByFile", "按文件名查", "GET", "/documents/listByFile"),
-    ("82", "search", "向量检索", "GET", "/documents/search"),
-    ("82", "search-and-llm", "搜索+LLM", "GET", "/documents/search_and_llm"),
-    ("82", "chunks-create", "新增切块", "POST", "/documents/chunks"),
-    ("82", "chunks-update", "更新切块", "PUT", "/documents/chunks/{chunk_id}"),
-    ("82", "chunks-delete", "删除切块", "DELETE", "/documents/chunks/{chunk_id}"),
-    # AI 提问
-    ("83", "ask", "AI 提问", "POST", "/chat/ask"),
-    # Agent
-    ("84", "run", "运行 Agent", "POST", "/my_agent/run"),
-    # 会议
-    ("85", "organize", "会议整理", "POST", "/meeting/organize"),
-    # 智能路由
-    ("86", "dispatch", "智能分发", "POST", "/smart-route/dispatch"),
-    # 人脸打卡
-    ("87", "punch", "人脸打卡", "POST", "/attendance/punch"),
-    ("87", "punches", "打卡历史", "GET", "/attendance/punches"),
-    ("87", "persons", "已登记人员", "GET", "/attendance/persons"),
-    ("87", "person-photo", "人员照片", "GET", "/attendance/persons/{user_id}/photo"),
-    ("87", "punch-delete", "删除打卡", "DELETE", "/attendance/punches/{punch_id}"),
-    ("87", "person-delete", "删除人员", "DELETE", "/attendance/persons/{person_id}"),
-    # COBOL → Java 迁移示范
-    ("88", "run", "执行迁移步骤", "POST", "/cobol_migrate/step/{step}"),
-    ("88", "pipeline", "一键全流程", "POST", "/cobol_migrate/pipeline"),
-    # 炸金花
-    ("89", "start", "开始一局", "POST", "/game/start"),
-    ("89", "next-round", "下一局", "POST", "/game/next-round"),
-    ("89", "reset", "重置游戏", "POST", "/game/reset"),
-    ("89", "turn", "玩家出牌", "POST", "/game/turn/{player_id}"),
-    ("89", "referee", "裁判解说", "GET", "/game/referee"),
-    ("89", "status", "牌局状态", "GET", "/game/status"),
-    ("89", "access", "开启/关闭游戏", "POST", "/game/access"),
-    # 功能介绍（演示页共用）
-    ("8", "feature-intros-list", "功能介绍列表", "GET", "/feature-intros/"),
-    ("8", "feature-intros-upsert", "保存功能介绍", "PUT", "/feature-intros/{page_key}/{section_key}"),
-    ("8", "feature-intros-seed", "初始化功能介绍", "POST", "/feature-intros/seed"),
-    # LLM 用量统计（管理员）
-    ("90", "stats", "用量统计", "GET", "/llm-usage/stats"),
-    ("90", "recent", "最近调用", "GET", "/llm-usage/recent"),
-]
-
 MENU_CODES = [code for code, *_ in MENU_PERMISSIONS]
-API_CODES = [f"{menu}.{api_id}" for menu, api_id, *_ in API_PERMISSIONS]
-ALL_PERMISSION_CODES = MENU_CODES + API_CODES
-
-# 路由 -> 权限码，供 require_api 使用
-ROUTE_PERMISSION_MAP: dict[tuple[str, str], str] = {
-    (method.upper(), path): f"{menu}.{api_id}" for menu, api_id, _, method, path in API_PERMISSIONS
-}
 
 SUPER_ADMIN_MENU_PERMISSIONS = MENU_CODES
 
@@ -173,17 +87,18 @@ USER_MENU_PERMISSIONS = ["0", "8", "80", "81", "82", "83", "84", "85", "86", "87
 ADMIN_ONLY_API_CODES = frozenset({"89.access", "90.stats", "90.recent"})
 
 
-def api_codes_for_menus(menu_codes: list[str]) -> list[str]:
+def api_codes_for_menus(menu_codes: list[str], api_codes: list[str]) -> list[str]:
     menus = set(menu_codes)
-    return [code for code in API_CODES if code.split(".", 1)[0] in menus]
+    return [code for code in api_codes if code.split(".", 1)[0] in menus]
 
 
 def default_permissions_for_menus(
     menu_codes: list[str],
+    api_codes: list[str],
     *,
     include_admin_only_apis: bool = False,
 ) -> list[str]:
-    apis = api_codes_for_menus(menu_codes)
+    apis = api_codes_for_menus(menu_codes, api_codes)
     if not include_admin_only_apis:
         apis = [code for code in apis if code not in ADMIN_ONLY_API_CODES]
     return sorted(set(menu_codes) | set(apis))

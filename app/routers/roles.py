@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User
 from app.schemas_rbac import RoleCreate, RoleListResponse, RolePermissionsUpdate, RoleRead, RoleUpdate
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/roles", tags=["roles"])
 @router.get("/", response_model=RoleListResponse)
 def list_roles(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("12.list", name="角色列表")),
 ) -> RoleListResponse:
     return rbac_service.list_roles(db, current_user)
 
@@ -22,7 +22,7 @@ def list_roles(
 def create_role(
     payload: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("12.create")),
+    current_user: User = Depends(require_permission("12.create", name="创建角色")),
 ) -> RoleRead:
     return rbac_service.create_role(db, current_user, payload)
 
@@ -32,7 +32,7 @@ def update_role(
     role_id: int,
     payload: RoleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("12.update")),
+    current_user: User = Depends(require_permission("12.update", name="更新角色")),
 ) -> RoleRead:
     return rbac_service.update_role(db, current_user, role_id, payload)
 
@@ -42,7 +42,7 @@ def update_role_permissions(
     role_id: int,
     payload: RolePermissionsUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("12.permissions")),
+    current_user: User = Depends(require_permission("12.permissions", name="分配权限")),
 ) -> RoleRead:
     return rbac_service.update_role_permissions(db, current_user, role_id, payload)
 
@@ -51,7 +51,7 @@ def update_role_permissions(
 def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("12.delete")),
+    current_user: User = Depends(require_permission("12.delete", name="删除角色")),
 ) -> dict[str, str]:
     rbac_service.delete_role(db, current_user, role_id)
     return {"message": "ok"}

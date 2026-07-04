@@ -13,7 +13,7 @@ from app.core.config import BASE_DIR, Settings, settings
 from app.core.http_logging import RequestLoggingMiddleware, register_exception_logging
 from app.database import SessionLocal, engine
 from app.models import Base
-from app.routers import ai_news, attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, items, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
+from app.routers import ai_news, attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
 from app.services.rbac_seed import seed_rbac
 from app.services.schema_migrate import run_pending_migrations
 
@@ -27,7 +27,6 @@ API_ROUTERS = (
     roles.router,
     menus.router,
     permissions.router,
-    items.router,
     documents.router,
     complaints.router,
     chat.router,
@@ -98,7 +97,7 @@ async def lifespan(app: FastAPI):
             logger.info("本次已应用数据库迁移: %s", ", ".join(migrated))
         db = SessionLocal()
         try:
-            seed_rbac(db)
+            seed_rbac(db, API_ROUTERS)
             logger.info("RBAC 种子数据已就绪")
         except Exception:
             logger.exception("RBAC 种子数据初始化失败")
@@ -107,7 +106,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("数据库连接失败（检查 HF Secret、Supabase Pooler、Network Restrictions）")
         raise
-    print(f"应用名称: {app.title}")
+    logger.info("应用名称: %s", app.title)
     threading.Thread(target=_warmup_in_background, name="app-warmup", daemon=True).start()
     yield
 

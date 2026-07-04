@@ -29,7 +29,7 @@ _SYSTEM_PROMPTS: dict[str, str] = {
 @router.post("/organize", response_model=schemas.MeetingOrganizeResponse)
 def organize_meeting(
     body: schemas.MeetingOrganizeRequest,
-    _: User = Depends(require_permission("85.organize")),
+    _: User = Depends(require_permission("85.organize", name="会议整理")),
 ) -> schemas.MeetingOrganizeResponse:
     text = body.text.strip()
     user_prompt = f"请整理以下会议记录：\n\n{text}"

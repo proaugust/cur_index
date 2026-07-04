@@ -13,7 +13,7 @@ router = APIRouter(prefix="/menus", tags=["menus"])
 @router.get("/", response_model=list[MenuRead])
 def list_menus(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("13.list")),
+    current_user: User = Depends(require_permission("13.list", name="菜单列表")),
 ) -> list[MenuRead]:
     return menu_service.list_menus(db, current_user)
 
@@ -22,7 +22,7 @@ def list_menus(
 def create_menu(
     payload: MenuCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("13.create")),
+    current_user: User = Depends(require_permission("13.create", name="创建菜单")),
 ) -> MenuRead:
     return menu_service.create_menu(db, current_user, payload)
 
@@ -32,7 +32,7 @@ def update_menu(
     code: str,
     payload: MenuUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("13.update")),
+    current_user: User = Depends(require_permission("13.update", name="更新菜单")),
 ) -> MenuRead:
     return menu_service.update_menu(db, current_user, code, payload)
 
@@ -41,7 +41,7 @@ def update_menu(
 def delete_menu(
     code: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("13.delete")),
+    current_user: User = Depends(require_permission("13.delete", name="删除菜单")),
 ) -> dict[str, str]:
     menu_service.delete_menu(db, current_user, code)
     return {"message": "ok"}

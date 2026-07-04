@@ -15,7 +15,7 @@ router = APIRouter(prefix="/complaints", tags=["complaints"])
 def create_complaint(
     payload: schemas.ComplaintCreate,
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.create")),
+    _: User = Depends(require_permission("81.create", name="新增投诉")),
 ) -> schemas.ComplaintCreateResult:
     return service.create_complaint(payload)
 
@@ -23,7 +23,7 @@ def create_complaint(
 @router.post("/init-categories", response_model=list[schemas.ComplaintCategoryRead])
 def init_categories(
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.init-categories")),
+    _: User = Depends(require_permission("81.init-categories", name="初始化分类")),
 ) -> list[schemas.ComplaintCategoryRead]:
     return service.init_categories()
 
@@ -32,7 +32,7 @@ def init_categories(
 def seed_complaints(
     count: int = Query(default=500, ge=1, le=2000),
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.seed")),
+    _: User = Depends(require_permission("81.seed", name="造数")),
 ) -> schemas.ComplaintSeedResult:
     return service.seed_complaints(count=count)
 
@@ -40,7 +40,7 @@ def seed_complaints(
 @router.post("/embed", response_model=schemas.ComplaintEmbedResult)
 def embed_complaints(
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.embed")),
+    _: User = Depends(require_permission("81.embed", name="向量化")),
 ) -> schemas.ComplaintEmbedResult:
     return service.embed_complaints()
 
@@ -48,7 +48,7 @@ def embed_complaints(
 @router.post("/classify", response_model=schemas.ComplaintClassifyResult)
 def classify_complaints(
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.classify")),
+    _: User = Depends(require_permission("81.classify", name="执行归类")),
 ) -> schemas.ComplaintClassifyResult:
     return service.classify_all()
 
@@ -56,7 +56,7 @@ def classify_complaints(
 @router.get("/settings", response_model=schemas.ComplaintSettings)
 def get_complaint_settings(
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.settings")),
+    _: User = Depends(require_permission("81.settings", name="归类设置")),
 ) -> schemas.ComplaintSettings:
     return service.get_settings()
 
@@ -65,7 +65,7 @@ def get_complaint_settings(
 def update_complaint_settings(
     payload: schemas.ComplaintSettingsUpdate,
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.settings")),
+    _: User = Depends(require_permission("81.settings", name="归类设置")),
 ) -> schemas.ComplaintSettings:
     return service.update_settings(payload)
 
@@ -74,7 +74,7 @@ def update_complaint_settings(
 def list_complaint_categories(
     name: str | None = Query(default=None, description="分类名称模糊搜索"),
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.categories")),
+    _: User = Depends(require_permission("81.categories", name="分类列表")),
 ) -> list[schemas.ComplaintCategoryDetail]:
     return service.list_categories(name=name)
 
@@ -83,7 +83,7 @@ def list_complaint_categories(
 def complaint_stats(
     q: str | None = Query(default=None, description="自然语言聚合查询，由 LLM 解析后统计"),
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.stats")),
+    _: User = Depends(require_permission("81.stats", name="多维统计")),
 ) -> schemas.ComplaintStatsReport:
     return service.get_stats(q=q)
 
@@ -99,7 +99,7 @@ def complaint_samples(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     service: ComplaintService = Depends(get_complaint_service),
-    _: User = Depends(require_permission("81.samples")),
+    _: User = Depends(require_permission("81.samples", name="样本列表")),
 ) -> schemas.ComplaintSamplesPage:
     return service.search_samples(
         address=address,

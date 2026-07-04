@@ -13,7 +13,7 @@ router = APIRouter(prefix="/ai-news", tags=["ai-news"])
 @router.get("/prefs", response_model=schemas.AiNewsUserPrefsRead)
 def get_ai_news_prefs(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("80.prefs")),
+    current_user: User = Depends(require_permission("80.prefs", name="资讯偏好")),
 ) -> schemas.AiNewsUserPrefsRead:
     return ai_news_prefs_service.get_user_prefs(db, current_user.id)
 
@@ -22,6 +22,6 @@ def get_ai_news_prefs(
 def upsert_ai_news_prefs(
     body: schemas.AiNewsUserPrefsBody,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission("80.prefs")),
+    current_user: User = Depends(require_permission("80.prefs", name="资讯偏好")),
 ) -> schemas.AiNewsUserPrefsRead:
     return ai_news_prefs_service.upsert_user_prefs(db, current_user.id, body)

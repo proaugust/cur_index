@@ -21,6 +21,15 @@
                 <el-button v-if="canNextRound" type="primary" :loading="loading" @click="handleNextRound">
                     {{ t('pages.zhaJinhua.nextRound') }}
                 </el-button>
+                <el-button v-if="canRedeal" type="warning" plain :loading="loading" @click="handleRedeal('random')">
+                    {{ t('pages.zhaJinhua.redeal') }}
+                </el-button>
+                <el-button v-if="canRedeal && canManageAccess" type="warning" :loading="loading" @click="handleRedeal('all_big')">
+                    {{ t('pages.zhaJinhua.redealAllBig') }}
+                </el-button>
+                <el-button v-if="canRedeal && canManageAccess" type="info" :loading="loading" @click="handleRedeal('all_small')">
+                    {{ t('pages.zhaJinhua.redealAllSmall') }}
+                </el-button>
                 <el-button type="success" :loading="simulating" :disabled="!canSimulate" @click="handleAutoRound">
                     {{ t('pages.zhaJinhua.autoRound') }}
                 </el-button>
@@ -101,7 +110,7 @@
                 <div class="players-row">
                     <div
                         v-for="pid in PLAYER_IDS"
-                        :key="`r${status.round}-${pid}`"
+                        :key="`r${status.round}-d${status.deal_serial ?? 0}-a${status.actions_this_round ?? 0}-${pid}`"
                         class="player-slot"
                         :class="{ 'player-slot--betting': status.phase === 'betting' }"
                     >
@@ -118,6 +127,7 @@
                             :class="{
                                 active: status.current_player_id === pid && status.phase === 'betting',
                                 folded: !status.players[pid]?.alive,
+                                eliminated: status.players[pid]?.eliminated,
                                 thinking: thinkingPlayer === pid,
                             }"
                         >
@@ -151,7 +161,8 @@
                         <div class="player-head">
                             <el-icon class="player-icon" :style="{ color: playerColor(pid) }"><UserFilled /></el-icon>
                             <span class="player-name">{{ status.players[pid]?.display_name }}</span>
-                            <el-tag v-if="!status.players[pid]?.alive" type="info" size="small">{{ t('pages.zhaJinhua.folded') }}</el-tag>
+                            <el-tag v-if="status.players[pid]?.eliminated" type="danger" size="small">{{ t('pages.zhaJinhua.eliminated') }}</el-tag>
+                            <el-tag v-else-if="!status.players[pid]?.alive" type="info" size="small">{{ t('pages.zhaJinhua.folded') }}</el-tag>
                             <el-tag v-else-if="status.players[pid]?.all_in" type="warning" size="small">{{ t('pages.zhaJinhua.allIn') }}</el-tag>
                         </div>
 
@@ -167,6 +178,10 @@
                                 {{ t('pages.zhaJinhua.sessionPnl') }} {{ formatPnl(status.players[pid]?.session_pnl ?? 0) }}
                             </span>
                         </div>
+                        <div v-if="status.players[pid]?.eliminated" class="offline-banner">
+                            <el-icon><CloseBold /></el-icon>
+                            {{ status.players[pid]?.offline_reason || t('pages.zhaJinhua.offlineReason') }}
+                        </div>
 
                         <!-- 蒙牌/看牌提示 -->
                         <div class="card-mode-tag" :class="status.players[pid]?.has_looked ? 'mode-looked' : 'mode-blind'">
@@ -177,7 +192,7 @@
                         <div class="cards-row">
                             <div
                                 v-for="(card, ci) in cardList(pid)"
-                                :key="ci"
+                                :key="`${status.round}-${status.deal_serial ?? 0}-${pid}-${ci}-${card.suit}-${card.rank}`"
                                 class="card-tile"
                                 :class="status.players[pid]?.has_looked ? 'card-looked' : 'card-blind'"
                             >
@@ -259,6 +274,9 @@
                         <div class="settlement-pnl" :class="pnlClass(settlement.players[pid]?.round_pnl ?? 0)">
                             {{ t('pages.zhaJinhua.roundPnl') }}: {{ formatPnl(settlement.players[pid]?.round_pnl ?? 0) }}
                         </div>
+                        <div v-if="settlement.players[pid]?.eliminated" class="settlement-offline">
+                            {{ settlement.players[pid]?.offline_reason || t('pages.zhaJinhua.offlineReason') }}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -305,6 +323,7 @@ import {
     getZhaJinhuaReferee,
     getZhaJinhuaStatus,
     nextZhaJinhuaRound,
+    redealZhaJinhuaRound,
     resetZhaJinhuaGame,
     setZhaJinhuaAccess,
     startZhaJinhuaGame,
@@ -349,6 +368,8 @@ type PlayerStatus = {
     alive: boolean;
     has_looked: boolean;
     all_in?: boolean;
+    eliminated?: boolean;
+    offline_reason?: string;
     cards?: string[];
     cards_display?: string;
     hand_label?: string;
@@ -365,6 +386,8 @@ type Settlement = {
         cards_display: string;
         hand_label: string;
         round_pnl: number;
+        eliminated?: boolean;
+        offline_reason?: string;
     }>;
 };
 
@@ -387,11 +410,15 @@ type PotView = {
 type Status = {
     round: number;
     max_rounds: number;
+    deal_serial?: number;
     pot: number;
     phase: string;
     early_showdown?: boolean;
     game_enabled?: boolean;
     current_player_id?: string | null;
+    current_turn_idx?: number;
+    last_actor_id?: string | null;
+    last_actor_name?: string | null;
     actions_this_round?: number;
     max_actions_per_round?: number;
     current_bet?: number;
@@ -449,6 +476,13 @@ const canNextRound = computed(
         gameEnabled.value
         && status.value?.phase === 'round_end'
         && (status.value?.round ?? 0) < (status.value?.max_rounds ?? 10)
+        && !simulating.value,
+);
+const canRedeal = computed(
+    () =>
+        gameEnabled.value
+        && status.value?.phase === 'betting'
+        && (status.value?.actions_this_round ?? 0) === 0
         && !simulating.value,
 );
 const canSimulate = computed(() => gameEnabled.value && status.value?.phase === 'betting' && !simulating.value);
@@ -626,6 +660,25 @@ const handleNextRound = async () => {
     }
 };
 
+const handleRedeal = async (mode: 'all_big' | 'all_small' | 'random') => {
+    loading.value = true;
+    try {
+        clearRoundUi();
+        invalidatePendingStatus();
+        const res = await redealZhaJinhuaRound(mode);
+        systemMessages.value.push(res.data.message);
+        if (res.data.state) {
+            applyGameState(res.data.state);
+        } else {
+            await refreshStatus();
+        }
+    } catch (err) {
+        showError(err);
+    } finally {
+        loading.value = false;
+    }
+};
+
 const handleReset = async () => {
     loading.value = true;
     try {
@@ -743,6 +796,15 @@ watch(
     () => status.value?.phase,
     (phase) => {
         if (phase === 'idle') clearRoundUi();
+    },
+);
+
+watch(
+    () => status.value?.round,
+    (round, prevRound) => {
+        if (round && prevRound && round !== prevRound) {
+            clearRoundUi();
+        }
     },
 );
 
@@ -936,6 +998,13 @@ refreshStatus().catch(() => undefined);
     opacity: 0.55;
 }
 
+.player-panel.eliminated {
+    opacity: 0.72;
+    border-color: var(--el-color-danger);
+    background: linear-gradient(180deg, #fff5f5 0%, #f8f8f8 100%);
+    box-shadow: inset 0 0 0 1px rgba(245, 108, 108, 0.16);
+}
+
 .thinking-badge {
     position: absolute;
     top: 0;
@@ -1102,6 +1171,22 @@ refreshStatus().catch(() => undefined);
     gap: 12px;
     font-size: 14px;
     margin-bottom: 12px;
+}
+
+.offline-banner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin: -2px 0 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #b42318;
+    background: #fff1f0;
+    border: 1px solid #ffccc7;
 }
 
 .balance {
@@ -1343,6 +1428,17 @@ refreshStatus().catch(() => undefined);
 .settlement-pnl {
     font-size: 20px;
     font-weight: 800;
+}
+
+.settlement-offline {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #b42318;
+    background: #fff1f0;
+    border: 1px solid #ffccc7;
 }
 
 .pnl-win {

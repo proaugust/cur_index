@@ -17,7 +17,7 @@ _NO_STORE_HEADERS = {"Cache-Control": "no-store"}
 def punch_attendance(
     body: schemas.AttendancePunchRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.punch")),
+    _: User = Depends(require_permission("87.punch", name="人脸打卡")),
 ) -> schemas.AttendancePunchResponse:
     return attendance_service.punch(db, body)
 
@@ -29,7 +29,7 @@ def list_attendance_punches(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.punches")),
+    _: User = Depends(require_permission("87.punches", name="打卡历史")),
 ) -> schemas.AttendancePunchesPage:
     response.headers.update(_NO_STORE_HEADERS)
     return attendance_service.list_punches(db, user_id=user_id, page=page, page_size=page_size)
@@ -40,7 +40,7 @@ def list_attendance_persons(
     response: Response,
     user_id: str | None = Query(default=None, description="按用户 ID 筛选"),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.persons")),
+    _: User = Depends(require_permission("87.persons", name="已登记人员")),
 ) -> list[schemas.AttendancePersonRead]:
     response.headers.update(_NO_STORE_HEADERS)
     return attendance_service.list_persons(db, user_id=user_id)
@@ -50,7 +50,7 @@ def list_attendance_persons(
 def get_attendance_person_photo(
     user_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.person-photo")),
+    _: User = Depends(require_permission("87.person-photo", name="人员照片")),
 ) -> FileResponse:
     path = attendance_service.get_person_photo_path(db, user_id)
     return FileResponse(path, media_type="image/jpeg", filename=path.name)
@@ -60,7 +60,7 @@ def get_attendance_person_photo(
 def delete_attendance_punch(
     punch_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.punch-delete")),
+    _: User = Depends(require_permission("87.punch-delete", name="删除打卡")),
 ) -> dict[str, str]:
     attendance_service.delete_punch(db, punch_id)
     return {"message": "deleted"}
@@ -70,7 +70,7 @@ def delete_attendance_punch(
 def delete_attendance_person(
     person_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("87.person-delete")),
+    _: User = Depends(require_permission("87.person-delete", name="删除人员")),
 ) -> dict[str, str]:
     attendance_service.delete_person(db, person_id)
     return {"message": "deleted"}

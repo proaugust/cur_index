@@ -15,7 +15,7 @@ def read_usage_stats(
     days: int | None = Query(default=None, ge=1, le=90),
     exclude_warmup: bool = Query(True),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("90.stats")),
+    _: User = Depends(require_permission("90.stats", name="用量统计")),
 ) -> schemas.LlmUsageStatsResponse:
     return schemas.LlmUsageStatsResponse(**get_usage_stats(db, days=days, exclude_warmup=exclude_warmup))
 
@@ -33,7 +33,7 @@ def read_recent_usage(
     days: int | None = Query(default=None, ge=1, le=90),
     exclude_warmup: bool = Query(True),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("90.recent")),
+    _: User = Depends(require_permission("90.recent", name="最近调用")),
 ) -> schemas.LlmUsageRecentResponse:
     items, total = query_logs(
         db,

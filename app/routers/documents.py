@@ -31,7 +31,7 @@ async def import_document(
     chunk_overlap: int = Form(50, ge=0, le=500, description="前后切块重叠的字符数（建议50左右）"),
     min_chunk_len: int = Form(10, ge=5, le=200, description="最小切块长度下限"),
     service: DocumentImportService = Depends(get_document_import_service),
-    _: User = Depends(require_permission("82.import")),
+    _: User = Depends(require_permission("82.import", name="导入文档")),
 ) -> schemas.DocumentImportResult:
     if not file.filename:
         raise HTTPException(status_code=400, detail="未指定文件名")
@@ -60,7 +60,7 @@ def listByFile(
     source_file: str | None = Query(default=None, description="按文件名"),
     limit: int = Query(default=20, ge=1, le=200),
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("82.listByFile")),
+    _: User = Depends(require_permission("82.listByFile", name="按文件名查")),
 ) -> list[schemas.DocumentChunkRead]:
     return crud.get_document_chunks(db, source_file=source_file, limit=limit)
 
@@ -76,7 +76,7 @@ def search(
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.65, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     service: DocumentSearchService = Depends(get_document_search_service),
-    _: User = Depends(require_permission("82.search")),
+    _: User = Depends(require_permission("82.search", name="向量检索")),
 ) -> list[schemas.DocumentChunkSearchResult]:
     return service.search(q, limit=limit, min_similarity=min_similarity)
 
@@ -92,7 +92,7 @@ def search_and_llm(
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.65, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     service: DocumentSearchService = Depends(get_document_search_service),
-    _: User = Depends(require_permission("82.search-and-llm")),
+    _: User = Depends(require_permission("82.search-and-llm", name="搜索+LLM")),
 ) -> schemas.DocumentSearchPolishedResult:
     return service.search_polished(q, limit=limit, min_similarity=min_similarity)
 
@@ -101,7 +101,7 @@ def search_and_llm(
 def create_document_chunk(
     payload: schemas.DocumentChunkCreate,
     db: Session = Depends(get_db),
-    _: User = Depends(require_permission("82.chunks-create")),
+    _: User = Depends(require_permission("82.chunks-create", name="新增切块")),
 ) -> schemas.DocumentChunkRead:
     embedding = embed_text(payload.content)
     return crud.create_document_chunk(
@@ -118,7 +118,7 @@ def create_document_chunk(
 @router.put("/chunks/{chunk_id}", response_model=schemas.DocumentChunkRead)
 def update_document_chunk(
     chunk_id: int, payload: schemas.DocumentChunkUpdate, db: Session = Depends(get_db),
-    _: User = Depends(require_permission("82.chunks-update")),
+    _: User = Depends(require_permission("82.chunks-update", name="更新切块")),
 ) -> schemas.DocumentChunkRead:
     chunk = crud.get_document_chunk_by_id(db, chunk_id)
     if chunk is None:
@@ -146,7 +146,7 @@ def update_document_chunk(
 
 @router.delete("/chunks/{chunk_id}")
 def delete_document_chunk(
-    chunk_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("82.chunks-delete"))
+    chunk_id: int, db: Session = Depends(get_db), _: User = Depends(require_permission("82.chunks-delete", name="删除切块"))
 ) -> dict[str, int | str]:
     chunk = crud.get_document_chunk_by_id(db, chunk_id)
     if chunk is None:

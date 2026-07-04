@@ -24,7 +24,7 @@ def _build_user_prompt(question: str, history: list[schemas.ChatMessage]) -> str
 @router.post("/ask", response_model=schemas.ChatAskResponse)
 def ask_chat(
     body: schemas.ChatAskRequest,
-    _: User = Depends(require_permission("83.ask")),
+    _: User = Depends(require_permission("83.ask", name="AI 提问")),
 ) -> schemas.ChatAskResponse:
 
     system_prompt = body.system_prompt.strip() if body.system_prompt else _DEFAULT_SYSTEM
