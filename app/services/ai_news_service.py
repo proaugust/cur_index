@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-import urllib.parse
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
@@ -37,11 +36,6 @@ def _domain_to_color(host: str) -> str:
 def _domain_to_letter(host: str) -> str:
     clean = host.replace("www.", "")
     return clean[0].upper() if clean else "?"
-
-
-def _favicon_url(host: str) -> str:
-    clean = host.replace("www.", "")
-    return f"https://www.google.com/s2/favicons?domain={urllib.parse.quote(clean)}&sz=32"
 
 
 def normalize_url(raw: str) -> str | None:
@@ -193,7 +187,7 @@ def _seed_default_favorites(db: Session, user_id: int, system_rows: list[models.
                 description=url,
                 region="favorites",
                 sort_order=sort_order,
-                icon=_favicon_url(host),
+                icon="",
                 letter=_domain_to_letter(host),
                 color=_domain_to_color(host),
             )
@@ -310,7 +304,7 @@ def create_custom_link(db: Session, user_id: int, url: str) -> schemas.AiNewsBoa
             description=normalized,
             region=region,
             sort_order=0,
-            icon=_favicon_url(host),
+            icon="",
             letter=_domain_to_letter(host),
             color=_domain_to_color(host),
         )

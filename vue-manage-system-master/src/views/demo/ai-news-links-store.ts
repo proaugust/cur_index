@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus';
 import { createAiNewsLink, getAiNewsBoard, putAiNewsBoard, type AiNewsBoard, type AiNewsLinkItem } from '@/api';
 
 export type AiNewsColumnId = 'international' | 'domestic' | 'favorites';
-export type ResolvedLink = AiNewsLinkItem & { key: string };
+export type ResolvedLink = AiNewsLinkItem & { key: string; stableKey: string };
 
 const SAVE_DEBOUNCE_MS = 400;
 
@@ -12,6 +12,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let saveQueued = false;
 let saveInFlight = false;
 let suppressSave = false;
+let lastSyncedFingerprint = '';
 
 export const prefsSyncState = ref<'idle' | 'saving' | 'synced' | 'offline'>('idle');
 
@@ -19,8 +20,32 @@ function emptyBoard(): AiNewsBoard {
     return { international: [], domestic: [], favorites: [] };
 }
 
+function linkStableKey(item: AiNewsLinkItem): string {
+    return item.slug || item.url;
+}
+
 function withKeys(items: AiNewsLinkItem[]): ResolvedLink[] {
-    return items.map((item) => ({ ...item, key: String(item.id) }));
+    return items.map((item) => ({
+        ...item,
+        key: String(item.id),
+        stableKey: linkStableKey(item),
+    }));
+}
+
+function boardFingerprint(board: AiNewsBoard): string {
+    return (['international', 'domestic', 'favorites'] as const)
+        .map((col) => board[col].map((item) => `${item.slug ?? ''}\t${item.url}\t${item.name}`).join('\n'))
+        .join('\n---\n');
+}
+
+function applyBoardSilently(target: AiNewsBoard, source: AiNewsBoard) {
+    suppressSave = true;
+    try {
+        applyBoard(target, source);
+        lastSyncedFingerprint = boardFingerprint(target);
+    } finally {
+        suppressSave = false;
+    }
 }
 
 function toEntry(item: AiNewsLinkItem) {
@@ -80,11 +105,15 @@ async function flushSave() {
         scheduleSave();
         return;
     }
+    const fingerprint = boardFingerprint(boardRef.value);
+    if (fingerprint === lastSyncedFingerprint) {
+        return;
+    }
     saveInFlight = true;
     prefsSyncState.value = 'saving';
     try {
         const { data } = await putAiNewsBoard(boardToPayload(boardRef.value));
-        applyBoard(boardRef.value, data as AiNewsBoard);
+        applyBoardSilently(boardRef.value, data as AiNewsBoard);
         prefsSyncState.value = 'synced';
     } catch {
         prefsSyncState.value = 'offline';
@@ -99,16 +128,13 @@ async function flushSave() {
 
 export async function loadAiNewsBoard(): Promise<void> {
     const board = ensureBoardRef();
-    suppressSave = true;
     prefsSyncState.value = 'idle';
     try {
         const { data } = await getAiNewsBoard();
-        applyBoard(board.value, data as AiNewsBoard);
+        applyBoardSilently(board.value, data as AiNewsBoard);
         prefsSyncState.value = 'synced';
     } catch {
         prefsSyncState.value = 'offline';
-    } finally {
-        suppressSave = false;
     }
 }
 
@@ -215,9 +241,7 @@ export function useAiNewsBoard() {
     const addCustomByUrl = async (raw: string): Promise<'ok' | 'invalid' | 'duplicate'> => {
         try {
             const { data } = await createAiNewsLink(raw);
-            suppressSave = true;
-            applyBoard(board.value, data as AiNewsBoard);
-            suppressSave = false;
+            applyBoardSilently(board.value, data as AiNewsBoard);
             prefsSyncState.value = 'synced';
             return 'ok';
         } catch (error) {

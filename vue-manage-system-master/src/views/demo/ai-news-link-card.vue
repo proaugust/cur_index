@@ -72,10 +72,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Delete, Rank, Star, StarFilled, Top } from '@element-plus/icons-vue';
-import { faviconUrlForHost, type AiNewsColumnId, type ResolvedLink } from './ai-news-links-store';
+import type { AiNewsColumnId, ResolvedLink } from './ai-news-links-store';
 
 const props = defineProps<{
     item: ResolvedLink;
@@ -96,9 +96,11 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const FAVICON_TIMEOUT_MS = 2500;
+
 const dragging = ref(false);
-const iconSrc = ref(props.item.icon);
-const showLetter = ref(false);
+const iconSrc = ref('');
+const showLetter = ref(true);
 const iconRenderKey = ref(0);
 
 const favoriteTitle = computed(() => t('pages.aiNews.clickToFavorite'));
@@ -107,32 +109,46 @@ const deleteTitle = computed(() => t('pages.aiNews.delete'));
 const pinTitle = computed(() => t('pages.aiNews.pinToTop'));
 const dragTitle = computed(() => t('pages.aiNews.dragHandle'));
 
-const resetIconState = () => {
-    iconSrc.value = props.item.icon;
-    showLetter.value = false;
-    iconRenderKey.value += 1;
+const shouldTryFavicon = (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return false;
+    return !trimmed.includes('google.com/s2/favicons');
 };
+
+const tryLoadFavicon = () => {
+    showLetter.value = true;
+    iconSrc.value = '';
+    const url = props.item.icon?.trim() ?? '';
+    if (!shouldTryFavicon(url)) return;
+
+    const img = new Image();
+    let settled = false;
+    const finish = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        if (ok) {
+            iconSrc.value = url;
+            showLetter.value = false;
+            iconRenderKey.value += 1;
+        }
+    };
+    const timer = window.setTimeout(() => finish(false), FAVICON_TIMEOUT_MS);
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.src = url;
+};
+
+onMounted(tryLoadFavicon);
 
 watch(
     () => [props.item.key, props.item.icon] as const,
     () => {
-        resetIconState();
+        tryLoadFavicon();
     },
 );
 
 const onIconError = () => {
-    if (showLetter.value) return;
-    try {
-        const host = new URL(props.item.url).hostname;
-        const fallback = faviconUrlForHost(host);
-        if (iconSrc.value !== fallback) {
-            iconSrc.value = fallback;
-            iconRenderKey.value += 1;
-            return;
-        }
-    } catch {
-        // ignore
-    }
     showLetter.value = true;
 };
 

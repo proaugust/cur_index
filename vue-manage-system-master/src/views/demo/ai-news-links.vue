@@ -36,7 +36,7 @@
                         <div class="link-list">
                             <div
                                 v-for="(item, index) in internationalLinks"
-                                :key="item.key"
+                                :key="item.stableKey"
                                 class="link-item-wrapper"
                                 :class="{
                                     'link-item-wrapper--insert-before': isInsertBefore('international', index),
@@ -82,7 +82,7 @@
                         <div class="link-list">
                             <div
                                 v-for="(item, index) in domesticLinks"
-                                :key="item.key"
+                                :key="item.stableKey"
                                 class="link-item-wrapper"
                                 :class="{
                                     'link-item-wrapper--insert-before': isInsertBefore('domestic', index),
@@ -132,7 +132,7 @@
                         <div class="link-list link-list--grow">
                             <div
                                 v-for="(item, index) in favoriteLinks"
-                                :key="item.key"
+                                :key="item.stableKey"
                                 class="link-item-wrapper"
                                 :class="{
                                     'link-item-wrapper--insert-before': isInsertBefore('favorites', index),
