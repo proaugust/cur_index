@@ -69,6 +69,22 @@ def cache_set_json(key: str, value: Any, *, ttl: int) -> None:
         logger.warning("Redis 写入失败 key=%s", key, exc_info=True)
 
 
+def cache_incr(key: str, *, ttl: int) -> int | None:
+    """固定窗口计数；Redis 不可用时返回 None。"""
+    if not _redis_enabled():
+        return None
+    try:
+        client = _redis_client()
+        count = int(client.incr(key))
+        if count == 1:
+            client.expire(key, ttl)
+        return count
+    except Exception:
+        _mark_redis_unavailable()
+        logger.warning("Redis INCR 失败 key=%s", key, exc_info=True)
+        return None
+
+
 def cache_delete_by_prefix(prefix: str) -> int:
     if not _redis_enabled():
         return 0

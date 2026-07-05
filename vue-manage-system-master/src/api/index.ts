@@ -13,7 +13,7 @@ export const embedComplaints = () =>
 export const classifyComplaints = () =>
     request.post('/complaints/classify');
 
-export const getComplaintStats = (params?: { q?: string }) =>
+export const getComplaintStats = (params?: { q?: string; refresh?: boolean }) =>
     request.get('/complaints/stats', { params });
 
 export const getComplaintCategories = (params?: { name?: string }) =>
@@ -190,33 +190,35 @@ export const upsertFeatureIntro = (
 export const seedFeatureIntros = () => request.post('/feature-intros/seed');
 
 // --- AI news ---
-export interface AiNewsFavoriteRef {
-    type: 'preset' | 'custom';
-    id: string;
-}
-
-export interface AiNewsCustomLink {
-    id: string;
+export interface AiNewsLinkItem {
+    id: number;
+    slug: string | null;
     url: string;
-    title: string;
+    name: string;
+    description: string;
     icon: string;
     letter: string;
     color: string;
-    region?: 'international' | 'domestic';
+    is_system: boolean;
 }
 
-export interface AiNewsUserPrefs {
-    hiddenPresetIds: string[];
-    customLinks: AiNewsCustomLink[];
-    favorites: AiNewsFavoriteRef[];
-    presetColumns?: Record<string, 'international' | 'domestic'>;
-    internationalOrder?: string[];
-    domesticOrder?: string[];
+export interface AiNewsBoard {
+    international: AiNewsLinkItem[];
+    domestic: AiNewsLinkItem[];
+    favorites: AiNewsLinkItem[];
 }
 
-export const getAiNewsPrefs = () => request.get<AiNewsUserPrefs>('/ai-news/prefs');
+export interface AiNewsBoardUpdate {
+    international: Array<Omit<AiNewsLinkItem, 'id' | 'is_system'>>;
+    domestic: Array<Omit<AiNewsLinkItem, 'id' | 'is_system'>>;
+    favorites: Array<Omit<AiNewsLinkItem, 'id' | 'is_system'>>;
+}
 
-export const putAiNewsPrefs = (data: AiNewsUserPrefs) => request.put('/ai-news/prefs', data);
+export const getAiNewsBoard = () => request.get<AiNewsBoard>('/ai-news/board');
+
+export const putAiNewsBoard = (data: AiNewsBoardUpdate) => request.put<AiNewsBoard>('/ai-news/board', data);
+
+export const createAiNewsLink = (url: string) => request.post<AiNewsBoard>('/ai-news/links', { url });
 
 // --- items ---
 export const listItems = () => request.get('/items/');

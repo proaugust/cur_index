@@ -140,6 +140,7 @@ export const complaintEndpoints: ApiEndpoint[] = [
         description: '按类型、地区、时间聚合；传 q 时由 LLM 解析自然语言后带条件统计',
         queryParams: [
             { name: 'q', label: '自然语言查询', type: 'string', placeholder: '如：3月哪个区投诉最多' },
+            { name: 'refresh', label: '强制刷新缓存', type: 'boolean' },
         ],
     },
     {

@@ -81,10 +81,10 @@ ADMIN_MENU_PERMISSIONS = [
     "66",
 ]
 
-USER_MENU_PERMISSIONS = ["0", "8", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
+USER_MENU_PERMISSIONS = ["0", "8", "90", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
 
 # 仅管理员角色分配的 API 权限（普通用户即使有菜单 89 也不包含）
-ADMIN_ONLY_API_CODES = frozenset({"89.access", "90.stats", "90.recent"})
+ADMIN_ONLY_API_CODES = frozenset({"89.access"})
 
 
 def api_codes_for_menus(menu_codes: list[str], api_codes: list[str]) -> list[str]:

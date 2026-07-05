@@ -41,6 +41,15 @@ uv sync
 
 数据库使用 PostgreSQL，连接串写在 `.env` 的 `DATABASE_URL`。
 
+Redis 缓存（投诉统计、限流等）按环境分开配置：
+
+| 环境 | 配置 | 说明 |
+|------|------|------|
+| 本地 | `.env` 不写 `REDIS_URL` | 默认 `redis://127.0.0.1:6379/0`；本机未跑 Redis 时自动降级内存缓存 |
+| HF Space | Repository secrets 设 `REDIS_URL` | 使用 Upstash，格式 `rediss://default:<token>@<host>.upstash.io:6379` |
+
+本地 `.env` 不要写入 Upstash token；token 仅放在 HF Secrets。
+
 ## 启动
 
 ```bash

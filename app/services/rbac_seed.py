@@ -132,6 +132,16 @@ def _set_role_permissions(db: Session, role: Role, codes: list[str], code_map: d
     db.refresh(role)
 
 
+def _merge_role_permissions(db: Session, role: Role, codes: list[str], code_map: dict[str, Permission]) -> None:
+    existing = {p.code for p in role.permissions}
+    missing = [code for code in codes if code not in existing and code in code_map]
+    if not missing:
+        return
+    role.permissions = list(role.permissions) + [code_map[code] for code in missing]
+    db.commit()
+    db.refresh(role)
+
+
 def seed_rbac(db: Session, routers: tuple[APIRouter, ...] = ()) -> None:
     api_permissions = _collect_api_permissions(routers)
     api_codes = [code for code, *_ in api_permissions]
@@ -160,6 +170,8 @@ def seed_rbac(db: Session, routers: tuple[APIRouter, ...] = ()) -> None:
             should_initialize_permissions = not role.permissions
         if should_initialize_permissions:
             _set_role_permissions(db, role, permiss, code_map)
+        elif is_system:
+            _merge_role_permissions(db, role, permiss, code_map)
         role_by_key[key] = role
 
     admin_password = "admin123456"

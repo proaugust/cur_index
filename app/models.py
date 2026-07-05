@@ -145,15 +145,24 @@ class AttendancePunch(Base):
     person: Mapped["AttendancePerson"] = relationship(back_populates="punches")
 
 
-class AiNewsUserPrefs(Base):
-    __tablename__ = "ai_news_user_prefs"
+class AiNewsLink(Base):
+    __tablename__ = "ai_news_links"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
-    prefs_json: Mapped[str] = mapped_column(Text, default="{}")
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    slug: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    url: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    region: Mapped[str] = mapped_column(String(20))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    icon: Mapped[str] = mapped_column(String(500), default="")
+    letter: Mapped[str] = mapped_column(String(8), default="")
+    color: Mapped[str] = mapped_column(String(16), default="#409EFF")
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    user: Mapped["User"] = relationship()
+    user: Mapped["User | None"] = relationship()
 
 
 class LlmUsageLog(Base):

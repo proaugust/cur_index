@@ -174,10 +174,11 @@ class ComplaintService:
             address=filters.address,
         )
 
-    def get_stats(self, q: str | None = None) -> schemas.ComplaintStatsReport:
-        cached = get_cached_stats(q)
-        if cached is not None:
-            return cached
+    def get_stats(self, q: str | None = None, *, refresh: bool = False) -> schemas.ComplaintStatsReport:
+        if not refresh:
+            cached = get_cached_stats(q)
+            if cached is not None:
+                return cached
 
         parsed_query: schemas.ComplaintStatsParsedQuery | None = None
         filter_params: crud.ComplaintFilterParams | None = None

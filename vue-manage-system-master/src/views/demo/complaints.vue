@@ -30,6 +30,7 @@
                     <el-button type="primary" :loading="nlQueryLoading" @click="runNlQuery">
                         {{ t('pages.complaints.nlQueryBtn') }}
                     </el-button>
+                    <el-checkbox v-model="nlQueryRefresh">{{ t('pages.complaints.nlQueryRefresh') }}</el-checkbox>
                 </div>
                 <div class="nl-query-examples">
                     <span class="nl-query-examples-label">{{ t('pages.complaints.nlQueryExamples') }}：</span>
@@ -339,6 +340,7 @@
                             v-for="section in dimensionSections"
                             :key="section.key"
                             :name="section.key"
+                            lazy
                         >
                             <template #label>
                                 <span class="tab-label-with-intro">
@@ -374,18 +376,18 @@
                                 </el-col>
                             </el-row>
 
-                            <el-row :gutter="16" class="dimension-content">
+                            <el-row v-if="activeDimensionSection" :gutter="16" class="dimension-content">
                                 <el-col :xs="24" :xl="10">
                                     <el-table
-                                        :data="section.items"
+                                        :data="activeDimensionSection.items"
                                         stripe
                                         size="small"
                                         max-height="380"
                                         class="dimension-table-clickable"
-                                        @row-click="(row: ComplaintStatsCountItem) => onDimensionItemClick(section.key, row.label)"
+                                        @row-click="(row: ComplaintStatsCountItem) => onDimensionItemClick(activeDimensionSection.key, row.label)"
                                     >
                                         <el-table-column type="index" label="#" width="50" />
-                                        <el-table-column prop="label" :label="section.columnLabel" min-width="120" />
+                                        <el-table-column prop="label" :label="activeDimensionSection.columnLabel" min-width="120" />
                                         <el-table-column prop="count" :label="t('pages.complaints.colCount')" width="90" align="right" sortable />
                                         <el-table-column :label="t('pages.complaints.colRate')" min-width="160">
                                             <template #default="{ row }">
@@ -393,7 +395,7 @@
                                                     <el-progress
                                                         :percentage="row.percentage"
                                                         :stroke-width="10"
-                                                        :color="section.color"
+                                                        :color="activeDimensionSection.color"
                                                     />
                                                     <span class="pct-text">{{ row.percentage }}%</span>
                                                 </div>
@@ -406,9 +408,9 @@
                                         :is="VChart"
                                         v-if="VChart"
                                         class="stats-chart stats-chart-clickable"
-                                        :option="section.barOption"
+                                        :option="activeDimensionSection.barOption"
                                         autoresize
-                                        @click="(params: ChartClickParams) => onChartClick(params, section.key)"
+                                        @click="(params: ChartClickParams) => onChartClick(params, activeDimensionSection.key)"
                                     />
                                 </el-col>
                                 <el-col :xs="24" :xl="7">
@@ -416,9 +418,9 @@
                                         :is="VChart"
                                         v-if="VChart"
                                         class="stats-chart stats-chart-clickable"
-                                        :option="section.secondaryOption"
+                                        :option="activeDimensionSection.secondaryOption"
                                         autoresize
-                                        @click="(params: ChartClickParams) => onChartClick(params, section.key)"
+                                        @click="(params: ChartClickParams) => onChartClick(params, activeDimensionSection.key)"
                                     />
                                 </el-col>
                             </el-row>
@@ -572,6 +574,7 @@ sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value };
 const samplePage = ref({ page: 1, page_size: 10 });
 
 const nlQueryText = ref('');
+const nlQueryRefresh = ref(false);
 const nlQueryLoading = ref(false);
 const nlQueryResult = ref<ComplaintStatsReport | null>(null);
 const nlQueryError = ref('');
@@ -939,11 +942,19 @@ const dimensionSections = computed(() => {
         topItem: topItem(config.items),
         overviewHeight: overviewChartHeight(config.items, config.overviewHorizontal),
         miniOption: buildMiniBarOption(config.items, config.color, config.overviewHorizontal),
-        barOption: buildBarOption(config.items, config.title, config.color, config.horizontalBar),
-        secondaryOption: config.useLineSecondary
-            ? buildLineOption(config.items, config.title, config.color)
-            : buildPieOption(config.items, config.title, config.key === 'category'),
     }));
+});
+
+const activeDimensionSection = computed(() => {
+    const section = dimensionSections.value.find((item) => item.key === activeDimension.value);
+    if (!section) return null;
+    return {
+        ...section,
+        barOption: buildBarOption(section.items, section.title, section.color, section.horizontalBar),
+        secondaryOption: section.useLineSecondary
+            ? buildLineOption(section.items, section.title, section.color)
+            : buildPieOption(section.items, section.title, section.key === 'category'),
+    };
 });
 
 async function loadStats() {
@@ -1037,7 +1048,7 @@ async function runNlQuery() {
     nlQueryLoading.value = true;
     nlQueryError.value = '';
     try {
-        const { data } = await getComplaintStats({ q: text });
+        const { data } = await getComplaintStats({ q: text, refresh: nlQueryRefresh.value || undefined });
         nlQueryResult.value = data as ComplaintStatsReport;
         await nextTick();
         nlQueryResultRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

@@ -54,7 +54,7 @@
                         <p class="card-header-title">{{ t('pages.dashboard.indexTrendTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.indexTrendDesc') }}</p>
                     </div>
-                    <v-chart class="chart" :option="indexTrendOption" autoresize />
+                    <component :is="VChart" v-if="VChart" class="chart" :option="indexTrendOption" autoresize />
                 </el-card>
             </el-col>
             <el-col :span="8">
@@ -63,7 +63,7 @@
                         <p class="card-header-title">{{ t('pages.dashboard.investmentPieTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.investmentPieDesc') }}</p>
                     </div>
-                    <v-chart class="chart" :option="investmentPieOption" autoresize />
+                    <component :is="VChart" v-if="VChart" class="chart" :option="investmentPieOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
@@ -75,7 +75,7 @@
                         <p class="card-header-title">{{ t('pages.dashboard.worldMapTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.worldMapDesc') }}</p>
                     </div>
-                    <v-chart class="chart chart-map" :option="worldMapOption" autoresize />
+                    <component :is="VChart" v-if="VChart" class="chart chart-map" :option="worldMapOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
@@ -87,7 +87,7 @@
                         <p class="card-header-title">{{ t('pages.dashboard.barRaceTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.barRaceDesc') }}</p>
                     </div>
-                    <v-chart class="chart chart-tall" :option="barRaceOption" autoresize />
+                    <component :is="VChart" v-if="VChart" class="chart chart-tall" :option="barRaceOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
@@ -99,7 +99,7 @@
                         <p class="card-header-title">{{ t('pages.dashboard.intelligenceTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.intelligenceDesc') }}</p>
                     </div>
-                    <v-chart class="chart" :option="intelligenceTrendOption" autoresize />
+                    <component :is="VChart" v-if="VChart" class="chart" :option="intelligenceTrendOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
@@ -155,22 +155,9 @@
 </template>
 
 <script setup lang="ts" name="dashboard">
-import { computed } from 'vue';
+import { computed, onMounted, shallowRef, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import countup from '@/components/countup.vue';
-import { registerMap, use } from 'echarts/core';
-import { BarChart, LineChart, MapChart, PieChart } from 'echarts/charts';
-import {
-    GridComponent,
-    TooltipComponent,
-    LegendComponent,
-    TimelineComponent,
-    VisualMapComponent,
-    GeoComponent,
-} from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
-import VChart from 'vue-echarts';
-import worldJson from './chart/world.json';
 import {
     buildIndexTrendOption,
     buildInvestmentBarRaceOption,
@@ -183,22 +170,42 @@ import {
 import { buildIntelligenceTrendOption } from './chart/ai-intelligence-data';
 
 const { t, tm } = useI18n();
+const VChart = shallowRef<Component | null>(null);
 
-use([
-    CanvasRenderer,
-    BarChart,
-    GridComponent,
-    LineChart,
-    MapChart,
-    PieChart,
-    TooltipComponent,
-    LegendComponent,
-    TimelineComponent,
-    VisualMapComponent,
-    GeoComponent,
-]);
+async function ensureDashboardCharts() {
+    if (VChart.value) return;
 
-registerMap('world', worldJson as Parameters<typeof registerMap>[1]);
+    const [core, charts, components, renderers, vueEcharts, worldJson] = await Promise.all([
+        import('echarts/core'),
+        import('echarts/charts'),
+        import('echarts/components'),
+        import('echarts/renderers'),
+        import('vue-echarts'),
+        import('./chart/world.json'),
+    ]);
+
+    core.use([
+        renderers.CanvasRenderer,
+        charts.BarChart,
+        charts.LineChart,
+        charts.MapChart,
+        charts.PieChart,
+        components.GridComponent,
+        components.TooltipComponent,
+        components.LegendComponent,
+        components.TimelineComponent,
+        components.VisualMapComponent,
+        components.GeoComponent,
+    ]);
+
+    const worldMap = (worldJson as { default?: unknown }).default ?? worldJson;
+    core.registerMap('world', worldMap as Parameters<typeof core.registerMap>[1]);
+    VChart.value = vueEcharts.default;
+}
+
+onMounted(() => {
+    void ensureDashboardCharts();
+});
 
 const chartTexts = computed<DashboardChartTexts>(() => ({
     countryLabel: (country) => t(`pages.dashboard.countries.${country}`, country),

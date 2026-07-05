@@ -623,31 +623,40 @@ class LlmUsageRecentResponse(BaseModel):
     page_size: int
 
 
-class AiNewsFavoriteRef(BaseModel):
-    type: Literal["preset", "custom"]
-    id: str
-
-
-class AiNewsCustomLink(BaseModel):
-    id: str
+class AiNewsLinkItem(BaseModel):
+    id: int
+    slug: str | None = None
     url: str
-    title: str
-    icon: str
-    letter: str
-    color: str
-    region: Literal["international", "domestic"] | None = None
+    name: str
+    description: str = ""
+    icon: str = ""
+    letter: str = ""
+    color: str = "#409EFF"
+    is_system: bool = False
 
 
-class AiNewsUserPrefsBody(BaseModel):
-    hiddenPresetIds: list[str] = Field(default_factory=list)
-    customLinks: list[AiNewsCustomLink] = Field(default_factory=list)
-    favorites: list[AiNewsFavoriteRef] = Field(default_factory=list)
-    presetColumns: dict[str, Literal["international", "domestic"]] = Field(default_factory=dict)
-    internationalOrder: list[str] = Field(default_factory=list)
-    domesticOrder: list[str] = Field(default_factory=list)
+class AiNewsBoardResponse(BaseModel):
+    international: list[AiNewsLinkItem] = Field(default_factory=list)
+    domestic: list[AiNewsLinkItem] = Field(default_factory=list)
+    favorites: list[AiNewsLinkItem] = Field(default_factory=list)
 
 
-class AiNewsUserPrefsRead(AiNewsUserPrefsBody):
-    updated_at: datetime | None = None
+class AiNewsBoardEntry(BaseModel):
+    id: int | None = None
+    slug: str | None = None
+    url: str
+    name: str
+    description: str = ""
+    icon: str = ""
+    letter: str = ""
+    color: str = "#409EFF"
 
-    model_config = {"from_attributes": True}
+
+class AiNewsBoardUpdate(BaseModel):
+    international: list[AiNewsBoardEntry] = Field(default_factory=list)
+    domestic: list[AiNewsBoardEntry] = Field(default_factory=list)
+    favorites: list[AiNewsBoardEntry] = Field(default_factory=list)
+
+
+class AiNewsLinkCreate(BaseModel):
+    url: str = Field(min_length=1)

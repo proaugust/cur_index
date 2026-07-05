@@ -3,8 +3,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 
 from app import schemas
+from app.core.config import settings
 from app.core.deps import get_complaint_service
 from app.core.permissions import require_permission
+from app.core.rate_limit import rate_limit
 from app.models import User
 from app.services.complaint_service import ComplaintService
 
@@ -82,10 +84,12 @@ def list_complaint_categories(
 @router.get("/stats", response_model=schemas.ComplaintStatsReport)
 def complaint_stats(
     q: str | None = Query(default=None, description="自然语言聚合查询，由 LLM 解析后统计"),
+    refresh: bool = Query(default=False, description="跳过缓存重新计算，结果写回缓存（24h 有效）"),
     service: ComplaintService = Depends(get_complaint_service),
+    _rl: None = Depends(rate_limit("complaints:stats", limit=settings.rate_limit_complaints_stats)),
     _: User = Depends(require_permission("81.stats", name="多维统计")),
 ) -> schemas.ComplaintStatsReport:
-    return service.get_stats(q=q)
+    return service.get_stats(q=q, refresh=refresh)
 
 
 @router.get("/samples", response_model=schemas.ComplaintSamplesPage)
@@ -99,6 +103,7 @@ def complaint_samples(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     service: ComplaintService = Depends(get_complaint_service),
+    _rl: None = Depends(rate_limit("complaints:samples", limit=settings.rate_limit_complaints_samples)),
     _: User = Depends(require_permission("81.samples", name="样本列表")),
 ) -> schemas.ComplaintSamplesPage:
     return service.search_samples(

@@ -47,8 +47,8 @@
                             >
                                 <LinkCard
                                     :item="item"
-                                    :name="displayName(item)"
-                                    :desc="displayDesc(item)"
+                                    :name="item.name"
+                                    :desc="item.description || item.url"
                                     :favorited="isFavoriteItem(item)"
                                     column="international"
                                     :index="index"
@@ -93,8 +93,8 @@
                             >
                                 <LinkCard
                                     :item="item"
-                                    :name="displayName(item)"
-                                    :desc="displayDesc(item)"
+                                    :name="item.name"
+                                    :desc="item.description || item.url"
                                     :favorited="isFavoriteItem(item)"
                                     column="domestic"
                                     :index="index"
@@ -143,7 +143,7 @@
                             >
                                 <LinkCard
                                     :item="item"
-                                    :name="displayName(item)"
+                                    :name="item.name"
                                     :desc="displayDescForFavorites(item)"
                                     :favorited="true"
                                     column="favorites"
@@ -172,34 +172,32 @@
 </template>
 
 <script setup lang="ts" name="demo-ai-news">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Star } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import {
-    createCustomLinkFromUrl,
     favoriteDevGuideKey,
-    loadAiNewsPrefs,
+    loadAiNewsBoard,
     type AiNewsColumnId,
     type ResolvedLink,
-    useAiNewsPrefs,
+    useAiNewsBoard,
 } from './ai-news-links-store';
 import LinkCard from './ai-news-link-card.vue';
 
 const { t } = useI18n();
 const {
-    prefs,
-    buildColumnLinks,
-    buildFavoriteLinks,
-    hidePreset,
-    removeCustom,
-    addCustom,
+    internationalLinks,
+    domesticLinks,
+    favoriteLinks,
+    pinToTop,
+    moveItem,
+    removeFromBoard,
     addFavorite,
     removeFavorite,
     isFavorite,
-    pinToTop,
-    moveItem,
-} = useAiNewsPrefs();
+    addCustomByUrl,
+} = useAiNewsBoard();
 
 const urlInput = ref('');
 const prefsLoading = ref(true);
@@ -227,30 +225,11 @@ const setDragInsert = (column: AiNewsColumnId, index: number) => {
 
 onMounted(async () => {
     try {
-        await loadAiNewsPrefs();
+        await loadAiNewsBoard();
     } finally {
         prefsLoading.value = false;
     }
 });
-
-const internationalLinks = computed(() => buildColumnLinks('international'));
-const domesticLinks = computed(() => buildColumnLinks('domestic'));
-const favoriteLinks = computed(() => buildFavoriteLinks());
-
-const customTitle = (id: string) => prefs.value.customLinks.find((c) => c.id === id)?.title ?? '';
-
-const linkName = (item: ResolvedLink) => {
-    if (item.type === 'custom') return customTitle(item.id);
-    return t(`pages.aiNews.links.${item.presetId}.name`);
-};
-
-const linkDesc = (item: ResolvedLink) => {
-    if (item.type === 'custom') return item.url;
-    return t(`pages.aiNews.links.${item.presetId}.desc`);
-};
-
-const displayName = (item: ResolvedLink) => linkName(item);
-const displayDesc = (item: ResolvedLink) => linkDesc(item);
 
 const displayDescForFavorites = (item: ResolvedLink) => {
     const guideKey = favoriteDevGuideKey(item);
@@ -258,7 +237,7 @@ const displayDescForFavorites = (item: ResolvedLink) => {
         const msg = t(`pages.aiNews.devGuides.${guideKey}`);
         if (msg && msg !== `pages.aiNews.devGuides.${guideKey}`) return msg;
     }
-    return linkDesc(item);
+    return item.description || item.url;
 };
 
 const openLink = (url: string) => {
@@ -317,49 +296,39 @@ const onPinTop = (column: AiNewsColumnId, item: ResolvedLink) => {
     ElMessage.success(t('pages.aiNews.pinned'));
 };
 
-const onAddUrl = () => {
-    const link = createCustomLinkFromUrl(urlInput.value);
-    if (!link) {
+const onAddUrl = async () => {
+    const result = await addCustomByUrl(urlInput.value);
+    if (result === 'invalid') {
         ElMessage.error(t('pages.aiNews.invalidUrl'));
         return;
     }
-    if (!addCustom(link)) {
+    if (result === 'duplicate') {
         ElMessage.warning(t('pages.aiNews.duplicateUrl'));
         return;
     }
     urlInput.value = '';
-    const columnLabel =
-        link.region === 'domestic'
-            ? t('pages.aiNews.sectionDomestic')
-            : t('pages.aiNews.sectionInternational');
-    ElMessage.success(t('pages.aiNews.addedToColumn', { column: columnLabel }));
+    ElMessage.success(t('pages.aiNews.added'));
 };
 
 const onDeleteLink = (item: ResolvedLink) => {
-    if (item.type === 'preset') {
-        hidePreset(item.id);
-    } else {
-        removeCustom(item.id);
-    }
+    removeFromBoard(item.key);
     ElMessage.success(t('pages.aiNews.removed'));
 };
 
 const onRemoveFavorite = (item: ResolvedLink) => {
-    removeFavorite({ type: item.type, id: item.id });
+    removeFavorite(item.key);
     ElMessage.success(t('pages.aiNews.unfavorited'));
 };
 
-const isFavoriteItem = (item: ResolvedLink) =>
-    isFavorite({ type: item.type, id: item.id });
+const isFavoriteItem = (item: ResolvedLink) => isFavorite(item.key);
 
 const onToggleFavorite = (item: ResolvedLink) => {
-    const ref = { type: item.type, id: item.id };
-    if (isFavorite(ref)) {
-        removeFavorite(ref);
+    if (isFavorite(item.key)) {
+        removeFavorite(item.key);
         ElMessage.success(t('pages.aiNews.unfavorited'));
         return;
     }
-    if (addFavorite(ref)) {
+    if (addFavorite(item.key)) {
         ElMessage.success(t('pages.aiNews.favorited'));
     }
 };
