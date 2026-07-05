@@ -36,6 +36,15 @@ def upgrade(engine: Engine) -> None:
                 """
             )
         )
+        # create_all 可能已建表但无 DB 级 DEFAULT，补全以免 INSERT 缺列失败
+        conn.execute(
+            text(
+                """
+                ALTER TABLE ai_news_links
+                ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP
+                """
+            )
+        )
 
     existing = 0
     with engine.connect() as conn:
@@ -51,10 +60,10 @@ def upgrade(engine: Engine) -> None:
                     """
                     INSERT INTO ai_news_links (
                         user_id, slug, url, name, description, region,
-                        sort_order, icon, letter, color, is_hidden
+                        sort_order, icon, letter, color, is_hidden, created_at
                     ) VALUES (
                         NULL, :slug, :url, :name, :description, :region,
-                        :sort_order, :icon, :letter, :color, FALSE
+                        :sort_order, :icon, :letter, :color, FALSE, CURRENT_TIMESTAMP
                     )
                     """
                 ),
