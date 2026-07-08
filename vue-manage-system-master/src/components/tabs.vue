@@ -103,8 +103,9 @@ const closeTabs = (path: string) => {
 
 watch(
     () => route.fullPath,
-    (newVal) => {
-        activePath.value = newVal;
+    () => {
+        activePath.value = route.fullPath;
+        setTags(route);
     }
 );
 </script>

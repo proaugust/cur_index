@@ -25,6 +25,9 @@
                         <video ref="videoRef" class="video" autoplay muted playsinline />
                         <canvas ref="canvasRef" class="overlay" />
                         <div v-if="modelsLoading" class="video-mask">{{ t('pages.attendance.loadingModels') }}</div>
+                        <div v-else-if="!faceRecognitionAvailable" class="video-mask">
+                            {{ t('pages.attendance.faceRecognitionUnavailable') }}
+                        </div>
                         <div v-else-if="!cameraOn" class="video-mask">{{ t('pages.attendance.openCameraHint') }}</div>
                     </div>
 
@@ -113,6 +116,7 @@
                         <el-button
                             type="primary"
                             :loading="startingCamera || modelsLoading"
+                            :disabled="!faceRecognitionAvailable"
                             @click="toggleCamera"
                         >
                             {{ cameraButtonText }}
@@ -405,6 +409,8 @@ const DEDUP_ENABLED_STORAGE_KEY = 'attendance_dedup_enabled';
 const DEDUP_SECONDS_STORAGE_KEY = 'attendance_dedup_seconds';
 const MODEL_URL = '/models';
 const STABLE_FRAMES = 2;
+/** 发布产物不含 face-api 权重；仅 Vite dev 从 node_modules 提供 /models */
+const faceRecognitionAvailable = import.meta.env.DEV;
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -594,15 +600,19 @@ const loadModels = async () => {
 };
 
 const ensureModels = async () => {
+    if (!faceRecognitionAvailable) {
+        statusText.value = t('pages.attendance.faceRecognitionUnavailable');
+        throw new Error('face recognition unavailable in production');
+    }
     if (modelsReady.value) return;
     if (!modelsLoadPromise) {
         modelsLoading.value = true;
-        statusText.value = '正在加载识别模型…';
+        statusText.value = t('pages.attendance.loadingModels');
         modelsLoadPromise = loadModels()
             .catch(() => {
                 modelsLoadPromise = null;
-                statusText.value = '模型加载失败，请确认 /public/models 下模型文件齐全';
-                ElMessage.error('人脸识别模型加载失败');
+                statusText.value = t('pages.attendance.modelsLoadFailed');
+                ElMessage.error(t('pages.attendance.modelsLoadFailed'));
                 throw new Error('models load failed');
             })
             .finally(() => {
@@ -1003,7 +1013,9 @@ const toggleCamera = async () => {
 
 onMounted(async () => {
     await Promise.all([loadPunches(), loadPersons()]);
-    statusText.value = '列表已加载，点击打开摄像头开始打卡';
+    statusText.value = faceRecognitionAvailable
+        ? t('pages.attendance.openCameraHint')
+        : t('pages.attendance.faceRecognitionUnavailable');
 });
 
 onDeactivated(() => {

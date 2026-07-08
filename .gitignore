@@ -31,7 +31,5 @@ data/attendance_faces/
 .DS_Store
 Thumbs.db
 
-# HF Space 禁止推送的大体积二进制（人脸模型在部署环境按需下载）
-vue-manage-system-master/public/models/*.bin
+# 截图仅本地/HF 均不纳入版本库
 vue-manage-system-master/screenshots/
-

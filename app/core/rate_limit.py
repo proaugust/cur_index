@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, status
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.models import User
-from app.services.redis_client import cache_incr
+from app.services.shared.redis_client import cache_incr
 
 logger = logging.getLogger(__name__)
 

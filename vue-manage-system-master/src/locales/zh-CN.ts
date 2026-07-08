@@ -581,6 +581,8 @@ export default {
             cameraOn: '摄像头已开启',
             cameraOff: '摄像头未开启',
             loadingModels: '正在加载识别模型…',
+            faceRecognitionUnavailable: '部署环境未包含人脸识别模型，请本地 npm run dev 使用',
+            modelsLoadFailed: '人脸识别模型加载失败，请确认已执行 npm ci',
             openCameraHint: '点击「打开摄像头」开始打卡',
             resolution: '摄像头分辨率',
             scanInterval: '识别频率',

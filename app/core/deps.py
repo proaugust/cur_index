@@ -53,18 +53,18 @@ def get_current_user(
 
 
 def get_document_import_service(db: Session = Depends(get_db)):
-    from app.services.document_import_service import DocumentImportService
+    from app.services.demo.document_import_service import DocumentImportService
 
     return DocumentImportService(db)
 
 
 def get_complaint_service(db: Session = Depends(get_db)):
-    from app.services.complaint_service import ComplaintService
+    from app.services.demo.complaint_service import ComplaintService
 
     return ComplaintService(db)
 
 
 def get_document_search_service(db: Session = Depends(get_db)):
-    from app.services.document_search_service import DocumentSearchService
+    from app.services.demo.document_search_service import DocumentSearchService
 
     return DocumentSearchService(db)

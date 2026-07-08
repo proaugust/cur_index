@@ -581,6 +581,8 @@ export default {
             cameraOn: 'カメラ ON',
             cameraOff: 'カメラ OFF',
             loadingModels: '認識モデル読込中…',
+            faceRecognitionUnavailable: 'デプロイ環境では顔認識モデルがありません。ローカルで npm run dev を使用してください',
+            modelsLoadFailed: '顔認識モデルの読込に失敗しました。npm ci を実行してください',
             openCameraHint: '「カメラを開く」をクリック',
             resolution: 'カメラ解像度',
             scanInterval: '認識頻度',

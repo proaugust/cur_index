@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
-from app.services.ai_news_seed_data import SYSTEM_PRESETS
+from app.services.demo.ai_news_seed_data import SYSTEM_PRESETS
 
 
 def upgrade(engine: Engine) -> None:

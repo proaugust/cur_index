@@ -99,7 +99,8 @@
                     <el-input v-model="sampleQuery.category_name" :placeholder="t('pages.complaints.optional')" clearable style="width: 140px" />
                 </el-form-item>
                 <el-form-item :label="t('pages.complaints.classifyStatus')">
-                    <el-select v-model="sampleQuery.classified" clearable :placeholder="t('pages.complaints.classifyStatusAll')" style="width: 120px">
+                    <el-select v-model="sampleQuery.classified" style="width: 120px">
+                        <el-option :label="t('pages.complaints.classifyStatusAll')" :value="null" />
                         <el-option :label="t('pages.complaints.classified')" :value="true" />
                         <el-option :label="t('pages.complaints.unclassified')" :value="false" />
                     </el-select>
@@ -570,7 +571,7 @@ const samplesLoading = ref(false);
 const sampleRows = ref<ComplaintSample[]>([]);
 const sampleTotal = ref(0);
 const sampleQuery = useCachedRef<SampleQueryState>('complaints:sampleQuery', { ...EMPTY_SAMPLE_QUERY });
-sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value };
+sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value, classified: null };
 const samplePage = ref({ page: 1, page_size: 10 });
 
 const nlQueryText = ref('');

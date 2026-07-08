@@ -2,7 +2,7 @@
 
 from sqlalchemy.engine import Engine
 
-from app.services.rbac_seed import ensure_permission_schema
+from app.services.system.rbac_seed import ensure_permission_schema
 
 
 def upgrade(engine: Engine) -> None:

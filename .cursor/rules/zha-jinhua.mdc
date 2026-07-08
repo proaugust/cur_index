@@ -1,6 +1,6 @@
 ---
 description: 炸金花 LLM 对局模块 — 目录、分层、接口与实现约束
-globs: app/routers/**/zha_jinhua*.py,app/services/**/zha_jinhua*.py,app/game_logic/**/zha_jinhua*.py,app/routers/prompts/**
+globs: app/routers/**/zha_jinhua*.py,app/services/**/zha_jinhua*.py,app/game_logic/**/zha_jinhua*.py,app/resources/prompts/**
 alwaysApply: false
 ---
 
@@ -12,17 +12,17 @@ alwaysApply: false
 
 ## 目录
 
-- 路由：`app/routers/zha_jinhua.py`（`APIRouter`，prefix `/game`）
-- 服务：`app/services/zha_jinhua_service.py`
+- 路由：`app/routers/demo/zha_jinhua.py`（`APIRouter`，prefix `/game`）
+- 服务：`app/services/demo/zha_jinhua_service.py`
 - 规则：`app/game_logic/zha_jinhua.py`（纯函数，可单测）
-- 提示词：`app/routers/prompts/`（`player_prompt.md`、`player1/2/3.md`、`referee_prompt.md`）
+- 提示词：`app/resources/prompts/`（`player_prompt.md`、`player1/2/3.md`、`referee_prompt.md`）
 
 Prompt 路径基于 `Path(__file__)`，禁止 CWD 相对路径。
 
 ## 集成
 
-- 注册于 `app/main.py` → `API_ROUTERS`
-- LLM 使用 `app.services.llm.chat_completion`（`json_mode=True` 优先）
+- 注册于 `app/routers/__init__.py` → `all_routers()`
+- LLM 使用 `app.services.shared.llm.chat_completion`（`json_mode=True` 优先）
 - 同步 LLM 在 service 内用 `asyncio.to_thread` 包装
 
 ## 状态机

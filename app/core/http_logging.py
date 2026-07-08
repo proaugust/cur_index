@@ -44,7 +44,7 @@ def _user_id_from_request(request: Request) -> int | None:
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        from app.services.llm_usage_service import bind_llm_usage_user_id, reset_llm_usage_user_id
+        from app.services.ops.llm_usage_service import bind_llm_usage_user_id, reset_llm_usage_user_id
 
         rid = uuid.uuid4().hex[:12]
         rid_token = request_id_var.set(rid)

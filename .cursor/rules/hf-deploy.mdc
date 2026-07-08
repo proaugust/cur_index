@@ -11,11 +11,11 @@ alwaysApply: true
 
 HF pre-receive hook 会拒绝 git 历史中含大体积二进制。以下文件**不得进入 HF 仓库**（含历史）：
 
-- `vue-manage-system-master/public/models/*.bin`（face-api 权重，本地/按需下载）
+- `vue-manage-system-master/public/models/*.bin`（face-api 权重，**可提交 GitHub**，HF snapshot 由 `deploy-hf.bat` 自动剥离）
 - `vue-manage-system-master/screenshots/**`
 - 其它未经 [HF Xet](https://huggingface.co/docs/hub/xet) 的大文件（>1MB 二进制）
 
-`.gitignore` 已排除上述路径，但 **GitHub `main` 历史里可能仍有旧 blob**，故不能直接推 `main` 到 HF。
+GitHub `main` 可含人脸模型 `.bin`；**不得**直接推 `main` 到 HF（历史 blob 或 snapshot 含 .bin 会被拒）。部署走 orphan snapshot + 脚本剥离。
 
 ## 禁止的操作
 
@@ -29,7 +29,7 @@ HF pre-receive hook 会拒绝 git 历史中含大体积二进制。以下文件*
 
 1. 确保 `main` 已提交且工作区干净
 2. 先 `git push origin main`（GitHub）
-3. 创建 **orphan** 分支，仅包含当前工作区文件（`.gitignore` 生效，无历史 blob）
+3. 创建 **orphan** 分支，提交当前工作区 snapshot（**自动剔除** `.bin` 与 `screenshots`）
 4. 提交 snapshot：`HF Space deploy snapshot from main (<short-sha>).`
 5. `git push hf hf-deploy-snap:main --force`
 6. 切回 `main`，删除临时分支 `hf-deploy-snap`
@@ -37,23 +37,20 @@ HF pre-receive hook 会拒绝 git 历史中含大体积二进制。以下文件*
 ## 推送前自检
 
 ```powershell
-# 工作区不得含待推送的二进制
-git status --short | Select-String "\.bin|screenshots"
-
-# 若怀疑 staged 含禁止文件
+# deploy-hf.bat 会从 snapshot 剔除 .bin；手动 push 时勿把 .bin 推上 HF
 git diff --cached --name-only | Select-String "\.bin|screenshots"
 ```
 
-有匹配则中止，勿 push。
+手动推 HF 时若有匹配则中止；用 `deploy-hf.bat` 则脚本会自动剥离后再提交。
 
 ## 与 GitHub 的分工
 
 | 目标 | 分支/方式 | 可否含 .bin |
 |------|-----------|-------------|
-| GitHub `origin` | `main` 正常推送 | 可以（历史已存在则保留） |
-| HF Space `hf` | orphan snapshot → `main` | **不可以** |
+| GitHub `origin` | `main` 正常推送 | **可以**（face-api `.bin` 约 6.5MB） |
+| HF Space `hf` | orphan snapshot → `main` | **不可以**（脚本自动剔除） |
 
-考勤人脸模型在 HF 上不可用属预期；其余功能通过 Docker 构建部署。
+考勤人脸打卡在 HF 上不可用属预期（页面会提示）；GitHub 克隆后本地 `npm run dev` 可直接用（`public/models` 含权重，Vite dev 亦会从 `node_modules` 兜底）。
 
 ## 部署慢的常见原因
 

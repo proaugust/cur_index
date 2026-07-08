@@ -13,33 +13,15 @@ from app.core.config import BASE_DIR, Settings, settings
 from app.core.http_logging import RequestLoggingMiddleware, register_exception_logging
 from app.database import SessionLocal, engine
 from app.models import Base
-from app.routers import ai_news, attendance, auth, chat, cobol_migrate, complaints, documents, feature_intros, llm_usage, meeting, menus, my_agent, permissions, roles, smart_route, users, zha_jinhua
-from app.services.rbac_seed import seed_rbac
-from app.services.schema_migrate import run_pending_migrations
+from app.routers import all_routers
+from app.services.system.rbac_seed import seed_rbac
+from app.services.system.schema_migrate import run_pending_migrations
 
 STATIC_DIR = BASE_DIR / "static"
 # 本地无 static/ 时强制开发模式，避免误设 SERVE_STATIC=1 导致 /api 与 Vite 代理冲突全 404
 SERVE_STATIC = settings.serve_static and STATIC_DIR.is_dir()
 
-API_ROUTERS = (
-    auth.router,
-    users.router,
-    roles.router,
-    menus.router,
-    permissions.router,
-    documents.router,
-    complaints.router,
-    chat.router,
-    meeting.router,
-    smart_route.router,
-    attendance.router,
-    my_agent.router,
-    cobol_migrate.router,
-    feature_intros.router,
-    ai_news.router,
-    zha_jinhua.router,
-    llm_usage.router,
-)
+API_ROUTERS = all_routers()
 
 
 def _configure_logging() -> None:
@@ -58,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 def _warmup_in_background() -> None:
     """后台预热重资源，不阻塞 HTTP 启动；以内存换首次请求延迟。"""
-    from app.services.embedding import warmup as embedding_warmup
-    from app.services.llm import warmup as llm_warmup
+    from app.services.shared.embedding import warmup as embedding_warmup
+    from app.services.shared.llm import warmup as llm_warmup
 
     try:
         embedding_warmup()

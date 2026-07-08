@@ -24,10 +24,15 @@ if errorlevel 1 (
 
 git add -A
 
-echo [4/6] Checking for forbidden binaries...
+echo [4/6] Stripping forbidden binaries from HF snapshot...
+git reset HEAD -- "vue-manage-system-master/public/models/*.bin" 2>nul
+git reset HEAD -- "vue-manage-system-master/screenshots" 2>nul
+for /f "usebackq delims=" %%f in (`git diff --cached --name-only ^| findstr /i /r "\.bin$ screenshots"`) do (
+    git reset HEAD -- "%%f" 2>nul
+)
 git diff --cached --name-only | findstr /i /r "\.bin$ screenshots" >nul
 if not errorlevel 1 (
-    echo ERROR: Staged files contain .bin or screenshots. Aborting.
+    echo ERROR: Forbidden files still staged after strip. Aborting.
     git checkout main 2>nul
     git branch -D hf-deploy-snap 2>nul
     exit /b 1
