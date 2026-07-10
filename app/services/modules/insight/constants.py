@@ -13,6 +13,8 @@ SEED_PRESETS: dict[InsightPreset, dict[str, int]] = {
 
 USER_BATCH_SIZE = 5_000
 SAMPLE_BATCH_SIZE = 1_000
+# HF/托管 PG 常有 statement_timeout；快照含 JSONB，单批不宜过大
+SNAPSHOT_WRITE_BATCH_SIZE = 500
 COMPLAINT_VECTOR_DIM = 768
 
 SURNAMES = ("张", "李", "王", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙", "胡", "朱", "高", "林")
