@@ -82,23 +82,25 @@ export const getInsightSamples = (params?: Record<string, unknown>) =>
 /** @deprecated 使用 getInsightSamples */
 export const getInsightTouchpoints = getInsightSamples;
 
-export const postInsightNightlyRun = (snapshotDate?: string, withPrevDay = true) =>
+export const postInsightNightlyRun = (snapshotDate?: string, withPrevDay = false) =>
     request.post('/insight/jobs/nightly-run', null, {
         params: {
             ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
             with_prev_day: withPrevDay,
         },
+        timeout: 300000,
     });
 
 export const getInsightJobLogs = (params?: Record<string, unknown>) =>
     request.get('/insight/jobs/logs', { params });
 
-export const postInsightBuildSnapshot = (snapshotDate?: string, withPrevDay = true) =>
+export const postInsightBuildSnapshot = (snapshotDate?: string, withPrevDay = false) =>
     request.post('/insight/risk/build-snapshot', null, {
         params: {
             ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
             with_prev_day: withPrevDay,
         },
+        timeout: 300000,
     });
 
 export const getInsightSnapshots = (params?: Record<string, unknown>) =>

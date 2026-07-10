@@ -30,7 +30,7 @@ class InsightNightlyJobService:
         self,
         snapshot_date: date | None = None,
         *,
-        with_prev_day: bool = True,
+        with_prev_day: bool = False,
     ) -> InsightNightlyRunResult:
         users = self.db.query(DimUserProfile).all()
         if not users:
@@ -49,9 +49,11 @@ class InsightNightlyJobService:
                 users, prev_date, dampen=Decimal("0.12")
             )
             steps.extend(prev_steps)
+            self.db.commit()
 
         snapshots, regions, today_steps = self._run_pipeline(users, target_date)
         steps.extend(today_steps)
+        self.db.commit()
 
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         log_id = self._write_analysis_log(

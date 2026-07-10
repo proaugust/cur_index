@@ -22,51 +22,58 @@ def _chunks(items: list[T], size: int) -> Iterable[list[T]]:
         yield items[offset : offset + size]
 
 
+def _jsonable_shap(shap_values: dict | None) -> dict[str, float]:
+    if not shap_values:
+        return {}
+    return {str(key): float(value) for key, value in shap_values.items()}
+
+
 class InsightSnapshotWriter:
     def __init__(self, db: Session):
         self.db = db
 
     def write(self, snapshot_date: date, predictions: list[RiskPrediction]) -> int:
         self.db.execute(delete(DimUserProfileSnapshot).where(DimUserProfileSnapshot.snapshot_date == snapshot_date))
-        self.db.flush()
+        self.db.commit()
 
-        rows = [
-            {
-                "snapshot_date": snapshot_date,
-                "user_id": item["user_id"],
-                "region_l1": item["region_l1"],
-                "region_l2": item["region_l2"],
-                "age_group": item["age_group"],
-                "plan_id": item["plan_id"],
-                "vip_level": item["vip_level"],
-                "churn_risk_level": item["churn_risk_level"],
-                "activity_trend": item["activity_trend"],
-                "risk_score": item["risk_score"],
-                "tags": item["tags"],
-                "shap_values": item["shap_values"],
-            }
-            for item in predictions
-        ]
-        profile_rows = [
-            {
-                "user_id": item["user_id"],
-                "risk_score": item["risk_score"],
-                "risk_level": item["churn_risk_level"],
-                "tags": item["tags"],
-                "shap_values": item["shap_values"],
-            }
-            for item in predictions
-        ]
-
+        rows = [self._snapshot_row(snapshot_date, item) for item in predictions]
+        profile_rows = [self._profile_row(item) for item in predictions]
         batch = SNAPSHOT_WRITE_BATCH_SIZE
         for chunk in _chunks(rows, batch):
             self.db.bulk_insert_mappings(DimUserProfileSnapshot, chunk)
-            self.db.flush()
+            self.db.commit()
         for chunk in _chunks(profile_rows, batch):
             self.db.bulk_update_mappings(DimUserProfile, chunk)
-            self.db.flush()
+            self.db.commit()
 
         if rows:
             clear_all_profile_cache()
         logger.info("快照落库完成 date=%s rows=%s batch=%s", snapshot_date, len(rows), batch)
         return len(rows)
+
+    @staticmethod
+    def _snapshot_row(snapshot_date: date, item: RiskPrediction) -> dict:
+        return {
+            "snapshot_date": snapshot_date,
+            "user_id": item["user_id"],
+            "region_l1": item["region_l1"],
+            "region_l2": item["region_l2"],
+            "age_group": item["age_group"],
+            "plan_id": item["plan_id"],
+            "vip_level": item["vip_level"],
+            "churn_risk_level": item["churn_risk_level"],
+            "activity_trend": item["activity_trend"],
+            "risk_score": item["risk_score"],
+            "tags": list(item["tags"] or []),
+            "shap_values": _jsonable_shap(item["shap_values"]),
+        }
+
+    @staticmethod
+    def _profile_row(item: RiskPrediction) -> dict:
+        return {
+            "user_id": item["user_id"],
+            "risk_score": item["risk_score"],
+            "risk_level": item["churn_risk_level"],
+            "tags": list(item["tags"] or []),
+            "shap_values": _jsonable_shap(item["shap_values"]),
+        }

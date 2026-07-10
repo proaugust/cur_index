@@ -344,7 +344,7 @@ def list_insight_simulation_weights(
 @router.post("/jobs/nightly-run", response_model=InsightNightlyRunResult)
 def run_insight_nightly_job(
     snapshot_date: date | None = Query(default=None),
-    with_prev_day: bool = Query(default=True, description="同时构建前一日快照以生成环比"),
+    with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 深夜批处理")),
 ) -> InsightNightlyRunResult:
@@ -364,7 +364,7 @@ def list_insight_job_logs(
 @router.post("/risk/build-snapshot", response_model=InsightRiskBuildResult)
 def build_insight_risk_snapshot(
     snapshot_date: date | None = Query(default=None),
-    with_prev_day: bool = Query(default=True, description="同时构建前一日快照以生成环比"),
+    with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 构建快照")),
 ) -> InsightRiskBuildResult:

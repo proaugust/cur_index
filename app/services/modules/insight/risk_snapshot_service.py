@@ -12,7 +12,7 @@ class InsightRiskSnapshotService:
     def __init__(self, db: Session):
         self._job = InsightNightlyJobService(db)
 
-    def run_nightly(self, snapshot_date: date | None = None, *, with_prev_day: bool = True) -> InsightNightlyRunResult:
+    def run_nightly(self, snapshot_date: date | None = None, *, with_prev_day: bool = False) -> InsightNightlyRunResult:
         return self._job.run_nightly(snapshot_date=snapshot_date, with_prev_day=with_prev_day)
 
     def build_snapshot(

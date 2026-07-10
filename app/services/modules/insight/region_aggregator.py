@@ -24,6 +24,7 @@ class InsightRegionAggregator:
         rows = self._build_rows(snapshot_date, predictions, prev_map)
         if rows:
             self.db.bulk_insert_mappings(FactRegionRiskMetrics, rows)
+        self.db.flush()
         logger.info("区域聚合完成 date=%s regions=%s", snapshot_date, len(rows))
         return len(rows)
 
