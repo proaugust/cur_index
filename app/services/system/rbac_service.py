@@ -1,9 +1,9 @@
-from fastapi import HTTPException, status
+﻿from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import Permission, Role, User
-from app.schemas_rbac import (
+from app.schemas.rbac import (
     ChangePasswordRequest,
     LoginRequest,
     LoginResponse,

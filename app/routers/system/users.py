@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+﻿from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User
-from app.schemas_rbac import UserCreate, UserListResponse, UserRead, UserUpdate
+from app.schemas.rbac import UserCreate, UserListResponse, UserRead, UserUpdate
 from app.services.system import rbac_service
 
 router = APIRouter(prefix="/users", tags=["users"])

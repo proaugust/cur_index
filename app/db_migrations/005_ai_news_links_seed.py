@@ -1,11 +1,11 @@
-"""补全 ai_news_links.created_at 默认值并灌入系统预设（004 已标记但未 seed 时兜底）。"""
+﻿"""补全 ai_news_links.created_at 默认值并灌入系统预设（004 已标记但未 seed 时兜底）。"""
 
 from __future__ import annotations
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
-from app.services.demo.ai_news_seed_data import SYSTEM_PRESETS
+from app.services.modules.ai_news_seed_data import SYSTEM_PRESETS
 
 _INSERT = text(
     """

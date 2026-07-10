@@ -32,6 +32,7 @@ export const getComplaintSamples = (params?: {
     time_to?: string;
     category_name?: string;
     is_classified?: boolean;
+    min_similarity?: number;
     page?: number;
     page_size?: number;
 }) => request.get('/complaints/samples', { params });
@@ -41,6 +42,100 @@ export const createComplaint = (data: {
     address?: string;
     complaint_time?: string;
 }) => request.post('/complaints', data);
+
+// --- insight ---
+export const getInsightSeedStatus = () => request.get('/insight/seed/status');
+
+export const getInsightSeedPresets = () => request.get('/insight/seed/presets');
+
+export const postInsightSeedUsers = (preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo') =>
+    request.post('/insight/seed/users', null, { params: { preset } });
+
+export const postInsightSeedSamples = (preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo') =>
+    request.post('/insight/seed/samples', null, { params: { preset } });
+
+export const postInsightSeedResetUsers = () => request.post('/insight/seed/reset-users');
+
+export const postInsightSeedResetSamples = () => request.post('/insight/seed/reset-samples');
+
+export const getInsightSeedPreview = (count = 3) =>
+    request.get('/insight/seed/preview', { params: { count } });
+
+export const getInsightUsers = (params?: Record<string, unknown>) =>
+    request.get('/insight/users', { params });
+
+export const getInsightUserProfile = (userId: string) =>
+    request.get(`/insight/users/${userId}/profile`);
+
+export const createInsightUser = (data: Record<string, unknown>) =>
+    request.post('/insight/users', data);
+
+export const updateInsightUser = (userId: string, data: Record<string, unknown>) =>
+    request.put(`/insight/users/${userId}`, data);
+
+export const deleteInsightUser = (userId: string) =>
+    request.delete(`/insight/users/${userId}`);
+
+export const getInsightSamples = (params?: Record<string, unknown>) =>
+    request.get('/insight/samples', { params });
+
+/** @deprecated 使用 getInsightSamples */
+export const getInsightTouchpoints = getInsightSamples;
+
+export const postInsightNightlyRun = (snapshotDate?: string, withPrevDay = true) =>
+    request.post('/insight/jobs/nightly-run', null, {
+        params: {
+            ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
+            with_prev_day: withPrevDay,
+        },
+    });
+
+export const getInsightJobLogs = (params?: Record<string, unknown>) =>
+    request.get('/insight/jobs/logs', { params });
+
+export const postInsightBuildSnapshot = (snapshotDate?: string, withPrevDay = true) =>
+    request.post('/insight/risk/build-snapshot', null, {
+        params: {
+            ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
+            with_prev_day: withPrevDay,
+        },
+    });
+
+export const getInsightSnapshots = (params?: Record<string, unknown>) =>
+    request.get('/insight/snapshots', { params });
+
+export const getInsightRegionMetrics = (params?: Record<string, unknown>) =>
+    request.get('/insight/region-metrics', { params });
+
+export const getInsightSimulationWeights = () =>
+    request.get('/insight/simulation-weights');
+
+export const getInsightDecisionDashboard = () =>
+    request.get('/insight/decision/dashboard');
+
+export const getInsightDecisionRecommendations = (params?: Record<string, unknown>) =>
+    request.get('/insight/decision/recommendations', { params });
+
+export const postInsightDecisionSimulate = (data: Record<string, unknown>) =>
+    request.post('/insight/decision/simulate', data);
+
+export const postInsightTrainModel = () =>
+    request.post('/insight/models/train');
+
+export const getInsightComplaintCategories = () =>
+    request.get('/insight/complaint-categories');
+
+export const getInsightComplaints = (params?: Record<string, unknown>) =>
+    request.get('/insight/complaints', { params });
+
+export const createInsightComplaint = (data: Record<string, unknown>) =>
+    request.post('/insight/complaints', data);
+
+export const updateInsightComplaint = (complaintId: string, data: Record<string, unknown>) =>
+    request.put(`/insight/complaints/${complaintId}`, data);
+
+export const deleteInsightComplaint = (complaintId: string) =>
+    request.delete(`/insight/complaints/${complaintId}`);
 
 // --- documents / RAG ---
 export const importDocument = (file: File, replaceExisting = true) => {

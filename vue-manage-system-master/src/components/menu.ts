@@ -102,8 +102,14 @@ export const menuData: Menus[] = [
             {
                 id: '89',
                 pid: '8',
-                index: '/demo-zha-jinhua',
+                index: '/modules-zha-jinhua',
                 titleKey: 'menu.demoZhaJinhua',
+            },
+            {
+                id: '91',
+                pid: '8',
+                index: '/modules-insight',
+                titleKey: 'menu.demoInsight',
             },
         ],
     },

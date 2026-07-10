@@ -1,8 +1,8 @@
-from fastapi import HTTPException, status
+﻿from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import Permission, User
-from app.schemas_rbac import PermissionTreeNode, PermissionTreeResponse
+from app.schemas.rbac import PermissionTreeNode, PermissionTreeResponse
 
 
 def build_permission_tree(rows: list[Permission]) -> list[PermissionTreeNode]:

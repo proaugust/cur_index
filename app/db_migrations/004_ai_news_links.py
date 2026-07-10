@@ -1,11 +1,11 @@
-"""AI 资讯导航：删除旧 prefs 表，改为 ai_news_links 单表。"""
+﻿"""AI 资讯导航：删除旧 prefs 表，改为 ai_news_links 单表。"""
 
 from __future__ import annotations
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
-from app.services.demo.ai_news_seed_data import SYSTEM_PRESETS
+from app.services.modules.ai_news_seed_data import SYSTEM_PRESETS
 
 
 def upgrade(engine: Engine) -> None:

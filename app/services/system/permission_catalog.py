@@ -1,4 +1,4 @@
-"""内置菜单目录与默认角色权限策略。"""
+﻿"""内置菜单目录与默认角色权限策略。"""
 
 # menu: code, name, parent_code, route_path, icon
 MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
@@ -18,7 +18,8 @@ MENU_PERMISSIONS: list[tuple[str, str, str | None, str | None, str | None]] = [
     ("86", "智能路由", "8", "/demo-smart-route", None),
     ("87", "人脸打卡", "8", "/demo-attendance", None),
     ("88", "COBOL to Java", "8", "/demo-cobol-migrate", None),
-    ("89", "炸金花", "8", "/demo-zha-jinhua", None),
+    ("89", "炸金花", "8", "/modules-zha-jinhua", None),
+    ("91", "Customer Insight AI Platform", "8", "/modules-insight", None),
     ("7", "主题设置", None, "/theme", "Brush"),
     ("6", "附加页面", None, "6", "DocumentAdd"),
     ("61", "个人中心", "6", "/ucenter", None),
@@ -71,6 +72,7 @@ ADMIN_MENU_PERMISSIONS = [
     "87",
     "88",
     "89",
+    "91",
     "7",
     "6",
     "61",
@@ -81,7 +83,7 @@ ADMIN_MENU_PERMISSIONS = [
     "66",
 ]
 
-USER_MENU_PERMISSIONS = ["0", "8", "90", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89"]
+USER_MENU_PERMISSIONS = ["0", "8", "90", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "91"]
 
 # 仅管理员角色分配的 API 权限（普通用户即使有菜单 89 也不包含）
 ADMIN_ONLY_API_CODES = frozenset({"89.access"})

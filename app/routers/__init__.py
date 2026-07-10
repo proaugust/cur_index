@@ -1,14 +1,15 @@
-"""HTTP 路由：按 system / demo / ops 分域聚合。"""
+﻿"""HTTP 路由：按 system / modules / ops 分域聚合。"""
 
 from fastapi import APIRouter
 
-from app.routers.demo import (
+from app.routers.modules import (
     ai_news,
     attendance,
     chat,
     cobol_migrate,
     complaints,
     documents,
+    insight,
     meeting,
     my_agent,
     smart_route,
@@ -27,6 +28,7 @@ def all_routers() -> tuple[APIRouter, ...]:
         permissions.router,
         documents.router,
         complaints.router,
+        insight.router,
         chat.router,
         meeting.router,
         smart_route.router,

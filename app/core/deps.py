@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from collections.abc import Generator
 
 from fastapi import Depends, HTTPException, status
@@ -53,18 +53,37 @@ def get_current_user(
 
 
 def get_document_import_service(db: Session = Depends(get_db)):
-    from app.services.demo.document_import_service import DocumentImportService
+    from app.services.modules.document_import_service import DocumentImportService
 
     return DocumentImportService(db)
 
 
 def get_complaint_service(db: Session = Depends(get_db)):
-    from app.services.demo.complaint_service import ComplaintService
+    from app.services.modules.complaint_service import ComplaintService
 
     return ComplaintService(db)
 
 
 def get_document_search_service(db: Session = Depends(get_db)):
-    from app.services.demo.document_search_service import DocumentSearchService
+    from app.services.modules.document_search_service import DocumentSearchService
 
     return DocumentSearchService(db)
+
+
+def get_insight_seed_service(db: Session = Depends(get_db)):
+    from app.services.modules.insight.seed_service import InsightSeedService
+
+    return InsightSeedService(db)
+
+
+def get_insight_risk_snapshot_service(db: Session = Depends(get_db)):
+    from app.services.modules.insight.risk_snapshot_service import InsightRiskSnapshotService
+
+    return InsightRiskSnapshotService(db)
+
+
+def get_insight_profile_service(db: Session = Depends(get_db)):
+    from app.services.modules.insight.profile_service import InsightProfileService
+
+    return InsightProfileService(db)
+

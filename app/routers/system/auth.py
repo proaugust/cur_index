@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models import User
-from app.schemas_rbac import ChangePasswordRequest, LoginRequest, LoginResponse, MeResponse
+from app.schemas.rbac import ChangePasswordRequest, LoginRequest, LoginResponse, MeResponse
 from app.services.system import rbac_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])

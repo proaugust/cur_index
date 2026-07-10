@@ -12,8 +12,8 @@ alwaysApply: false
 
 ## 目录
 
-- 路由：`app/routers/demo/zha_jinhua.py`（`APIRouter`，prefix `/game`）
-- 服务：`app/services/demo/zha_jinhua_service.py`
+- 路由：`app/routers/modules/zha_jinhua.py`（`APIRouter`，prefix `/game`）
+- 服务：`app/services/modules/zha_jinhua_service.py`
 - 规则：`app/game_logic/zha_jinhua.py`（纯函数，可单测）
 - 提示词：`app/resources/prompts/`（`player_prompt.md`、`player1/2/3.md`、`referee_prompt.md`）
 

@@ -7,6 +7,7 @@
             :background-color="sidebar.bgColor"
             :text-color="sidebar.textColor"
             router
+            @select="onMenuSelect"
         >
             <template v-for="item in visibleMenu" :key="item.index">
                 <template v-if="item.children">
@@ -52,7 +53,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useSidebarStore } from '../store/sidebar';
 import { usePermissStore } from '../store/permiss';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { menuData } from '@/components/menu';
 import { filterMenuByPermiss } from '@/utils/menu';
 import type { Menus } from '@/types/menu';
@@ -68,7 +69,15 @@ const menuTitle = (item: Menus) => {
 const visibleMenu = computed(() => filterMenuByPermiss(menuData, permiss.menuKeys));
 
 const route = useRoute();
+const router = useRouter();
 const onRoutes = computed(() => route.path);
+
+/** el-menu router 偶发失效时兜底跳转 */
+function onMenuSelect(index: string) {
+    if (!index.startsWith('/')) return;
+    if (route.path === index) return;
+    router.push(index).catch(() => {});
+}
 
 const sidebar = useSidebarStore();
 </script>

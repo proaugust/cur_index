@@ -105,6 +105,19 @@
                         <el-option :label="t('pages.complaints.unclassified')" :value="false" />
                     </el-select>
                 </el-form-item>
+                <el-form-item :label="t('pages.complaints.minSimilarity')">
+                    <el-input-number
+                        v-model="sampleQuery.min_similarity"
+                        :min="0"
+                        :max="1"
+                        :step="0.01"
+                        :precision="2"
+                        :value-on-clear="null"
+                        controls-position="right"
+                        :placeholder="t('pages.complaints.minSimilarityPh')"
+                        style="width: 140px"
+                    />
+                </el-form-item>
             </el-form>
 
             <div class="samples-toolbar">
@@ -528,6 +541,7 @@ interface SampleQueryState {
     category_name: string;
     dateRange: [string, string] | null;
     classified: boolean | null;
+    min_similarity: number | null;
 }
 
 const EMPTY_SAMPLE_QUERY: SampleQueryState = {
@@ -536,6 +550,7 @@ const EMPTY_SAMPLE_QUERY: SampleQueryState = {
     category_name: '',
     dateRange: null,
     classified: null,
+    min_similarity: null,
 };
 
 const DIMENSION_COLORS: Record<DimensionKey, string> = {
@@ -571,7 +586,12 @@ const samplesLoading = ref(false);
 const sampleRows = ref<ComplaintSample[]>([]);
 const sampleTotal = ref(0);
 const sampleQuery = useCachedRef<SampleQueryState>('complaints:sampleQuery', { ...EMPTY_SAMPLE_QUERY });
-sampleQuery.value = { ...EMPTY_SAMPLE_QUERY, ...sampleQuery.value, classified: null };
+sampleQuery.value = {
+    ...EMPTY_SAMPLE_QUERY,
+    ...sampleQuery.value,
+    classified: sampleQuery.value.classified ?? null,
+    min_similarity: sampleQuery.value.min_similarity ?? null,
+};
 const samplePage = ref({ page: 1, page_size: 10 });
 
 const nlQueryText = ref('');
@@ -1002,11 +1022,13 @@ async function loadSamples() {
     try {
         const [time_from, time_to] = sampleQuery.value.dateRange ?? [undefined, undefined];
         const classified = sampleQuery.value.classified;
+        const minSimilarity = sampleQuery.value.min_similarity;
         const { data } = await getComplaintSamples({
             address: sampleQuery.value.address || undefined,
             text: sampleQuery.value.text || undefined,
             category_name: sampleQuery.value.category_name || undefined,
             is_classified: classified === null ? undefined : classified,
+            min_similarity: minSimilarity == null ? undefined : minSimilarity,
             time_from,
             time_to,
             page: samplePage.value.page,

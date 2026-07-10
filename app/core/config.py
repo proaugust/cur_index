@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     complaint_stats_memory_cache_enabled: bool = True
     complaint_stats_memory_cache_maxsize: int = 32
     llm_usage_stats_cache_ttl: int = 90
+    insight_profile_cache_ttl: int = 86400
+    insight_model_dir: Path = BASE_DIR / "data" / "insight" / "models"
+    insight_auto_train: bool = True
+    insight_model_backend: str = "auto"
     rate_limit_enabled: bool = True
     rate_limit_complaints_stats: int = 20  # /complaints/stats 每用户每分钟
     rate_limit_complaints_samples: int = 60  # /complaints/samples 每用户每分钟

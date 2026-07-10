@@ -1,8 +1,8 @@
-from fastapi import HTTPException, status
+﻿from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import Permission, Role, User
-from app.schemas_rbac import MenuCreate, MenuRead, MenuUpdate
+from app.schemas.rbac import MenuCreate, MenuRead, MenuUpdate
 
 
 def _permission_to_menu(permission: Permission, children_map: dict[str | None, list[Permission]]) -> MenuRead:

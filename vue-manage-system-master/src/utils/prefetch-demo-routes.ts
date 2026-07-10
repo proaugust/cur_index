@@ -1,4 +1,4 @@
-/** 功能展示下除人脸打卡外的演示页，空闲时预拉 chunk，避免 dev 首次点击等待编译 */
+/** 功能展示演示页，空闲时预拉 chunk，避免 dev 首次点击长时间空白 */
 const DEMO_ROUTE_LOADERS = [
     () => import('@/views/demo/complaints.vue'),
     () => import('@/views/demo/rag.vue'),
@@ -7,6 +7,8 @@ const DEMO_ROUTE_LOADERS = [
     () => import('@/views/demo/meeting.vue'),
     () => import('@/views/demo/smart-route.vue'),
     () => import('@/views/demo/cobol-migrate.vue'),
+    () => import('@/views/demo/attendance.vue'),
+    () => import('@/views/demo/zha-jinhua.vue'),
 ] as const;
 
 let prefetched = false;

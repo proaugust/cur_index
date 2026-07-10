@@ -26,6 +26,7 @@ build/
 # Database
 *.db
 data/attendance_faces/
+data/insight/models/
 
 # OS
 .DS_Store

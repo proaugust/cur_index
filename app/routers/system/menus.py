@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User
-from app.schemas_rbac import MenuCreate, MenuRead, MenuUpdate
+from app.schemas.rbac import MenuCreate, MenuRead, MenuUpdate
 from app.services.system import menu_service
 
 router = APIRouter(prefix="/menus", tags=["menus"])

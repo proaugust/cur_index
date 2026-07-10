@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
+﻿import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 import { usePermissStore } from '../store/permiss';
 import Home from '../views/home.vue';
 import NProgress from 'nprogress';
@@ -114,6 +114,10 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "demo-attendance" */ '../views/demo/attendance.vue'),
             },
             {
+                path: '/modules-attendance',
+                redirect: '/demo-attendance',
+            },
+            {
                 path: '/demo-cobol-migrate',
                 name: 'demo-cobol-migrate',
                 meta: {
@@ -124,14 +128,32 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "demo-cobol-migrate" */ '../views/demo/cobol-migrate.vue'),
             },
             {
-                path: '/demo-zha-jinhua',
-                name: 'demo-zha-jinhua',
+                path: '/modules-zha-jinhua',
+                name: 'modules-zha-jinhua',
                 meta: {
                     titleKey: 'route.demoZhaJinhua',
                     title: '炸金花',
                     permiss: '89',
                 },
-                component: () => import(/* webpackChunkName: "demo-zha-jinhua" */ '../views/demo/zha-jinhua.vue'),
+                component: () => import(/* webpackChunkName: "modules-zha-jinhua" */ '../views/demo/zha-jinhua.vue'),
+            },
+            {
+                path: '/demo-zha-jinhua',
+                redirect: '/modules-zha-jinhua',
+            },
+            {
+                path: '/modules-insight',
+                name: 'modules-insight',
+                meta: {
+                    titleKey: 'route.demoInsight',
+                    title: 'Customer Insight AI Platform',
+                    permiss: '91',
+                },
+                component: () => import(/* webpackChunkName: "modules-insight" */ '../views/demo/insight/index.vue'),
+            },
+            {
+                path: '/demo-insight',
+                redirect: '/modules-insight',
             },
             {
                 path: '/system-user',
@@ -391,7 +413,7 @@ router.beforeEach((to, from, next) => {
 
     if (!token && to.meta.noAuth !== true) {
         next('/login');
-    } else if (typeof to.meta.permiss == 'string' && !permiss.key.includes(to.meta.permiss)) {
+    } else if (typeof to.meta.permiss == 'string' && !permiss.hasRoutePermiss(to.meta.permiss)) {
         next('/403');
     } else {
         next();

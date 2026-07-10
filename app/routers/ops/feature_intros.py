@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+﻿from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app import crud, schemas
+from app import schemas
+from app.crud import modules as crud
 from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User

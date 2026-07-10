@@ -298,7 +298,7 @@
     </div>
 </template>
 
-<script setup lang="ts" name="demo-zha-jinhua">
+<script setup lang="ts" name="modules-zha-jinhua">
 import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';

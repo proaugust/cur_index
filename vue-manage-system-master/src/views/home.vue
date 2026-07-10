@@ -5,10 +5,10 @@
         <div class="content-box" :class="{ 'content-collapse': sidebar.collapse }">
             <v-tabs></v-tabs>
             <div class="content">
-                <router-view v-slot="{ Component, route: viewRoute }">
+                <router-view v-slot="{ Component }">
                     <transition name="move" mode="out-in">
                         <keep-alive :include="cachedTabNames">
-                            <component :is="Component" :key="viewRoute.fullPath" />
+                            <component :is="Component" v-if="Component" />
                         </keep-alive>
                     </transition>
                 </router-view>

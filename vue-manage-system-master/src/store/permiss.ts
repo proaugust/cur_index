@@ -27,6 +27,12 @@ export const usePermissStore = defineStore('permiss', {
         hasMenu(code: string) {
             return this.has(code);
         },
+        /** 路由守卫：有菜单码或任一子 API 权限即可进入页面 */
+        hasRoutePermiss(menuCode: string) {
+            if (this.has(menuCode)) return true;
+            const prefix = `${menuCode}.`;
+            return this.key.some((code) => code.startsWith(prefix));
+        },
         hasApi(menuCode: string, apiId: string) {
             return this.has(`${menuCode}.${apiId}`);
         },
