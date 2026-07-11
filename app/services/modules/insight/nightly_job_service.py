@@ -49,13 +49,12 @@ class InsightNightlyJobService:
                 users, prev_date, dampen=Decimal("0.12")
             )
             steps.extend(prev_steps)
-            self.db.commit()
 
         snapshots, regions, today_steps = self._run_pipeline(users, target_date)
         steps.extend(today_steps)
-        self.db.commit()
 
         elapsed_ms = int((time.perf_counter() - started) * 1000)
+        # 日志单独提交：即使后续响应超时，批处理记录也已落库
         log_id = self._write_analysis_log(
             snapshot_date=target_date,
             steps=steps,

@@ -302,6 +302,9 @@ async function handleBuild() {
         ElMessage.success(t('pages.insight.bi.buildSuccess'));
         page.index = 1;
         await reloadAll();
+    } catch (error: unknown) {
+        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        ElMessage.error(detail || t('pages.insight.bi.buildFailed'));
     } finally {
         building.value = false;
     }
