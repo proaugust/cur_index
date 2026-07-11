@@ -9,8 +9,11 @@
         />
 
         <div class="toolbar mgb20">
-            <el-button type="primary" :loading="building" @click="handleBuild">
-                {{ t('pages.insight.bi.buildSnapshot') }}
+            <el-button type="primary" :loading="building" @click="handleBuild('incremental')">
+                {{ t('pages.insight.bi.buildIncremental') }}
+            </el-button>
+            <el-button :loading="buildingFull" @click="handleBuild('full')">
+                {{ t('pages.insight.bi.buildFull') }}
             </el-button>
             <el-button @click="reloadAll">{{ t('common.refresh') }}</el-button>
             <span v-if="buildResult" class="build-result">
@@ -20,6 +23,7 @@
                     regions: buildResult.region_metrics_upserted,
                     ms: buildResult.elapsed_ms,
                 }) }}
+                <template v-if="buildResult.mode"> · {{ buildResult.mode }}</template>
                 <template v-if="buildResult.prev_snapshot_date">
                     · {{ t('pages.insight.bi.prevDayDone', {
                         date: buildResult.prev_snapshot_date,
@@ -168,6 +172,7 @@ interface BuildResult {
     snapshots_upserted: number;
     region_metrics_upserted: number;
     elapsed_ms: number;
+    mode?: 'incremental' | 'full';
     prev_snapshot_date?: string;
     prev_snapshots_upserted?: number;
     prev_region_metrics_upserted?: number;
@@ -182,6 +187,7 @@ const rows = ref<RegionMetricRow[]>([]);
 const loading = ref(false);
 const mapLoading = ref(false);
 const building = ref(false);
+const buildingFull = ref(false);
 const buildResult = ref<BuildResult | null>(null);
 const selectedL1 = ref<string | null>(null);
 const page = reactive({ index: 1, size: 20, total: 0 });
@@ -293,10 +299,11 @@ async function reloadAll() {
     await Promise.all([loadMapMetrics(), loadTableMetrics()]);
 }
 
-async function handleBuild() {
-    building.value = true;
+async function handleBuild(mode: 'incremental' | 'full' = 'incremental') {
+    const loadingRef = mode === 'full' ? buildingFull : building;
+    loadingRef.value = true;
     try {
-        const { data } = await postInsightBuildSnapshot();
+        const { data } = await postInsightBuildSnapshot(undefined, false, mode);
         buildResult.value = data;
         selectedL1.value = null;
         ElMessage.success(t('pages.insight.bi.buildSuccess'));
@@ -306,7 +313,7 @@ async function handleBuild() {
         const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(detail || t('pages.insight.bi.buildFailed'));
     } finally {
-        building.value = false;
+        loadingRef.value = false;
     }
 }
 

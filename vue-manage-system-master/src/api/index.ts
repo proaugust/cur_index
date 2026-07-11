@@ -82,11 +82,16 @@ export const getInsightSamples = (params?: Record<string, unknown>) =>
 /** @deprecated 使用 getInsightSamples */
 export const getInsightTouchpoints = getInsightSamples;
 
-export const postInsightNightlyRun = (snapshotDate?: string, withPrevDay = false) =>
+export const postInsightNightlyRun = (
+    snapshotDate?: string,
+    withPrevDay = false,
+    mode: 'incremental' | 'full' = 'incremental',
+) =>
     request.post('/insight/jobs/nightly-run', null, {
         params: {
             ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
             with_prev_day: withPrevDay,
+            mode,
         },
         timeout: 300000,
     });
@@ -94,11 +99,16 @@ export const postInsightNightlyRun = (snapshotDate?: string, withPrevDay = false
 export const getInsightJobLogs = (params?: Record<string, unknown>) =>
     request.get('/insight/jobs/logs', { params });
 
-export const postInsightBuildSnapshot = (snapshotDate?: string, withPrevDay = false) =>
+export const postInsightBuildSnapshot = (
+    snapshotDate?: string,
+    withPrevDay = false,
+    mode: 'incremental' | 'full' = 'incremental',
+) =>
     request.post('/insight/risk/build-snapshot', null, {
         params: {
             ...(snapshotDate ? { snapshot_date: snapshotDate } : {}),
             with_prev_day: withPrevDay,
+            mode,
         },
         timeout: 300000,
     });

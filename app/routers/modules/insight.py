@@ -1,5 +1,5 @@
 ﻿from datetime import date, datetime
-
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 
@@ -345,10 +345,11 @@ def list_insight_simulation_weights(
 def run_insight_nightly_job(
     snapshot_date: date | None = Query(default=None),
     with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
+    mode: Literal["incremental", "full"] = Query(default="incremental", description="incremental=仅无分/无当日快照客户；full=全量"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 深夜批处理")),
 ) -> InsightNightlyRunResult:
-    return service.run_nightly(snapshot_date=snapshot_date, with_prev_day=with_prev_day)
+    return service.run_nightly(snapshot_date=snapshot_date, with_prev_day=with_prev_day, mode=mode)
 
 
 @router.get("/jobs/logs", response_model=InsightAnalysisLogListResponse)
@@ -365,10 +366,11 @@ def list_insight_job_logs(
 def build_insight_risk_snapshot(
     snapshot_date: date | None = Query(default=None),
     with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
+    mode: Literal["incremental", "full"] = Query(default="incremental", description="incremental=仅无分/无当日快照客户；full=全量"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 构建快照")),
 ) -> InsightRiskBuildResult:
-    return service.build_snapshot(snapshot_date=snapshot_date, with_prev_day=with_prev_day)
+    return service.build_snapshot(snapshot_date=snapshot_date, with_prev_day=with_prev_day, mode=mode)
 
 
 @router.get("/snapshots", response_model=InsightProfileSnapshotListResponse)

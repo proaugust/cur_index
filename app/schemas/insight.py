@@ -230,6 +230,7 @@ class InsightRiskBuildResult(BaseModel):
     snapshots_upserted: int
     region_metrics_upserted: int
     elapsed_ms: int
+    mode: Literal["incremental", "full"] = "incremental"
     prev_snapshot_date: date | None = None
     prev_snapshots_upserted: int = 0
     prev_region_metrics_upserted: int = 0
@@ -250,6 +251,7 @@ class InsightNightlyRunResult(BaseModel):
     analysis_log_id: int
     elapsed_ms: int
     model_version: str
+    mode: Literal["incremental", "full"] = "incremental"
     prev_snapshot_date: date | None = None
     prev_snapshots_upserted: int = 0
     prev_region_metrics_upserted: int = 0

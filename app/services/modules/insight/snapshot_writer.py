@@ -32,11 +32,26 @@ class InsightSnapshotWriter:
     def __init__(self, db: Session):
         self.db = db
 
-    def write(self, snapshot_date: date, predictions: list[RiskPrediction]) -> int:
-        # 避免 Session 中残留全量客户对象拖慢/干扰 bulk 回写
+    def write(
+        self,
+        snapshot_date: date,
+        predictions: list[RiskPrediction],
+        *,
+        replace_day: bool = True,
+    ) -> int:
         self.db.expunge_all()
-        self.db.execute(delete(DimUserProfileSnapshot).where(DimUserProfileSnapshot.snapshot_date == snapshot_date))
-        self.db.commit()
+        if replace_day:
+            self.db.execute(delete(DimUserProfileSnapshot).where(DimUserProfileSnapshot.snapshot_date == snapshot_date))
+            self.db.commit()
+        elif predictions:
+            user_ids = [item["user_id"] for item in predictions]
+            self.db.execute(
+                delete(DimUserProfileSnapshot).where(
+                    DimUserProfileSnapshot.snapshot_date == snapshot_date,
+                    DimUserProfileSnapshot.user_id.in_(user_ids),
+                )
+            )
+            self.db.commit()
 
         rows = [self._snapshot_row(snapshot_date, item) for item in predictions]
         profile_rows = [self._profile_row(item) for item in predictions]
@@ -48,7 +63,13 @@ class InsightSnapshotWriter:
 
         if rows:
             clear_all_profile_cache()
-        logger.info("快照落库完成 date=%s rows=%s batch=%s", snapshot_date, len(rows), batch)
+        logger.info(
+            "快照落库完成 date=%s rows=%s batch=%s replace_day=%s",
+            snapshot_date,
+            len(rows),
+            batch,
+            replace_day,
+        )
         return len(rows)
 
     def _update_profiles(self, profile_rows: list[dict], batch: int) -> None:

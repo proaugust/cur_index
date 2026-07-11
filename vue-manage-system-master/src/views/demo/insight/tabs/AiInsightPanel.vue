@@ -18,8 +18,11 @@
         </el-card>
 
         <div class="toolbar mgb20">
-            <el-button type="primary" :loading="running" @click="handleRun">
-                {{ t('pages.insight.ai.runNightly') }}
+            <el-button type="primary" :loading="running" @click="handleRun('incremental')">
+                {{ t('pages.insight.ai.runIncremental') }}
+            </el-button>
+            <el-button :loading="runningFull" @click="handleRun('full')">
+                {{ t('pages.insight.ai.runFull') }}
             </el-button>
             <el-button :loading="training" @click="handleTrain">{{ t('pages.insight.action.trainModel') }}</el-button>
             <el-button @click="loadLogs">{{ t('common.refresh') }}</el-button>
@@ -29,6 +32,7 @@
                     model: lastRun.model_version,
                     ms: lastRun.elapsed_ms,
                 }) }}
+                <template v-if="lastRun.mode"> · {{ lastRun.mode }}</template>
             </span>
         </div>
 
@@ -81,6 +85,7 @@ interface NightlyRunResult {
     analysis_log_id: number;
     elapsed_ms: number;
     model_version: string;
+    mode?: 'incremental' | 'full';
 }
 
 interface LogRow {
@@ -94,6 +99,7 @@ interface LogRow {
 const emit = defineEmits<{ refreshed: [] }>();
 const { t } = useI18n();
 const running = ref(false);
+const runningFull = ref(false);
 const training = ref(false);
 const loading = ref(false);
 const lastRun = ref<NightlyRunResult | null>(null);
@@ -110,10 +116,11 @@ async function handleTrain() {
     }
 }
 
-async function handleRun() {
-    running.value = true;
+async function handleRun(mode: 'incremental' | 'full' = 'incremental') {
+    const loadingRef = mode === 'full' ? runningFull : running;
+    loadingRef.value = true;
     try {
-        const { data } = await postInsightNightlyRun();
+        const { data } = await postInsightNightlyRun(undefined, false, mode);
         lastRun.value = data;
         ElMessage.success(t('pages.insight.ai.runSuccess'));
         page.index = 1;
@@ -123,7 +130,7 @@ async function handleRun() {
         const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(detail || t('pages.insight.ai.runFailed'));
     } finally {
-        running.value = false;
+        loadingRef.value = false;
     }
 }
 
