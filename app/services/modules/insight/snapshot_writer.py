@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from typing import Iterable, TypeVar
 
-from sqlalchemy import delete
+from sqlalchemy import bindparam, delete, update
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot
@@ -33,6 +33,8 @@ class InsightSnapshotWriter:
         self.db = db
 
     def write(self, snapshot_date: date, predictions: list[RiskPrediction]) -> int:
+        # 避免 Session 中残留全量客户对象拖慢/干扰 bulk 回写
+        self.db.expunge_all()
         self.db.execute(delete(DimUserProfileSnapshot).where(DimUserProfileSnapshot.snapshot_date == snapshot_date))
         self.db.commit()
 
@@ -42,14 +44,39 @@ class InsightSnapshotWriter:
         for chunk in _chunks(rows, batch):
             self.db.bulk_insert_mappings(DimUserProfileSnapshot, chunk)
             self.db.commit()
-        for chunk in _chunks(profile_rows, batch):
-            self.db.bulk_update_mappings(DimUserProfile, chunk)
-            self.db.commit()
+        self._update_profiles(profile_rows, batch)
 
         if rows:
             clear_all_profile_cache()
         logger.info("快照落库完成 date=%s rows=%s batch=%s", snapshot_date, len(rows), batch)
         return len(rows)
+
+    def _update_profiles(self, profile_rows: list[dict], batch: int) -> None:
+        if not profile_rows:
+            return
+        stmt = (
+            update(DimUserProfile)
+            .where(DimUserProfile.user_id == bindparam("b_user_id"))
+            .values(
+                risk_score=bindparam("risk_score"),
+                risk_level=bindparam("risk_level"),
+                tags=bindparam("tags"),
+                shap_values=bindparam("shap_values"),
+            )
+        )
+        for chunk in _chunks(profile_rows, batch):
+            params = [
+                {
+                    "b_user_id": row["user_id"],
+                    "risk_score": row["risk_score"],
+                    "risk_level": row["risk_level"],
+                    "tags": row["tags"],
+                    "shap_values": row["shap_values"],
+                }
+                for row in chunk
+            ]
+            self.db.execute(stmt, params)
+            self.db.commit()
 
     @staticmethod
     def _snapshot_row(snapshot_date: date, item: RiskPrediction) -> dict:
@@ -63,7 +90,7 @@ class InsightSnapshotWriter:
             "vip_level": item["vip_level"],
             "churn_risk_level": item["churn_risk_level"],
             "activity_trend": item["activity_trend"],
-            "risk_score": item["risk_score"],
+            "risk_score": float(item["risk_score"]),
             "tags": list(item["tags"] or []),
             "shap_values": _jsonable_shap(item["shap_values"]),
         }
@@ -72,7 +99,7 @@ class InsightSnapshotWriter:
     def _profile_row(item: RiskPrediction) -> dict:
         return {
             "user_id": item["user_id"],
-            "risk_score": item["risk_score"],
+            "risk_score": float(item["risk_score"]),
             "risk_level": item["churn_risk_level"],
             "tags": list(item["tags"] or []),
             "shap_values": _jsonable_shap(item["shap_values"]),

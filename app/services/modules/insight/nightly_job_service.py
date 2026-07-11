@@ -113,6 +113,8 @@ class InsightNightlyJobService:
                 elapsed_ms=int((time.perf_counter() - ai_started) * 1000),
             )
         )
+        # 预测已是纯 dict；清空 ORM 身份映射，避免回写主表时被全量客户对象拖垮
+        self.db.expunge_all()
 
         snap_started = time.perf_counter()
         snapshots = self.snapshot_writer.write(target_date, predictions)
