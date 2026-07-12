@@ -9,8 +9,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
+for /f "delims=" %%i in ('git branch --show-current') do set ORIG_BRANCH=%%i
+if "%ORIG_BRANCH%"=="" set ORIG_BRANCH=main
+echo Current branch is: %ORIG_BRANCH%
+
 for /f %%i in ('git rev-parse --short HEAD') do set MAIN_SHA=%%i
-echo Main commit: %MAIN_SHA%
+echo Current commit: %MAIN_SHA%
 
 echo [2/6] Removing old deploy branch if exists...
 git branch -D hf-deploy-snap 2>nul
@@ -33,15 +37,15 @@ for /f "usebackq delims=" %%f in (`git diff --cached --name-only ^| findstr /i /
 git diff --cached --name-only | findstr /i /r "\.bin$ screenshots" >nul
 if not errorlevel 1 (
     echo ERROR: Forbidden files still staged after strip. Aborting.
-    git checkout main 2>nul
+    git checkout %ORIG_BRANCH% 2>nul
     git branch -D hf-deploy-snap 2>nul
     exit /b 1
 )
 
-git commit -m "HF Space deploy snapshot from main (%MAIN_SHA%)."
+git commit -m "HF Space deploy snapshot from %ORIG_BRANCH% (%MAIN_SHA%)."
 if errorlevel 1 (
     echo ERROR: Commit failed.
-    git checkout main 2>nul
+    git checkout %ORIG_BRANCH% 2>nul
     exit /b 1
 )
 
@@ -49,8 +53,8 @@ echo [5/6] Pushing to Hugging Face Space...
 git push hf hf-deploy-snap:main --force
 set PUSH_OK=!errorlevel!
 
-echo [6/6] Restoring main branch...
-git checkout main
+echo [6/6] Restoring original branch...
+git checkout %ORIG_BRANCH%
 git branch -D hf-deploy-snap
 
 if !PUSH_OK! neq 0 (
@@ -59,6 +63,6 @@ if !PUSH_OK! neq 0 (
 )
 
 echo.
-echo Done. HF Space is rebuilding from snapshot of main (%MAIN_SHA%).
+echo Done. HF Space is rebuilding from snapshot of %ORIG_BRANCH% (%MAIN_SHA%).
 echo Logs: https://huggingface.co/spaces/proaugust/cur_index
 endlocal
