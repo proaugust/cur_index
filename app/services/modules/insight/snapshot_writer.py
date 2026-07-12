@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from typing import Iterable, TypeVar
 
-from sqlalchemy import bindparam, delete, update
+from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot
@@ -75,28 +75,9 @@ class InsightSnapshotWriter:
     def _update_profiles(self, profile_rows: list[dict], batch: int) -> None:
         if not profile_rows:
             return
-        stmt = (
-            update(DimUserProfile)
-            .where(DimUserProfile.user_id == bindparam("b_user_id"))
-            .values(
-                risk_score=bindparam("risk_score"),
-                risk_level=bindparam("risk_level"),
-                tags=bindparam("tags"),
-                shap_values=bindparam("shap_values"),
-            )
-        )
+        stmt = update(DimUserProfile)
         for chunk in _chunks(profile_rows, batch):
-            params = [
-                {
-                    "b_user_id": row["user_id"],
-                    "risk_score": row["risk_score"],
-                    "risk_level": row["risk_level"],
-                    "tags": row["tags"],
-                    "shap_values": row["shap_values"],
-                }
-                for row in chunk
-            ]
-            self.db.execute(stmt, params)
+            self.db.execute(stmt, chunk)
             self.db.commit()
 
     @staticmethod
