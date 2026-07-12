@@ -75,7 +75,7 @@ class InsightSnapshotWriter:
     def _update_profiles(self, profile_rows: list[dict], batch: int) -> None:
         if not profile_rows:
             return
-        stmt = update(DimUserProfile)
+        stmt = update(DimUserProfile).execution_options(synchronize_session=None)
         for chunk in _chunks(profile_rows, batch):
             self.db.execute(stmt, chunk)
             self.db.commit()

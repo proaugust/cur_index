@@ -34,6 +34,7 @@ def begin_analysis_log(
             InsightAnalysisLog.status == "running",
         )
         .values(status="failed", answer="中断：未正常收尾（超时/取消）")
+        .execution_options(synchronize_session=None)
     )
     if result.rowcount:
         record_app_error(
