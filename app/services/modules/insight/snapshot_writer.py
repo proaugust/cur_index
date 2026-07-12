@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from typing import Iterable, TypeVar
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot
@@ -84,9 +84,8 @@ class InsightSnapshotWriter:
     def _update_profiles(self, profile_rows: list[dict], batch: int, commit_per_batch: bool = True) -> None:
         if not profile_rows:
             return
-        stmt = update(DimUserProfile).execution_options(synchronize_session=None)
         for chunk in _chunks(profile_rows, batch):
-            self.db.execute(stmt, chunk)
+            self.db.bulk_update_mappings(DimUserProfile, chunk)
             if commit_per_batch:
                 self.db.commit()
 
