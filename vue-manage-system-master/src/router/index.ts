@@ -34,6 +34,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "system-llm-usage" */ '../views/system/llm-usage.vue'),
             },
             {
+                path: '/system-error-logs',
+                name: 'system-error-logs',
+                meta: {
+                    titleKey: 'route.systemErrorLogs',
+                    title: '错误日志',
+                    permiss: '92',
+                },
+                component: () => import(/* webpackChunkName: "system-error-logs" */ '../views/system/error-logs.vue'),
+            },
+            {
                 path: '/demo-ai-news',
                 name: 'demo-ai-news',
                 meta: {

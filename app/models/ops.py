@@ -33,3 +33,22 @@ class LlmUsageLog(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     success: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AppErrorLog(Base):
+    __tablename__ = "app_error_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    level: Mapped[str] = mapped_column(String(16), default="error")
+    source: Mapped[str] = mapped_column(String(64), index=True)
+    error_type: Mapped[str] = mapped_column(String(128), default="", index=True)
+    message: Mapped[str] = mapped_column(String(500), default="")
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    path: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    method: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ref_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ref_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="open", index=True)

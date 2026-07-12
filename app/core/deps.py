@@ -76,10 +76,10 @@ def get_insight_seed_service(db: Session = Depends(get_db)):
     return InsightSeedService(db)
 
 
-def get_insight_risk_snapshot_service(db: Session = Depends(get_db)):
+def get_insight_risk_snapshot_service():
     from app.services.modules.insight.risk_snapshot_service import InsightRiskSnapshotService
 
-    return InsightRiskSnapshotService(db)
+    return InsightRiskSnapshotService()
 
 
 def get_insight_profile_service(db: Session = Depends(get_db)):
