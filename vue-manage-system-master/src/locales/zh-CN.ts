@@ -571,6 +571,7 @@
                 runFull: '全量评估',
                 runSuccess: '批处理完成',
                 runFailed: '批处理失败，请查看后端日志后重试',
+                logLoadFailed: '加载批处理日志失败',
                 runDone: '{date} 模型 {model}，总耗时 {ms} ms',
                 stepName: '步骤',
                 outputCount: '产出条数',

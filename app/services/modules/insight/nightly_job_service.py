@@ -47,43 +47,67 @@ class InsightNightlyJobService:
         prev_snapshots = 0
         prev_regions = 0
         replace_day = mode == "full"
+        # 先落 running 日志并 commit，避免 HF 超时导致「完全无日志」
+        log_id = self._begin_analysis_log(snapshot_date=target_date, mode=mode, pending_users=len(users))
 
-        if with_prev_day:
-            prev_date = target_date - timedelta(days=1)
-            prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
-            if prev_users:
-                prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
-                    prev_users, prev_date, dampen=Decimal("0.12"), replace_day=replace_day
+        try:
+            if with_prev_day:
+                prev_date = target_date - timedelta(days=1)
+                prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
+                if prev_users:
+                    prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
+                        prev_users, prev_date, dampen=Decimal("0.12"), replace_day=replace_day
+                    )
+                    steps.extend(prev_steps)
+
+            snapshots, regions = 0, 0
+            if users:
+                snapshots, regions, today_steps = self._run_pipeline(
+                    users, target_date, replace_day=replace_day
                 )
-                steps.extend(prev_steps)
-
-        snapshots, regions, today_steps = (0, 0, [])
-        if users:
-            snapshots, regions, today_steps = self._run_pipeline(
-                users, target_date, replace_day=replace_day
-            )
-            steps.extend(today_steps)
-        else:
-            steps.append(
-                InsightPipelineStepResult(
-                    step="ai_risk_engine",
-                    label="AI 风险计算（无待评估客户）",
-                    output_count=0,
-                    elapsed_ms=0,
+                steps.extend(today_steps)
+            else:
+                steps.append(
+                    InsightPipelineStepResult(
+                        step="ai_risk_engine",
+                        label="AI 风险计算（无待评估客户）",
+                        output_count=0,
+                        elapsed_ms=0,
+                    )
                 )
-            )
 
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        log_id = self._write_analysis_log(
-            snapshot_date=target_date,
-            steps=steps,
-            snapshots=snapshots,
-            regions=regions,
-            elapsed_ms=elapsed_ms,
-            prev_date=prev_date,
-            mode=mode,
-        )
-        self.db.commit()
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            self._finish_analysis_log(
+                log_id,
+                status="completed",
+                snapshot_date=target_date,
+                steps=steps,
+                snapshots=snapshots,
+                regions=regions,
+                elapsed_ms=elapsed_ms,
+                prev_date=prev_date,
+                mode=mode,
+            )
+        except Exception as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            try:
+                self.db.rollback()
+            except Exception:
+                logger.exception("批处理失败后 rollback 异常")
+            self._finish_analysis_log(
+                log_id,
+                status="failed",
+                snapshot_date=target_date,
+                steps=steps,
+                snapshots=0,
+                regions=0,
+                elapsed_ms=elapsed_ms,
+                prev_date=prev_date,
+                mode=mode,
+                error=str(exc)[:500],
+            )
+            raise
+
         return InsightNightlyRunResult(
             snapshot_date=target_date,
             steps=steps,
@@ -176,9 +200,27 @@ class InsightNightlyJobService:
         )
         return snapshots, regions, steps
 
-    def _write_analysis_log(
+    def _begin_analysis_log(self, *, snapshot_date: date, mode: InsightRunMode, pending_users: int) -> int:
+        log = InsightAnalysisLog(
+            question=_JOB_QUESTION,
+            answer=f"开始 {snapshot_date} {mode} 管线，待评估 {pending_users} 人",
+            status="running",
+            tools_trace={
+                "snapshot_date": snapshot_date.isoformat(),
+                "mode": mode,
+                "pending_users": pending_users,
+            },
+            latency_ms=0,
+        )
+        self.db.add(log)
+        self.db.commit()
+        return int(log.id)
+
+    def _finish_analysis_log(
         self,
+        log_id: int,
         *,
+        status: str,
         snapshot_date: date,
         steps: list[InsightPipelineStepResult],
         snapshots: int,
@@ -186,23 +228,26 @@ class InsightNightlyJobService:
         elapsed_ms: int,
         prev_date: date | None,
         mode: InsightRunMode,
-    ) -> int:
-        trace = {
+        error: str | None = None,
+    ) -> None:
+        log = self.db.get(InsightAnalysisLog, log_id)
+        if log is None:
+            logger.warning("批处理日志不存在 id=%s，跳过收尾", log_id)
+            return
+        if status == "failed":
+            log.answer = f"失败 {snapshot_date} {mode}：{error or 'unknown'}"
+        else:
+            log.answer = f"完成 {snapshot_date} {mode} 管线：快照 {snapshots} 条、区域 {regions} 条"
+        log.status = status
+        log.latency_ms = elapsed_ms
+        log.tools_trace = {
             "snapshot_date": snapshot_date.isoformat(),
             "prev_snapshot_date": prev_date.isoformat() if prev_date else None,
             "model_version": self.ai_engine.model_version,
             "mode": mode,
             "snapshots_upserted": snapshots,
             "region_metrics_upserted": regions,
+            "error": error,
             "steps": [step.model_dump() for step in steps],
         }
-        log = InsightAnalysisLog(
-            question=_JOB_QUESTION,
-            answer=f"完成 {snapshot_date} {mode} 管线：快照 {snapshots} 条、区域 {regions} 条",
-            status="completed",
-            tools_trace=trace,
-            latency_ms=elapsed_ms,
-        )
-        self.db.add(log)
-        self.db.flush()
-        return int(log.id)
+        self.db.commit()

@@ -84,7 +84,7 @@
     </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" name="theme">
 import { useSidebarStore } from '@/store/sidebar';
 import { useThemeStore } from '@/store/theme'
 import { reactive } from 'vue';

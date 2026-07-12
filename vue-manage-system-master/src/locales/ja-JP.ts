@@ -571,6 +571,7 @@
                 runFull: '全量評価',
                 runSuccess: 'バッチ完了',
                 runFailed: 'バッチ失敗。ログを確認して再試行してください',
+                logLoadFailed: 'バッチログの読み込みに失敗しました',
                 runDone: '{date} モデル {model}、{ms} ms',
                 stepName: 'ステップ',
                 outputCount: '出力件数',

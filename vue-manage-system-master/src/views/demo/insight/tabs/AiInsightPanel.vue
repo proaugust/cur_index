@@ -140,9 +140,11 @@ async function loadLogs() {
         const { data } = await getInsightJobLogs({ page: page.index, page_size: page.size });
         logs.value = data.list;
         page.total = data.pageTotal;
-    } catch {
+    } catch (error: unknown) {
         logs.value = [];
         page.total = 0;
+        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        ElMessage.error(detail || t('pages.insight.ai.logLoadFailed'));
     } finally {
         loading.value = false;
     }

@@ -5,10 +5,11 @@
         <div class="content-box" :class="{ 'content-collapse': sidebar.collapse }">
             <v-tabs></v-tabs>
             <div class="content">
-                <router-view v-slot="{ Component }">
+                <router-view v-slot="{ Component, route: viewRoute }">
                     <transition name="move" mode="out-in">
-                        <keep-alive :include="cachedTabNames">
-                            <component :is="Component" v-if="Component" />
+                        <!-- exclude 固定排除摄像头页；勿用 tabs 动态 include，会与路由切换竞态导致 deactivate 报错、内容卡在首页 -->
+                        <keep-alive exclude="demo-attendance">
+                            <component :is="Component" v-if="Component" :key="viewRoute.name" />
                         </keep-alive>
                     </transition>
                 </router-view>
@@ -17,17 +18,14 @@
     </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useSidebarStore } from '@/store/sidebar';
-import { useTabsStore } from '@/store/tabs';
 import { prefetchDemoRoutes } from '@/utils/prefetch-demo-routes';
 import vHeader from '@/components/header.vue';
 import vSidebar from '@/components/sidebar.vue';
 import vTabs from '@/components/tabs.vue';
 
 const sidebar = useSidebarStore();
-const tabs = useTabsStore();
-const cachedTabNames = computed(() => tabs.nameList.filter((name) => name !== 'demo-attendance'));
 
 onMounted(() => {
     prefetchDemoRoutes();
