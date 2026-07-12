@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from typing import Iterable, TypeVar
 
-from sqlalchemy import bindparam, delete, update
+from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot
@@ -55,11 +55,20 @@ class InsightSnapshotWriter:
 
         rows = [self._snapshot_row(snapshot_date, item) for item in predictions]
         profile_rows = [self._profile_row(item) for item in predictions]
-        batch = SNAPSHOT_WRITE_BATCH_SIZE
-        for chunk in _chunks(rows, batch):
-            self.db.bulk_insert_mappings(DimUserProfileSnapshot, chunk)
+        
+        # 动态调整批次大小：如果数据量大，使用更大的批次并延迟 commit，减少网络往返
+        if len(predictions) > 1000:
+            batch = 2000
+            for chunk in _chunks(rows, batch):
+                self.db.bulk_insert_mappings(DimUserProfileSnapshot, chunk)
+            self._update_profiles(profile_rows, batch, commit_per_batch=False)
             self.db.commit()
-        self._update_profiles(profile_rows, batch)
+        else:
+            batch = SNAPSHOT_WRITE_BATCH_SIZE
+            for chunk in _chunks(rows, batch):
+                self.db.bulk_insert_mappings(DimUserProfileSnapshot, chunk)
+                self.db.commit()
+            self._update_profiles(profile_rows, batch, commit_per_batch=True)
 
         if rows:
             clear_all_profile_cache()
@@ -72,32 +81,14 @@ class InsightSnapshotWriter:
         )
         return len(rows)
 
-    def _update_profiles(self, profile_rows: list[dict], batch: int) -> None:
+    def _update_profiles(self, profile_rows: list[dict], batch: int, commit_per_batch: bool = True) -> None:
         if not profile_rows:
             return
-        stmt = (
-            update(DimUserProfile)
-            .where(DimUserProfile.user_id == bindparam("b_user_id"))
-            .values(
-                risk_score=bindparam("risk_score"),
-                risk_level=bindparam("risk_level"),
-                tags=bindparam("tags"),
-                shap_values=bindparam("shap_values"),
-            )
-        )
+        stmt = update(DimUserProfile).execution_options(synchronize_session=None)
         for chunk in _chunks(profile_rows, batch):
-            params = [
-                {
-                    "b_user_id": row["user_id"],
-                    "risk_score": row["risk_score"],
-                    "risk_level": row["risk_level"],
-                    "tags": row["tags"],
-                    "shap_values": row["shap_values"],
-                }
-                for row in chunk
-            ]
-            self.db.execute(stmt, params)
-            self.db.commit()
+            self.db.execute(stmt, chunk)
+            if commit_per_batch:
+                self.db.commit()
 
     @staticmethod
     def _snapshot_row(snapshot_date: date, item: RiskPrediction) -> dict:

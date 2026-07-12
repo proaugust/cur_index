@@ -257,6 +257,17 @@ class InsightNightlyRunResult(BaseModel):
     prev_region_metrics_upserted: int = 0
 
 
+class InsightNightlyJobAccepted(BaseModel):
+    """后台批处理已受理，前端轮询 /jobs/logs 至 completed/failed。"""
+
+    analysis_log_id: int
+    snapshot_date: date
+    mode: Literal["incremental", "full"]
+    status: Literal["accepted"] = "accepted"
+    pending_users: int
+    message: str = "批处理已在后台启动，请刷新日志查看进度"
+
+
 class InsightAnalysisLogRead(BaseModel):
     id: int
     question: str

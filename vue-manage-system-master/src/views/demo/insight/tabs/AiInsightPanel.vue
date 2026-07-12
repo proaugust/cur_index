@@ -26,22 +26,15 @@
             </el-button>
             <el-button :loading="training" @click="handleTrain">{{ t('pages.insight.action.trainModel') }}</el-button>
             <el-button @click="loadLogs">{{ t('common.refresh') }}</el-button>
-            <span v-if="lastRun" class="run-result">
-                {{ t('pages.insight.ai.runDone', {
-                    date: lastRun.snapshot_date,
-                    model: lastRun.model_version,
-                    ms: lastRun.elapsed_ms,
+            <span v-if="lastAccepted" class="run-result">
+                {{ t('pages.insight.ai.accepted', {
+                    id: lastAccepted.analysis_log_id,
+                    date: lastAccepted.snapshot_date,
+                    users: lastAccepted.pending_users,
                 }) }}
-                <template v-if="lastRun.mode"> · {{ lastRun.mode }}</template>
+                <template v-if="lastAccepted.mode"> · {{ lastAccepted.mode }}</template>
             </span>
         </div>
-
-        <el-table v-if="lastRun?.steps?.length" :data="lastRun.steps" border stripe class="mgb20">
-            <el-table-column prop="label" :label="t('pages.insight.ai.stepName')" width="140" />
-            <el-table-column prop="step" label="Step ID" width="160" />
-            <el-table-column prop="output_count" :label="t('pages.insight.ai.outputCount')" width="110" />
-            <el-table-column prop="elapsed_ms" :label="t('pages.insight.ai.elapsedMs')" width="110" />
-        </el-table>
 
         <el-card shadow="never">
             <template #header>{{ t('pages.insight.ai.logTitle') }}</template>
@@ -70,22 +63,13 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { getInsightJobLogs, postInsightNightlyRun, postInsightTrainModel } from '@/api';
 
-interface PipelineStep {
-    step: string;
-    label: string;
-    output_count: number;
-    elapsed_ms: number;
-}
-
-interface NightlyRunResult {
-    snapshot_date: string;
-    steps: PipelineStep[];
-    snapshots_upserted: number;
-    region_metrics_upserted: number;
+interface NightlyAccepted {
     analysis_log_id: number;
-    elapsed_ms: number;
-    model_version: string;
+    snapshot_date: string;
     mode?: 'incremental' | 'full';
+    pending_users: number;
+    status: string;
+    message?: string;
 }
 
 interface LogRow {
@@ -102,9 +86,26 @@ const running = ref(false);
 const runningFull = ref(false);
 const training = ref(false);
 const loading = ref(false);
-const lastRun = ref<NightlyRunResult | null>(null);
+const lastAccepted = ref<NightlyAccepted | null>(null);
 const logs = ref<LogRow[]>([]);
 const page = reactive({ index: 1, size: 10, total: 0 });
+
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForJob(logId: number, timeoutMs = 600_000): Promise<LogRow> {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        const { data } = await getInsightJobLogs({ page: 1, page_size: 20 });
+        const row = (data.list as LogRow[]).find((item) => item.id === logId);
+        if (row && row.status !== 'running') {
+            return row;
+        }
+        await sleep(2000);
+    }
+    throw new Error('job_timeout');
+}
 
 async function handleTrain() {
     training.value = true;
@@ -121,14 +122,25 @@ async function handleRun(mode: 'incremental' | 'full' = 'incremental') {
     loadingRef.value = true;
     try {
         const { data } = await postInsightNightlyRun(undefined, false, mode);
-        lastRun.value = data;
-        ElMessage.success(t('pages.insight.ai.runSuccess'));
+        lastAccepted.value = data;
+        ElMessage.info(data.message || t('pages.insight.ai.runAccepted'));
         page.index = 1;
         await loadLogs();
-        emit('refreshed');
+        const row = await waitForJob(data.analysis_log_id);
+        await loadLogs();
+        if (row.status === 'completed') {
+            ElMessage.success(t('pages.insight.ai.runSuccess'));
+            emit('refreshed');
+        } else {
+            ElMessage.error(row.answer || t('pages.insight.ai.runFailed'));
+        }
     } catch (error: unknown) {
         const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        ElMessage.error(detail || t('pages.insight.ai.runFailed'));
+        const msg = (error as Error)?.message === 'job_timeout'
+            ? t('pages.insight.ai.runTimeout')
+            : (detail || t('pages.insight.ai.runFailed'));
+        ElMessage.error(msg);
+        await loadLogs();
     } finally {
         loadingRef.value = false;
     }
@@ -140,9 +152,11 @@ async function loadLogs() {
         const { data } = await getInsightJobLogs({ page: page.index, page_size: page.size });
         logs.value = data.list;
         page.total = data.pageTotal;
-    } catch {
+    } catch (error: unknown) {
         logs.value = [];
         page.total = 0;
+        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        ElMessage.error(detail || t('pages.insight.ai.logLoadFailed'));
     } finally {
         loading.value = false;
     }

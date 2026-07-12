@@ -15,7 +15,7 @@ from app.routers.modules import (
     smart_route,
     zha_jinhua,
 )
-from app.routers.ops import feature_intros, llm_usage
+from app.routers.ops import error_logs, feature_intros, llm_usage
 from app.routers.system import auth, menus, permissions, roles, users
 
 
@@ -39,4 +39,5 @@ def all_routers() -> tuple[APIRouter, ...]:
         ai_news.router,
         zha_jinhua.router,
         llm_usage.router,
+        error_logs.router,
     )

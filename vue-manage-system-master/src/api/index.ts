@@ -93,7 +93,7 @@ export const postInsightNightlyRun = (
             with_prev_day: withPrevDay,
             mode,
         },
-        timeout: 300000,
+        timeout: 60000,
     });
 
 export const getInsightJobLogs = (params?: Record<string, unknown>) =>
@@ -110,7 +110,7 @@ export const postInsightBuildSnapshot = (
             with_prev_day: withPrevDay,
             mode,
         },
-        timeout: 300000,
+        timeout: 60000,
     });
 
 export const getInsightSnapshots = (params?: Record<string, unknown>) =>
@@ -435,3 +435,20 @@ export interface LlmUsageRecentQuery {
 
 export const fetchLlmUsageRecent = (params?: LlmUsageRecentQuery) =>
     request.get('/llm-usage/recent', { params });
+
+export interface AppErrorLogQuery {
+    page?: number;
+    page_size?: number;
+    source?: string;
+    level?: string;
+    status?: string;
+    error_type?: string;
+    request_id?: string;
+    days?: number | null;
+}
+
+export const fetchAppErrorLogs = (params?: AppErrorLogQuery) =>
+    request.get('/error-logs', { params });
+
+export const patchAppErrorLogStatus = (errorId: number, status: 'open' | 'resolved') =>
+    request.patch(`/error-logs/${errorId}/status`, { status });

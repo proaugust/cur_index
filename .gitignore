@@ -34,3 +34,6 @@ Thumbs.db
 
 # 截图仅本地/HF 均不纳入版本库
 vue-manage-system-master/screenshots/
+
+# 人脸模型仅本地使用，HF/GitHub 均不纳入版本库
+vue-manage-system-master/public/models/*.bin

@@ -156,7 +156,7 @@
 import { computed, onMounted, reactive, ref, shallowRef, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import { getInsightRegionMetrics, postInsightBuildSnapshot } from '@/api';
+import { getInsightJobLogs, getInsightRegionMetrics, postInsightBuildSnapshot } from '@/api';
 import {
     aggregateByL1,
     buildRegionMapOption,
@@ -304,11 +304,38 @@ async function handleBuild(mode: 'incremental' | 'full' = 'incremental') {
     loadingRef.value = true;
     try {
         const { data } = await postInsightBuildSnapshot(undefined, false, mode);
-        buildResult.value = data;
-        selectedL1.value = null;
-        ElMessage.success(t('pages.insight.bi.buildSuccess'));
-        page.index = 1;
-        await reloadAll();
+        ElMessage.info(data.message || t('pages.insight.bi.buildAccepted'));
+        const started = Date.now();
+        let done = false;
+        while (Date.now() - started < 600_000) {
+            const { data: logs } = await getInsightJobLogs({ page: 1, page_size: 20 });
+            const row = logs.list.find((item: { id: number; status: string }) => item.id === data.analysis_log_id);
+            if (row && row.status !== 'running') {
+                done = row.status === 'completed';
+                if (!done) {
+                    ElMessage.error(row.answer || t('pages.insight.bi.buildFailed'));
+                }
+                break;
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+        }
+        if (!done && Date.now() - started >= 600_000) {
+            ElMessage.error(t('pages.insight.bi.buildTimeout'));
+            return;
+        }
+        if (done) {
+            buildResult.value = {
+                snapshot_date: data.snapshot_date,
+                snapshots_upserted: 0,
+                region_metrics_upserted: 0,
+                elapsed_ms: 0,
+                mode: data.mode,
+            };
+            selectedL1.value = null;
+            ElMessage.success(t('pages.insight.bi.buildSuccess'));
+            page.index = 1;
+            await reloadAll();
+        }
     } catch (error: unknown) {
         const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         ElMessage.error(detail || t('pages.insight.bi.buildFailed'));

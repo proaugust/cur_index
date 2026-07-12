@@ -30,8 +30,7 @@ from app.schemas.insight import (
     InsightDecisionSimulateRequest,
     InsightDecisionSimulateResult,
     InsightModelTrainResult,
-    InsightNightlyRunResult,
-    InsightRiskBuildResult,
+    InsightNightlyJobAccepted,
     InsightSeedPreviewResult,
     InsightSeedResetResult,
     InsightSeedSamplesResult,
@@ -341,14 +340,14 @@ def list_insight_simulation_weights(
     return insight_data.list_simulation_weights(db)
 
 
-@router.post("/jobs/nightly-run", response_model=InsightNightlyRunResult)
+@router.post("/jobs/nightly-run", response_model=InsightNightlyJobAccepted)
 def run_insight_nightly_job(
     snapshot_date: date | None = Query(default=None),
     with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
     mode: Literal["incremental", "full"] = Query(default="incremental", description="incremental=仅无分/无当日快照客户；full=全量"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 深夜批处理")),
-) -> InsightNightlyRunResult:
+) -> InsightNightlyJobAccepted:
     return service.run_nightly(snapshot_date=snapshot_date, with_prev_day=with_prev_day, mode=mode)
 
 
@@ -362,14 +361,14 @@ def list_insight_job_logs(
     return insight_data.list_analysis_logs(db, page=page, page_size=page_size)
 
 
-@router.post("/risk/build-snapshot", response_model=InsightRiskBuildResult)
+@router.post("/risk/build-snapshot", response_model=InsightNightlyJobAccepted)
 def build_insight_risk_snapshot(
     snapshot_date: date | None = Query(default=None),
     with_prev_day: bool = Query(default=False, description="同时构建前一日快照以生成环比（HF 建议关闭）"),
     mode: Literal["incremental", "full"] = Query(default="incremental", description="incremental=仅无分/无当日快照客户；full=全量"),
     service: InsightRiskSnapshotService = Depends(get_insight_risk_snapshot_service),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 构建快照")),
-) -> InsightRiskBuildResult:
+) -> InsightNightlyJobAccepted:
     return service.build_snapshot(snapshot_date=snapshot_date, with_prev_day=with_prev_day, mode=mode)
 
 

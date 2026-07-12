@@ -46,6 +46,12 @@ export const menuData: Menus[] = [
                 titleKey: 'menu.systemLlmUsage',
             },
             {
+                id: '92',
+                pid: '8',
+                index: '/system-error-logs',
+                titleKey: 'menu.systemErrorLogs',
+            },
+            {
                 id: '80',
                 pid: '8',
                 index: '/demo-ai-news',

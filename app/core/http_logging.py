@@ -76,6 +76,8 @@ def register_exception_logging(app: FastAPI) -> None:
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         from starlette.exceptions import HTTPException as StarletteHTTPException
 
+        from app.services.ops.error_log_service import record_app_error
+
         if isinstance(exc, StarletteHTTPException):
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         logger.exception(
@@ -83,5 +85,13 @@ def register_exception_logging(app: FastAPI) -> None:
             get_request_id(),
             request.method,
             request.url.path,
+        )
+        record_app_error(
+            source="http.unhandled",
+            message=str(exc)[:500] or exc.__class__.__name__,
+            exc=exc,
+            path=str(request.url.path),
+            method=request.method,
+            user_id=_user_id_from_request(request),
         )
         return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})

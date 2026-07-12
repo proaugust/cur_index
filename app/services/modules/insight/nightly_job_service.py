@@ -10,15 +10,20 @@ from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models.insight import DimUserProfile, DimUserProfileSnapshot, InsightAnalysisLog
-from app.schemas.insight import InsightNightlyRunResult, InsightPipelineStepResult, InsightRiskBuildResult
+from app.models.insight import DimUserProfile, DimUserProfileSnapshot
+from app.schemas.insight import (
+    InsightNightlyJobAccepted,
+    InsightNightlyRunResult,
+    InsightPipelineStepResult,
+    InsightRiskBuildResult,
+)
+from app.services.modules.insight.analysis_log_writer import begin_analysis_log, finish_analysis_log
 from app.services.modules.insight.ai_risk_engine import InsightAiRiskEngine
 from app.services.modules.insight.region_aggregator import InsightRegionAggregator
 from app.services.modules.insight.snapshot_writer import InsightSnapshotWriter
 
 logger = logging.getLogger(__name__)
 
-_JOB_QUESTION = "insight-nightly-risk-pipeline"
 InsightRunMode = Literal["incremental", "full"]
 
 
@@ -29,12 +34,33 @@ class InsightNightlyJobService:
         self.snapshot_writer = InsightSnapshotWriter(db)
         self.region_aggregator = InsightRegionAggregator(db)
 
+    def prepare_async(
+        self,
+        snapshot_date: date | None = None,
+        *,
+        with_prev_day: bool = False,
+        mode: InsightRunMode = "incremental",
+    ) -> InsightNightlyJobAccepted:
+        del with_prev_day
+        target_date = snapshot_date or date.today()
+        users = self._load_users(target_date, mode=mode)
+        if not users and mode == "full":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无用户主数据，请先注入客户")
+        log_id = begin_analysis_log(self.db, snapshot_date=target_date, mode=mode, pending_users=len(users))
+        return InsightNightlyJobAccepted(
+            analysis_log_id=log_id,
+            snapshot_date=target_date,
+            mode=mode,
+            pending_users=len(users),
+        )
+
     def run_nightly(
         self,
         snapshot_date: date | None = None,
         *,
         with_prev_day: bool = False,
         mode: InsightRunMode = "incremental",
+        existing_log_id: int | None = None,
     ) -> InsightNightlyRunResult:
         target_date = snapshot_date or date.today()
         users = self._load_users(target_date, mode=mode)
@@ -46,44 +72,69 @@ class InsightNightlyJobService:
         prev_date: date | None = None
         prev_snapshots = 0
         prev_regions = 0
+        snapshots, regions = 0, 0
+        elapsed_ms = 0
         replace_day = mode == "full"
-
-        if with_prev_day:
-            prev_date = target_date - timedelta(days=1)
-            prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
-            if prev_users:
-                prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
-                    prev_users, prev_date, dampen=Decimal("0.12"), replace_day=replace_day
-                )
-                steps.extend(prev_steps)
-
-        snapshots, regions, today_steps = (0, 0, [])
-        if users:
-            snapshots, regions, today_steps = self._run_pipeline(
-                users, target_date, replace_day=replace_day
-            )
-            steps.extend(today_steps)
-        else:
-            steps.append(
-                InsightPipelineStepResult(
-                    step="ai_risk_engine",
-                    label="AI 风险计算（无待评估客户）",
-                    output_count=0,
-                    elapsed_ms=0,
-                )
-            )
-
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        log_id = self._write_analysis_log(
-            snapshot_date=target_date,
-            steps=steps,
-            snapshots=snapshots,
-            regions=regions,
-            elapsed_ms=elapsed_ms,
-            prev_date=prev_date,
-            mode=mode,
+        log_id = existing_log_id or begin_analysis_log(
+            self.db, snapshot_date=target_date, mode=mode, pending_users=len(users)
         )
-        self.db.commit()
+        outcome_status = "failed"
+        outcome_error: str | None = None
+        outcome_exc: BaseException | None = None
+
+        try:
+            if with_prev_day:
+                prev_date = target_date - timedelta(days=1)
+                prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
+                if prev_users:
+                    prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
+                        prev_users, prev_date, dampen=Decimal("0.12"), replace_day=replace_day
+                    )
+                    steps.extend(prev_steps)
+
+            if users:
+                snapshots, regions, today_steps = self._run_pipeline(users, target_date, replace_day=replace_day)
+                steps.extend(today_steps)
+            else:
+                steps.append(
+                    InsightPipelineStepResult(
+                        step="ai_risk_engine",
+                        label="AI 风险计算（无待评估客户）",
+                        output_count=0,
+                        elapsed_ms=0,
+                    )
+                )
+
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            outcome_status = "completed"
+        except BaseException as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            outcome_error = str(exc)[:500] or exc.__class__.__name__
+            outcome_exc = exc
+            try:
+                self.db.rollback()
+            except Exception:
+                logger.exception("批处理失败后 rollback 异常")
+            raise
+        finally:
+            try:
+                finish_analysis_log(
+                    log_id=log_id,
+                    status=outcome_status,
+                    snapshot_date=target_date,
+                    steps=steps,
+                    snapshots=snapshots if outcome_status == "completed" else 0,
+                    regions=regions if outcome_status == "completed" else 0,
+                    elapsed_ms=elapsed_ms,
+                    prev_date=prev_date,
+                    mode=mode,
+                    model_version=self.ai_engine.model_version,
+                    error=outcome_error,
+                    exc=outcome_exc,
+                )
+            except Exception:
+                logger.exception("批处理日志收尾失败 id=%s status=%s", log_id, outcome_status)
+
         return InsightNightlyRunResult(
             snapshot_date=target_date,
             steps=steps,
@@ -175,34 +226,3 @@ class InsightNightlyJobService:
             )
         )
         return snapshots, regions, steps
-
-    def _write_analysis_log(
-        self,
-        *,
-        snapshot_date: date,
-        steps: list[InsightPipelineStepResult],
-        snapshots: int,
-        regions: int,
-        elapsed_ms: int,
-        prev_date: date | None,
-        mode: InsightRunMode,
-    ) -> int:
-        trace = {
-            "snapshot_date": snapshot_date.isoformat(),
-            "prev_snapshot_date": prev_date.isoformat() if prev_date else None,
-            "model_version": self.ai_engine.model_version,
-            "mode": mode,
-            "snapshots_upserted": snapshots,
-            "region_metrics_upserted": regions,
-            "steps": [step.model_dump() for step in steps],
-        }
-        log = InsightAnalysisLog(
-            question=_JOB_QUESTION,
-            answer=f"完成 {snapshot_date} {mode} 管线：快照 {snapshots} 条、区域 {regions} 条",
-            status="completed",
-            tools_trace=trace,
-            latency_ms=elapsed_ms,
-        )
-        self.db.add(log)
-        self.db.flush()
-        return int(log.id)

@@ -68,18 +68,17 @@ class InsightFeatureBuilder:
         values.extend(float(survey_scores.get(key, 3.0)) for key in SURVEY_KEYS)
         return values
 
-    def _load_aggregates(self, user_ids: list[str] | None = None) -> dict[str, dict]:
+    def _load_base_counts(self, use_in_clause: bool, user_ids: list[str] | None) -> dict[str, dict]:
         base_q = self.db.query(
             FactComplaintSample.user_id,
             func.count(FactComplaintSample.sample_id),
             func.count(FactComplaintSample.complaint_id),
             func.avg(FactComplaintSample.satisfaction_score),
         )
-        if user_ids is not None:
-            if not user_ids:
-                return {}
+        if use_in_clause and user_ids:
             base_q = base_q.filter(FactComplaintSample.user_id.in_(user_ids))
         base_rows = base_q.group_by(FactComplaintSample.user_id).all()
+
         agg: dict[str, dict] = {}
         for user_id, sample_cnt, complaint_cnt, avg_score in base_rows:
             agg[user_id] = {
@@ -90,7 +89,9 @@ class InsightFeatureBuilder:
                 "ctype_counts": defaultdict(int),
                 "survey_scores": defaultdict(list),
             }
+        return agg
 
+    def _load_complaint_types(self, agg: dict[str, dict], use_in_clause: bool, user_ids: list[str] | None) -> None:
         type_q = (
             self.db.query(
                 FactComplaintSample.user_id,
@@ -99,7 +100,7 @@ class InsightFeatureBuilder:
             )
             .filter(FactComplaintSample.complaint_type.isnot(None))
         )
-        if user_ids is not None:
+        if use_in_clause and user_ids:
             type_q = type_q.filter(FactComplaintSample.user_id.in_(user_ids))
         for user_id, complaint_type, count in type_q.group_by(
             FactComplaintSample.user_id, FactComplaintSample.complaint_type
@@ -117,11 +118,12 @@ class InsightFeatureBuilder:
             )
             bucket["ctype_counts"][complaint_type] += int(count)
 
+    def _load_survey_scores(self, agg: dict[str, dict], use_in_clause: bool, user_ids: list[str] | None) -> None:
         survey_q = self.db.query(
             FactComplaintSample.user_id,
             FactComplaintSample.survey_category_scores,
         ).filter(FactComplaintSample.survey_category_scores.isnot(None))
-        if user_ids is not None:
+        if use_in_clause and user_ids:
             survey_q = survey_q.filter(FactComplaintSample.user_id.in_(user_ids))
         for user_id, scores in survey_q.all():
             if not scores:
@@ -139,6 +141,16 @@ class InsightFeatureBuilder:
             )
             for key, value in scores.items():
                 bucket["survey_scores"][key].append(float(value))
+
+    def _load_aggregates(self, user_ids: list[str] | None = None) -> dict[str, dict]:
+        if user_ids is not None and not user_ids:
+            return {}
+        # 如果待评估用户数很大，直接全表扫描聚合（因为投诉样本表 FactComplaintSample 记录数通常远少于用户主表）
+        use_in_clause = user_ids is not None and len(user_ids) <= 1000
+
+        agg = self._load_base_counts(use_in_clause, user_ids)
+        self._load_complaint_types(agg, use_in_clause, user_ids)
+        self._load_survey_scores(agg, use_in_clause, user_ids)
 
         for user_id, bucket in agg.items():
             if bucket["ctype_counts"]:
