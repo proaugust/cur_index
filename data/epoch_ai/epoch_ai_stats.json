@@ -1,0 +1,2185 @@
+{
+  "status": "success",
+  "updated_date": "2026-07-13",
+  "updated_at": "2026-07-13 02:37:37",
+  "counts": {
+    "all_models": 3530,
+    "notable_models": 1056,
+    "frontier_models": 137,
+    "large_scale_models": 614
+  },
+  "yearly_countries": [
+    {
+      "year": 1950,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1952,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1954,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1955,
+      "countries": {
+        "United States": 2
+      }
+    },
+    {
+      "year": 1957,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1959,
+      "countries": {
+        "United States": 3
+      }
+    },
+    {
+      "year": 1960,
+      "countries": {
+        "United States": 2
+      }
+    },
+    {
+      "year": 1961,
+      "countries": {
+        "Other": 1
+      }
+    },
+    {
+      "year": 1962,
+      "countries": {
+        "United States": 2
+      }
+    },
+    {
+      "year": 1963,
+      "countries": {
+        "United Kingdom": 1,
+        "Other": 1,
+        "United States": 1
+      }
+    },
+    {
+      "year": 1965,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1966,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1967,
+      "countries": {
+        "Other": 1
+      }
+    },
+    {
+      "year": 1968,
+      "countries": {
+        "United Kingdom": 2
+      }
+    },
+    {
+      "year": 1969,
+      "countries": {
+        "Japan": 1
+      }
+    },
+    {
+      "year": 1970,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1972,
+      "countries": {
+        "Japan": 1
+      }
+    },
+    {
+      "year": 1973,
+      "countries": {
+        "United States": 1,
+        "Other": 1
+      }
+    },
+    {
+      "year": 1975,
+      "countries": {
+        "Japan": 1
+      }
+    },
+    {
+      "year": 1976,
+      "countries": {
+        "Other": 1,
+        "United States": 1
+      }
+    },
+    {
+      "year": 1980,
+      "countries": {
+        "Japan": 1
+      }
+    },
+    {
+      "year": 1981,
+      "countries": {
+        "Other": 1
+      }
+    },
+    {
+      "year": 1982,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1983,
+      "countries": {
+        "United States": 1
+      }
+    },
+    {
+      "year": 1984,
+      "countries": {
+        "United States": 1,
+        "Japan": 1
+      }
+    },
+    {
+      "year": 1986,
+      "countries": {
+        "United States": 6
+      }
+    },
+    {
+      "year": 1987,
+      "countries": {
+        "United States": 3
+      }
+    },
+    {
+      "year": 1988,
+      "countries": {
+        "Canada": 1,
+        "United States": 3
+      }
+    },
+    {
+      "year": 1989,
+      "countries": {
+        "United States": 8,
+        "Other": 1,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 1990,
+      "countries": {
+        "Other": 4,
+        "United States": 2
+      }
+    },
+    {
+      "year": 1991,
+      "countries": {
+        "Other": 1,
+        "United States": 1,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 1992,
+      "countries": {
+        "United States": 3,
+        "United Kingdom": 1,
+        "Other": 1
+      }
+    },
+    {
+      "year": 1993,
+      "countries": {
+        "Other": 2,
+        "United States": 3
+      }
+    },
+    {
+      "year": 1994,
+      "countries": {
+        "Other": 4,
+        "Germany": 1,
+        "United States": 1,
+        "France": 1
+      }
+    },
+    {
+      "year": 1995,
+      "countries": {
+        "United States": 5
+      }
+    },
+    {
+      "year": 1996,
+      "countries": {
+        "Germany": 1,
+        "United States": 2,
+        "Other": 1
+      }
+    },
+    {
+      "year": 1997,
+      "countries": {
+        "United States": 4,
+        "Germany": 1,
+        "Japan": 1,
+        "Other": 1
+      }
+    },
+    {
+      "year": 1998,
+      "countries": {
+        "United States": 3,
+        "Other": 1
+      }
+    },
+    {
+      "year": 1999,
+      "countries": {
+        "United States": 3,
+        "United Kingdom": 1,
+        "Other": 3
+      }
+    },
+    {
+      "year": 2000,
+      "countries": {
+        "United Kingdom": 1,
+        "Canada": 1,
+        "United States": 2,
+        "Other": 1
+      }
+    },
+    {
+      "year": 2001,
+      "countries": {
+        "United States": 3,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 2002,
+      "countries": {
+        "Other": 1,
+        "United States": 5
+      }
+    },
+    {
+      "year": 2003,
+      "countries": {
+        "United States": 7,
+        "United Kingdom": 1,
+        "Canada": 2
+      }
+    },
+    {
+      "year": 2004,
+      "countries": {
+        "Other": 3,
+        "United States": 4,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 2005,
+      "countries": {
+        "United States": 6,
+        "Germany": 1,
+        "France": 1,
+        "Other": 1
+      }
+    },
+    {
+      "year": 2006,
+      "countries": {
+        "Canada": 3,
+        "United States": 9,
+        "Other": 1,
+        "Germany": 1,
+        "France": 2,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 2007,
+      "countries": {
+        "Germany": 2,
+        "United States": 5,
+        "Other": 1,
+        "Canada": 2
+      }
+    },
+    {
+      "year": 2008,
+      "countries": {
+        "Canada": 4,
+        "Other": 1,
+        "United States": 6,
+        "Germany": 1
+      }
+    },
+    {
+      "year": 2009,
+      "countries": {
+        "Germany": 1,
+        "Other": 2,
+        "United States": 15,
+        "Canada": 4
+      }
+    },
+    {
+      "year": 2010,
+      "countries": {
+        "United States": 11,
+        "Germany": 2,
+        "France": 1,
+        "Canada": 4,
+        "Other": 1
+      }
+    },
+    {
+      "year": 2011,
+      "countries": {
+        "United States": 10,
+        "Other": 4,
+        "France": 1,
+        "Canada": 2
+      }
+    },
+    {
+      "year": 2012,
+      "countries": {
+        "Canada": 7,
+        "United States": 11,
+        "Other": 2,
+        "Germany": 2,
+        "United Kingdom": 1
+      }
+    },
+    {
+      "year": 2013,
+      "countries": {
+        "United States": 17,
+        "Other": 4,
+        "Canada": 5,
+        "United Kingdom": 2,
+        "France": 1
+      }
+    },
+    {
+      "year": 2014,
+      "countries": {
+        "United States": 25,
+        "United Kingdom": 7,
+        "Other": 6,
+        "Canada": 3,
+        "Germany": 1,
+        "China": 2
+      }
+    },
+    {
+      "year": 2015,
+      "countries": {
+        "United Kingdom": 4,
+        "United States": 31,
+        "Other": 3,
+        "China": 5,
+        "Germany": 1
+      }
+    },
+    {
+      "year": 2016,
+      "countries": {
+        "United States": 64,
+        "Germany": 1,
+        "Other": 7,
+        "United Kingdom": 5,
+        "China": 6,
+        "France": 2,
+        "Canada": 7
+      }
+    },
+    {
+      "year": 2017,
+      "countries": {
+        "United States": 47,
+        "United Kingdom": 12,
+        "China": 10,
+        "Germany": 5,
+        "Canada": 4,
+        "Other": 11,
+        "Japan": 2
+      }
+    },
+    {
+      "year": 2018,
+      "countries": {
+        "United States": 64,
+        "United Kingdom": 12,
+        "Other": 11,
+        "China": 6,
+        "Japan": 5,
+        "France": 1
+      }
+    },
+    {
+      "year": 2019,
+      "countries": {
+        "United States": 121,
+        "Germany": 6,
+        "China": 19,
+        "Other": 10,
+        "United Kingdom": 8,
+        "Canada": 1,
+        "Japan": 3
+      }
+    },
+    {
+      "year": 2020,
+      "countries": {
+        "Other": 7,
+        "United States": 96,
+        "China": 12,
+        "Germany": 4,
+        "United Kingdom": 5,
+        "Canada": 2
+      }
+    },
+    {
+      "year": 2021,
+      "countries": {
+        "China": 36,
+        "Germany": 5,
+        "United States": 129,
+        "Other": 20,
+        "United Kingdom": 14,
+        "Japan": 4,
+        "France": 2
+      }
+    },
+    {
+      "year": 2022,
+      "countries": {
+        "United States": 152,
+        "United Kingdom": 21,
+        "China": 25,
+        "Other": 18,
+        "Germany": 10,
+        "France": 2,
+        "Japan": 5
+      }
+    },
+    {
+      "year": 2023,
+      "countries": {
+        "Japan": 12,
+        "China": 142,
+        "United States": 264,
+        "Other": 73,
+        "France": 5,
+        "United Kingdom": 20,
+        "Canada": 7
+      }
+    },
+    {
+      "year": 2024,
+      "countries": {
+        "United States": 401,
+        "China": 326,
+        "Other": 128,
+        "France": 24,
+        "Canada": 9,
+        "Germany": 13,
+        "United Kingdom": 37,
+        "Japan": 11
+      }
+    },
+    {
+      "year": 2025,
+      "countries": {
+        "Other": 59,
+        "China": 184,
+        "United States": 282,
+        "France": 24,
+        "Germany": 5,
+        "United Kingdom": 7,
+        "Japan": 1,
+        "Canada": 10
+      }
+    },
+    {
+      "year": 2026,
+      "countries": {
+        "United States": 40,
+        "China": 32,
+        "Canada": 1,
+        "France": 1,
+        "Other": 2
+      }
+    }
+  ],
+  "domains": {
+    "Vision": 616,
+    "Other": 720,
+    "Language": 1982,
+    "Speech/Audio": 161,
+    "Robotics": 46,
+    "Multimodal": 5
+  },
+  "open_weights": {
+    "Yes": 1336,
+    "No": 1341,
+    "Unknown": 853
+  },
+  "scatter_data": [
+    {
+      "name": "GLM-5.2",
+      "date": "2026-06-16",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 744000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Kimi K2.7 Code",
+      "date": "2026-06-12",
+      "org": "Moonshot",
+      "params": 1040000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "North Mini Code",
+      "date": "2026-06-09",
+      "org": "Cohere",
+      "params": 30000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Nemotron 3 Ultra",
+      "date": "2026-06-04",
+      "org": "NVIDIA",
+      "params": 550000000000.0,
+      "compute": 6.6e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Gemma 4 12B",
+      "date": "2026-06-03",
+      "org": "Google DeepMind",
+      "params": 11950000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Composer 2.5",
+      "date": "2026-05-18",
+      "org": "Cursor",
+      "params": 1040000000000.0,
+      "compute": 3.87e+25,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "TML-Interaction-Small",
+      "date": "2026-05-11",
+      "org": "Thinking Machines",
+      "params": 276000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Mistral Medium 3.5",
+      "date": "2026-04-29",
+      "org": "Mistral AI",
+      "params": 128000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeek-V4-Pro",
+      "date": "2026-04-24",
+      "org": "DeepSeek",
+      "params": 1600000000000.0,
+      "compute": 9.702e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "DeepSeek-V4-Flash",
+      "date": "2026-04-24",
+      "org": "DeepSeek",
+      "params": 284000000000.0,
+      "compute": 2.496e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiMo-V2.5-Pro",
+      "date": "2026-04-23",
+      "org": "Xiaomi Corp",
+      "params": 1020000000000.0,
+      "compute": 6.804e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Tencent Hy3 preview",
+      "date": "2026-04-23",
+      "org": "Tencent",
+      "params": 295000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Ling-2.6-flash",
+      "date": "2026-04-21",
+      "org": "Ant Group",
+      "params": 104000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen 3.6-27B",
+      "date": "2026-04-21",
+      "org": "Unknown",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Kimi K2.6",
+      "date": "2026-04-20",
+      "org": "Moonshot",
+      "params": 1040000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Grok 4.3 Beta",
+      "date": "2026-04-17",
+      "org": "xAI",
+      "params": 500000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "π0.7 (pi-0.7)",
+      "date": "2026-04-16",
+      "org": "Physical Intelligence",
+      "params": 5260000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "EXAONE 4.5",
+      "date": "2026-04-09",
+      "org": "LG AI Research",
+      "params": 33200000000.0,
+      "compute": 3.85e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM-5.1",
+      "date": "2026-04-07",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 754000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Gemma 4 31B IT",
+      "date": "2026-04-02",
+      "org": "Google DeepMind",
+      "params": 31000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Gemma 4 26B A4B",
+      "date": "2026-04-02",
+      "org": "Google DeepMind",
+      "params": 25200000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Composer 2",
+      "date": "2026-03-19",
+      "org": "Cursor",
+      "params": 1040000000000.0,
+      "compute": 2.32e+25,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiMo-V2-Pro",
+      "date": "2026-03-18",
+      "org": "Xiaomi Corp",
+      "params": 1020000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Nemotron 3 Super",
+      "date": "2026-03-11",
+      "org": "NVIDIA",
+      "params": 120000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Qwen3.5-122B-A10B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 122000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Qwen3.5-27B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3.5-9B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 9000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3.5-4B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 4000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3.5-2B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 2000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3.5-0.8B",
+      "date": "2026-02-24",
+      "org": "Alibaba",
+      "params": 800000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Arcee Trinity Large",
+      "date": "2026-02-19",
+      "org": "Prime Intellect,Arcee AI",
+      "params": 398000000000.0,
+      "compute": 1.326e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GLM-5",
+      "date": "2026-02-17",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 744000000000.0,
+      "compute": 6.84e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Grok 4.20",
+      "date": "2026-02-17",
+      "org": "xAI",
+      "params": 500000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "DreamZero",
+      "date": "2026-02-17",
+      "org": "NVIDIA",
+      "params": 14000000000.0,
+      "compute": null,
+      "domain": "Robotics",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3.5 397B-A17B",
+      "date": "2026-02-13",
+      "org": "Alibaba",
+      "params": 397000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiniMax-M2.5",
+      "date": "2026-02-12",
+      "org": "MiniMax",
+      "params": 229000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Kimi K2.5",
+      "date": "2026-02-02",
+      "org": "Moonshot",
+      "params": 1040000000000.0,
+      "compute": 5.8e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Qwen3-Coder-Next",
+      "date": "2026-02-02",
+      "org": "Alibaba",
+      "params": 80000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Solar Open 100B\n",
+      "date": "2025-12-31",
+      "org": "Upstage",
+      "params": 102000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "K-EXAONE",
+      "date": "2025-12-31",
+      "org": "LG AI Research",
+      "params": 236000000000.0,
+      "compute": 1.52e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "VAETKI\n",
+      "date": "2025-12-30",
+      "org": "NC AI",
+      "params": 100000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "A.X K1",
+      "date": "2025-12-30",
+      "org": "SK Telecom",
+      "params": 519000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "HyperCLOVA X SEED 32B Think",
+      "date": "2025-12-29",
+      "org": "NAVER",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiniMax-M2.1",
+      "date": "2025-12-23",
+      "org": "MiniMax",
+      "params": 229000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM-4.7",
+      "date": "2025-12-22",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 358000000000.0,
+      "compute": 4.42e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM 4.7 Flash",
+      "date": "2025-12-22",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 30000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "MiMo-V2-Flash",
+      "date": "2025-12-16",
+      "org": "Xiaomi Corp",
+      "params": 309000000000.0,
+      "compute": 2.43e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Nemotron 3-Nano-30B-A3B",
+      "date": "2025-12-15",
+      "org": "NVIDIA",
+      "params": 31600000000.0,
+      "compute": 4.8e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Nomos 1",
+      "date": "2025-12-11",
+      "org": "Nous Research",
+      "params": 30000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Devstral 2 (123B)",
+      "date": "2025-12-09",
+      "org": "Mistral AI",
+      "params": 123000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Devstral 2 (24B)",
+      "date": "2025-12-09",
+      "org": "Mistral AI",
+      "params": 24000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Mistral 3 Large",
+      "date": "2025-12-02",
+      "org": "Mistral AI",
+      "params": 675000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ministral 3 14B",
+      "date": "2025-12-02",
+      "org": "Mistral AI",
+      "params": 14000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ministral 3 8B",
+      "date": "2025-12-02",
+      "org": "Mistral AI",
+      "params": 8000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ministral 3 3B",
+      "date": "2025-12-02",
+      "org": "Mistral AI",
+      "params": 3000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeek-V3.2",
+      "date": "2025-12-01",
+      "org": "DeepSeek",
+      "params": null,
+      "compute": 4.2e+24,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeekMath-V2",
+      "date": "2025-11-27",
+      "org": "DeepSeek",
+      "params": 685000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "INTELLECT-3",
+      "date": "2025-11-26",
+      "org": "Prime Intellect",
+      "params": 106000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "FLUX.2",
+      "date": "2025-11-25",
+      "org": "Black Forest Labs",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Olmo 3",
+      "date": "2025-11-20",
+      "org": "Allen Institute for AI",
+      "params": 32000000000.0,
+      "compute": 1.1e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "SAM 3",
+      "date": "2025-11-20",
+      "org": "Meta AI",
+      "params": 850000000.0,
+      "compute": 1.9981584e+23,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "SAM 3",
+      "date": "2025-11-20",
+      "org": "Unknown",
+      "params": 848000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Olmo 3 32B Instruct",
+      "date": "2025-11-20",
+      "org": "Allen Institute for AI,University of Washington,Carnegie Mellon University (CMU),Stanford University,Mila - Quebec AI (originally Montreal Institute for Learning Algorithms),University of Montreal / Université de Montréal,Princeton University,Massachusetts Institute of Technology (MIT),University of Maryland",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Olmo 3 7B Think",
+      "date": "2025-11-20",
+      "org": "Allen Institute for AI,University of Washington,Carnegie Mellon University (CMU),Stanford University,Mila - Quebec AI (originally Montreal Institute for Learning Algorithms),University of Montreal / Université de Montréal,Princeton University,Massachusetts Institute of Technology (MIT),University of Maryland",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Olmo 3.1 32B Think",
+      "date": "2025-11-20",
+      "org": "Allen Institute for AI,University of Washington,Carnegie Mellon University (CMU),Stanford University,Mila - Quebec AI (originally Montreal Institute for Learning Algorithms),University of Montreal / Université de Montréal,Princeton University,Massachusetts Institute of Technology (MIT),University of Maryland",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "π0.6 (pi-0.6)",
+      "date": "2025-11-17",
+      "org": "Physical Intelligence",
+      "params": 5260000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "P1-235B-A22B",
+      "date": "2025-11-17",
+      "org": "Shanghai AI Lab",
+      "params": 235000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Kimi K2 Thinking",
+      "date": "2025-11-06",
+      "org": "Moonshot",
+      "params": 1000000000000.0,
+      "compute": 4.2e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Gen-0",
+      "date": "2025-11-04",
+      "org": "Generalist",
+      "params": 10000000000.0,
+      "compute": null,
+      "domain": "Robotics",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GEN-0",
+      "date": "2025-11-04",
+      "org": "Unknown",
+      "params": 10000000000.0,
+      "compute": null,
+      "domain": "Robotics",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Emu3.5",
+      "date": "2025-10-30",
+      "org": "Beijing Academy of Artificial Intelligence / BAAI",
+      "params": 34100000000.0,
+      "compute": 9.86736e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Kimi Linear",
+      "date": "2025-10-30",
+      "org": "Moonshot",
+      "params": 48000000000.0,
+      "compute": 1.026e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "SWE-1.5",
+      "date": "2025-10-29",
+      "org": "Cognition",
+      "params": 300000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Tongyi DeepResearch",
+      "date": "2025-10-28",
+      "org": "Alibaba",
+      "params": 30500000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiniMax-M2",
+      "date": "2025-10-27",
+      "org": "MiniMax",
+      "params": 229000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "LoongRL 7B",
+      "date": "2025-10-27",
+      "org": "Microsoft Research Asia,Shanghai Jiao Tong University,Carnegie Mellon University (CMU)",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "LoongRL 14B",
+      "date": "2025-10-27",
+      "org": "Microsoft Research Asia,Shanghai Jiao Tong University,Carnegie Mellon University (CMU)",
+      "params": 14000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Lapa LLM\n\n",
+      "date": "2025-10-25",
+      "org": "Ukrainian Catholic University,Igor Sikorsky Kyiv Polytechnic Institute,AGH University of Krakow,Lviv Polytechnic",
+      "params": 12000000000.0,
+      "compute": 8.64e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ring-mini-linear-2.0",
+      "date": "2025-10-23",
+      "org": "Ant Group",
+      "params": 16400000000.0,
+      "compute": 1.714452e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ring-flash-linear-2.0",
+      "date": "2025-10-23",
+      "org": "Ant Group",
+      "params": 104200000000.0,
+      "compute": 7.686e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Deepseek OCR",
+      "date": "2025-10-21",
+      "org": "DeepSeek",
+      "params": 3000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "BAPO 32B",
+      "date": "2025-10-21",
+      "org": "Fudan University,Shanghai Qiji Zhifeng",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Odyssey 102B",
+      "date": "2025-10-18",
+      "org": "Anthrogen",
+      "params": 102000000000.0,
+      "compute": 1.1e+23,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Odyssey 12B",
+      "date": "2025-10-18",
+      "org": "Anthrogen",
+      "params": 12000000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Odyssey 1.2B",
+      "date": "2025-10-18",
+      "org": "Anthrogen",
+      "params": 1200000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Llama 4 Scout + ScaleRL",
+      "date": "2025-10-15",
+      "org": "Meta AI",
+      "params": 109000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "C2S-Scale",
+      "date": "2025-10-11",
+      "org": "Google Research,Yale University,Google DeepMind,Brown University,University of Southern California",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ring-1T",
+      "date": "2025-10-10",
+      "org": "Ant Group",
+      "params": 1000000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ling-1T",
+      "date": "2025-10-10",
+      "org": "Ant Group",
+      "params": 1000000000000.0,
+      "compute": 6.000001e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Tiny Recursive Model (TRM-Att)",
+      "date": "2025-10-06",
+      "org": "Samsung SAIT AI Lab",
+      "params": 7000000.0,
+      "compute": 3.07742976e+20,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Granite-4.0-H-Tiny",
+      "date": "2025-10-02",
+      "org": "IBM",
+      "params": 7000000000.0,
+      "compute": 1.35e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Granite-4.0-H-Micro",
+      "date": "2025-10-02",
+      "org": "IBM",
+      "params": 3000000000.0,
+      "compute": 3.15e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Granite-4.0-H-Small",
+      "date": "2025-10-02",
+      "org": "IBM",
+      "params": 32000000000.0,
+      "compute": 1.215e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GLM-4.6",
+      "date": "2025-09-30",
+      "org": "Z.ai (Zhipu AI),Tsinghua University",
+      "params": 357000000000.0,
+      "compute": 4.42e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Kandinsky 5.0 Video Lite",
+      "date": "2025-09-30",
+      "org": "Sber",
+      "params": 2000000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Cosmos-Transfer2.5-2B",
+      "date": "2025-09-29",
+      "org": "NVIDIA",
+      "params": 2000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Cosmos-Predict2.5-14B",
+      "date": "2025-09-29",
+      "org": "NVIDIA",
+      "params": 14000000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Cosmos-Predict2.5 2B",
+      "date": "2025-09-29",
+      "org": "NVIDIA",
+      "params": 2000000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeek-V3.2-Exp",
+      "date": "2025-09-29",
+      "org": "DeepSeek",
+      "params": 671000000000.0,
+      "compute": 4.18e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "MinerU2.5",
+      "date": "2025-09-29",
+      "org": "Shanghai AI Lab,Peking University,Shanghai Jiao Tong University",
+      "params": 1200000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GigaEmbeddings",
+      "date": "2025-09-25",
+      "org": "Sber,Moscow Institute of Physics and Technology",
+      "params": 3000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "SimpleFold",
+      "date": "2025-09-23",
+      "org": "Apple",
+      "params": 3000000000.0,
+      "compute": 2e+21,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeek-V3.1-Terminus",
+      "date": "2025-09-22",
+      "org": "DeepSeek",
+      "params": 671000000000.0,
+      "compute": 3.594058e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3-Omni-Flash",
+      "date": "2025-09-22",
+      "org": "Alibaba",
+      "params": 35300000000.0,
+      "compute": 3.6e+22,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3-Omni-30B-A3B",
+      "date": "2025-09-22",
+      "org": "Alibaba",
+      "params": 35300000000.0,
+      "compute": 3.6e+22,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Magistral Small 1.2",
+      "date": "2025-09-18",
+      "org": "Mistral AI",
+      "params": 24000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Granite-Docling",
+      "date": "2025-09-17",
+      "org": "IBM",
+      "params": 258000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "AgentFounder-30B",
+      "date": "2025-09-16",
+      "org": "Alibaba",
+      "params": 30000000000.0,
+      "compute": 6.5367e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Qwen3-Next-80B-A3B",
+      "date": "2025-09-10",
+      "org": "Alibaba",
+      "params": 80000000000.0,
+      "compute": 2.7e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ling-mini-base-2.0-20T",
+      "date": "2025-09-10",
+      "org": "Ant Group",
+      "params": 16000000000.0,
+      "compute": 1.68e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ling-flash-base-2.0-20T",
+      "date": "2025-09-10",
+      "org": "Ant Group",
+      "params": 100000000000.0,
+      "compute": 7.32e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "K2 Think",
+      "date": "2025-09-09",
+      "org": "Mohamed bin Zayed University of Artificial Intelligence (MBZUAI),G42",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen3-Max",
+      "date": "2025-09-05",
+      "org": "Alibaba",
+      "params": 1000000000000.0,
+      "compute": 1.512e+25,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "EmbeddingGemma",
+      "date": "2025-09-05",
+      "org": "Google DeepMind",
+      "params": 308000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Apertus 8B",
+      "date": "2025-09-02",
+      "org": "ETH Zurich,Ecole Polytechnique F´ed´erale de Lausanne (EPFL),Swiss National Supercomputing Centre (CSCS),Swisscom",
+      "params": 8000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Apertus 70B",
+      "date": "2025-09-02",
+      "org": "ETH Zurich,Ecole Polytechnique F´ed´erale de Lausanne (EPFL),Swiss National Supercomputing Centre (CSCS),Swisscom",
+      "params": 70000000000.0,
+      "compute": 6.74e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "LongCat-Flash",
+      "date": "2025-09-01",
+      "org": "Meituan Inc",
+      "params": 560000000000.0,
+      "compute": 3.726e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Wan 2.2 14B S2V",
+      "date": "2025-08-26",
+      "org": "Alibaba",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Speech/Audio",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DeepSeek-V3.1",
+      "date": "2025-08-21",
+      "org": "DeepSeek",
+      "params": 671000000000.0,
+      "compute": 3.594058e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Seed-OSS-36B-Base",
+      "date": "2025-08-21",
+      "org": "ByteDance",
+      "params": null,
+      "compute": 2.592e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Cohere Command A Reasoning",
+      "date": "2025-08-21",
+      "org": "Cohere",
+      "params": 111000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Teuken 7B",
+      "date": "2025-08-21",
+      "org": "OpenGPT-X,Fraunhofer Institute for Algorithms and Scientific Computing,Forschungszentrum Julich,Technische Universität Dresden",
+      "params": 7000000000.0,
+      "compute": 2.1444092e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Surya",
+      "date": "2025-08-20",
+      "org": "NASA,University of Alabama,IBM Research",
+      "params": 366000000.0,
+      "compute": 2.9474214e+21,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Gemma-SEA-LION-v4-27B-IT",
+      "date": "2025-08-20",
+      "org": "AI Singapore",
+      "params": 27000000000.0,
+      "compute": 2.349e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "FlowER",
+      "date": "2025-08-20",
+      "org": "Massachusetts Institute of Technology (MIT)",
+      "params": 7000000000.0,
+      "compute": 5.88e+16,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "MolmoAct-7B-D",
+      "date": "2025-08-19",
+      "org": "Allen Institute for AI,University of Washington",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Robotics",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "NVIDIA-Nemotron-Nano-9B-v2",
+      "date": "2025-08-18",
+      "org": "NVIDIA",
+      "params": 9000000000.0,
+      "compute": 1.53e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "NVIDIA-Nemotron-Nano-12B-v2",
+      "date": "2025-08-18",
+      "org": "NVIDIA",
+      "params": 12000000000.0,
+      "compute": 1.5192e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen Image Edit",
+      "date": "2025-08-18",
+      "org": "Alibaba",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ovis2.5 9B",
+      "date": "2025-08-15",
+      "org": "Alibaba",
+      "params": 9000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ovis2.5 2B",
+      "date": "2025-08-15",
+      "org": "Alibaba",
+      "params": 2000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GLM-4.5V",
+      "date": "2025-08-15",
+      "org": "Z.ai (Zhipu AI),Tsinghua University",
+      "params": 108000000000.0,
+      "compute": 1.8e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GLM-4.1V-Thinking",
+      "date": "2025-08-15",
+      "org": "Z.ai (Zhipu AI),Tsinghua University",
+      "params": 9000000000.0,
+      "compute": 9.18e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Canary 1B v2",
+      "date": "2025-08-14",
+      "org": "NVIDIA",
+      "params": 1000000000.0,
+      "compute": null,
+      "domain": "Speech/Audio",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Parakeet-tdt-0.6b-v3",
+      "date": "2025-08-14",
+      "org": "NVIDIA",
+      "params": 600000.0,
+      "compute": null,
+      "domain": "Speech/Audio",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Gemma 3 270M",
+      "date": "2025-08-14",
+      "org": "Google DeepMind",
+      "params": 270000000.0,
+      "compute": 9.72e+21,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DINOv3",
+      "date": "2025-08-13",
+      "org": "Meta AI",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "GPT-5",
+      "date": "2025-08-07",
+      "org": "OpenAI",
+      "params": null,
+      "compute": 6.6e+25,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "gpt-oss-120b",
+      "date": "2025-08-05",
+      "org": "OpenAI",
+      "params": 116830000000.0,
+      "compute": 4.94e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "gpt-oss-20b",
+      "date": "2025-08-05",
+      "org": "OpenAI",
+      "params": 20910000000.0,
+      "compute": 5.49e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM-4.5",
+      "date": "2025-08-05",
+      "org": "Z.ai (Zhipu AI),Tsinghua University",
+      "params": 355000000000.0,
+      "compute": 4.42e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM-4.5-Air",
+      "date": "2025-08-05",
+      "org": "Z.ai (Zhipu AI),Tsinghua University",
+      "params": 106000000000.0,
+      "compute": 1.656e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen Image",
+      "date": "2025-08-04",
+      "org": "Alibaba",
+      "params": 27000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "Hierarchical Reasoning Model (HPM)",
+      "date": "2025-08-04",
+      "org": "Sapient Intelligence",
+      "params": 27000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "rStar-Math (Qwen2.5-Math-7B base)",
+      "date": "2025-08-01",
+      "org": "Microsoft Research Asia,Peking University,Tsinghua University",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "rStar-Math (Qwen2-Math-7B base)",
+      "date": "2025-08-01",
+      "org": "Microsoft Research Asia,Peking University,Tsinghua University",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "MindLink-72B",
+      "date": "2025-08-01",
+      "org": "Kunlun Inc.",
+      "params": 72000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MindLink-32B",
+      "date": "2025-08-01",
+      "org": "Kunlun Inc.",
+      "params": 32000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Tri-21B",
+      "date": "2025-08-01",
+      "org": "Trillion Labs",
+      "params": 20730000000.0,
+      "compute": 2.95e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Command A Vision",
+      "date": "2025-07-31",
+      "org": "Cohere",
+      "params": 112000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    }
+  ],
+  "latest_releases": [
+    {
+      "name": "Muse Image",
+      "org": "Meta AI",
+      "date": "2026-07-07",
+      "domain": "Vision",
+      "parameters": "Unknown",
+      "accessibility": "Hosted access (no API)"
+    },
+    {
+      "name": "GPT-Realtime-2.1-Mini",
+      "org": "OpenAI",
+      "date": "2026-07-06",
+      "domain": "Other",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "Claude Sonnet 5",
+      "org": "Anthropic",
+      "date": "2026-06-30",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "GLM-5.2",
+      "org": "Z.ai (Zhipu AI)",
+      "date": "2026-06-16",
+      "domain": "Language",
+      "parameters": "744000000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
+    {
+      "name": "Kimi K2.7 Code",
+      "org": "Moonshot",
+      "date": "2026-06-12",
+      "domain": "Language",
+      "parameters": "1040000000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
+    {
+      "name": "Claude Mythos 5",
+      "org": "Anthropic",
+      "date": "2026-06-09",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Unreleased"
+    },
+    {
+      "name": "Claude Fable 5",
+      "org": "Anthropic",
+      "date": "2026-06-09",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "North Mini Code",
+      "org": "Cohere",
+      "date": "2026-06-09",
+      "domain": "Language",
+      "parameters": "30000000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
+    {
+      "name": "Nemotron 3 Ultra",
+      "org": "NVIDIA",
+      "date": "2026-06-04",
+      "domain": "Language",
+      "parameters": "550000000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
+    {
+      "name": "Gemma 4 12B",
+      "org": "Google DeepMind",
+      "date": "2026-06-03",
+      "domain": "Language",
+      "parameters": "11950000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
+    {
+      "name": "MAI-Image-2.5",
+      "org": "Microsoft",
+      "date": "2026-06-02",
+      "domain": "Vision",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "MiniMax-M3",
+      "org": "MiniMax",
+      "date": "2026-06-01",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "Qwen 3.7 Max",
+      "org": "Alibaba",
+      "date": "2026-05-19",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Unknown"
+    },
+    {
+      "name": "Composer 2.5",
+      "org": "Cursor",
+      "date": "2026-05-18",
+      "domain": "Language",
+      "parameters": "1040000000000.0",
+      "accessibility": "Unknown"
+    },
+    {
+      "name": "TML-Interaction-Small",
+      "org": "Thinking Machines",
+      "date": "2026-05-11",
+      "domain": "Language",
+      "parameters": "276000000000.0",
+      "accessibility": "Unreleased"
+    }
+  ]
+}

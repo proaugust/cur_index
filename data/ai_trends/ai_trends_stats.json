@@ -1,0 +1,1584 @@
+{
+  "status": "success",
+  "updated_date": "2026-07-13",
+  "updated_at": "2026-07-13 02:51:44",
+  "trends": [
+    {
+      "year": 2015,
+      "country": "United States",
+      "aiIndexScore": 47.9,
+      "investmentBillionsUsd": 4.98,
+      "publishedPapersThousands": 14.4,
+      "aiTalentPoolThousands": 76.6,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2015,
+      "country": "China",
+      "aiIndexScore": 32.6,
+      "investmentBillionsUsd": 1.83,
+      "publishedPapersThousands": 18.3,
+      "aiTalentPoolThousands": 96.8,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2015,
+      "country": "United Kingdom",
+      "aiIndexScore": 29.1,
+      "investmentBillionsUsd": 0.83,
+      "publishedPapersThousands": 5.7,
+      "aiTalentPoolThousands": 22.9,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2015,
+      "country": "Germany",
+      "aiIndexScore": 24.4,
+      "investmentBillionsUsd": 0.51,
+      "publishedPapersThousands": 4.9,
+      "aiTalentPoolThousands": 18.3,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2015,
+      "country": "France",
+      "aiIndexScore": 20.9,
+      "investmentBillionsUsd": 0.38,
+      "publishedPapersThousands": 3.8,
+      "aiTalentPoolThousands": 14.3,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2015,
+      "country": "Japan",
+      "aiIndexScore": 26.4,
+      "investmentBillionsUsd": 0.61,
+      "publishedPapersThousands": 4.6,
+      "aiTalentPoolThousands": 20.3,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2015,
+      "country": "South Korea",
+      "aiIndexScore": 22.1,
+      "investmentBillionsUsd": 0.39,
+      "publishedPapersThousands": 3.7,
+      "aiTalentPoolThousands": 13.5,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2015,
+      "country": "Singapore",
+      "aiIndexScore": 18.7,
+      "investmentBillionsUsd": 0.1,
+      "publishedPapersThousands": 1.0,
+      "aiTalentPoolThousands": 3.6,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2015,
+      "country": "India",
+      "aiIndexScore": 15.3,
+      "investmentBillionsUsd": 0.31,
+      "publishedPapersThousands": 6.1,
+      "aiTalentPoolThousands": 122.2,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2015,
+      "country": "Canada",
+      "aiIndexScore": 20.4,
+      "investmentBillionsUsd": 0.39,
+      "publishedPapersThousands": 3.4,
+      "aiTalentPoolThousands": 11.7,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2015,
+      "country": "Israel",
+      "aiIndexScore": 19.5,
+      "investmentBillionsUsd": 0.49,
+      "publishedPapersThousands": 2.1,
+      "aiTalentPoolThousands": 7.8,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2015,
+      "country": "Australia",
+      "aiIndexScore": 15.6,
+      "investmentBillionsUsd": 0.2,
+      "publishedPapersThousands": 2.4,
+      "aiTalentPoolThousands": 9.3,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2015,
+      "country": "Brazil",
+      "aiIndexScore": 10.1,
+      "investmentBillionsUsd": 0.05,
+      "publishedPapersThousands": 1.8,
+      "aiTalentPoolThousands": 25.4,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2015,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 11.8,
+      "investmentBillionsUsd": 0.1,
+      "publishedPapersThousands": 0.3,
+      "aiTalentPoolThousands": 2.0,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2016,
+      "country": "United States",
+      "aiIndexScore": 56.1,
+      "investmentBillionsUsd": 6.79,
+      "publishedPapersThousands": 17.2,
+      "aiTalentPoolThousands": 93.5,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2016,
+      "country": "China",
+      "aiIndexScore": 34.8,
+      "investmentBillionsUsd": 2.34,
+      "publishedPapersThousands": 20.7,
+      "aiTalentPoolThousands": 108.5,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2016,
+      "country": "United Kingdom",
+      "aiIndexScore": 29.7,
+      "investmentBillionsUsd": 0.95,
+      "publishedPapersThousands": 6.0,
+      "aiTalentPoolThousands": 24.0,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2016,
+      "country": "Germany",
+      "aiIndexScore": 24.8,
+      "investmentBillionsUsd": 0.58,
+      "publishedPapersThousands": 5.1,
+      "aiTalentPoolThousands": 19.1,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2016,
+      "country": "France",
+      "aiIndexScore": 23.2,
+      "investmentBillionsUsd": 0.47,
+      "publishedPapersThousands": 4.3,
+      "aiTalentPoolThousands": 16.3,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2016,
+      "country": "Japan",
+      "aiIndexScore": 26.4,
+      "investmentBillionsUsd": 0.68,
+      "publishedPapersThousands": 4.7,
+      "aiTalentPoolThousands": 20.9,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2016,
+      "country": "South Korea",
+      "aiIndexScore": 25.1,
+      "investmentBillionsUsd": 0.49,
+      "publishedPapersThousands": 4.2,
+      "aiTalentPoolThousands": 15.7,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2016,
+      "country": "Singapore",
+      "aiIndexScore": 19.3,
+      "investmentBillionsUsd": 0.13,
+      "publishedPapersThousands": 1.2,
+      "aiTalentPoolThousands": 4.0,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2016,
+      "country": "India",
+      "aiIndexScore": 15.6,
+      "investmentBillionsUsd": 0.35,
+      "publishedPapersThousands": 6.3,
+      "aiTalentPoolThousands": 127.9,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2016,
+      "country": "Canada",
+      "aiIndexScore": 21.9,
+      "investmentBillionsUsd": 0.46,
+      "publishedPapersThousands": 3.7,
+      "aiTalentPoolThousands": 12.8,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2016,
+      "country": "Israel",
+      "aiIndexScore": 20.4,
+      "investmentBillionsUsd": 0.57,
+      "publishedPapersThousands": 2.3,
+      "aiTalentPoolThousands": 8.4,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2016,
+      "country": "Australia",
+      "aiIndexScore": 17.1,
+      "investmentBillionsUsd": 0.24,
+      "publishedPapersThousands": 2.7,
+      "aiTalentPoolThousands": 10.4,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2016,
+      "country": "Brazil",
+      "aiIndexScore": 10.3,
+      "investmentBillionsUsd": 0.06,
+      "publishedPapersThousands": 1.9,
+      "aiTalentPoolThousands": 26.4,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2016,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 13.4,
+      "investmentBillionsUsd": 0.14,
+      "publishedPapersThousands": 0.4,
+      "aiTalentPoolThousands": 2.4,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2017,
+      "country": "United States",
+      "aiIndexScore": 57.5,
+      "investmentBillionsUsd": 8.12,
+      "publishedPapersThousands": 18.2,
+      "aiTalentPoolThousands": 100.4,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2017,
+      "country": "China",
+      "aiIndexScore": 38.8,
+      "investmentBillionsUsd": 3.15,
+      "publishedPapersThousands": 24.7,
+      "aiTalentPoolThousands": 128.0,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2017,
+      "country": "United Kingdom",
+      "aiIndexScore": 30.0,
+      "investmentBillionsUsd": 1.07,
+      "publishedPapersThousands": 6.1,
+      "aiTalentPoolThousands": 25.0,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2017,
+      "country": "Germany",
+      "aiIndexScore": 27.8,
+      "investmentBillionsUsd": 0.72,
+      "publishedPapersThousands": 5.8,
+      "aiTalentPoolThousands": 22.1,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2017,
+      "country": "France",
+      "aiIndexScore": 23.8,
+      "investmentBillionsUsd": 0.54,
+      "publishedPapersThousands": 4.5,
+      "aiTalentPoolThousands": 17.2,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2017,
+      "country": "Japan",
+      "aiIndexScore": 28.2,
+      "investmentBillionsUsd": 0.81,
+      "publishedPapersThousands": 5.1,
+      "aiTalentPoolThousands": 23.0,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2017,
+      "country": "South Korea",
+      "aiIndexScore": 25.6,
+      "investmentBillionsUsd": 0.55,
+      "publishedPapersThousands": 4.4,
+      "aiTalentPoolThousands": 16.5,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2017,
+      "country": "Singapore",
+      "aiIndexScore": 21.3,
+      "investmentBillionsUsd": 0.18,
+      "publishedPapersThousands": 1.4,
+      "aiTalentPoolThousands": 4.7,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2017,
+      "country": "India",
+      "aiIndexScore": 17.2,
+      "investmentBillionsUsd": 0.43,
+      "publishedPapersThousands": 7.2,
+      "aiTalentPoolThousands": 146.1,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2017,
+      "country": "Canada",
+      "aiIndexScore": 23.5,
+      "investmentBillionsUsd": 0.56,
+      "publishedPapersThousands": 4.1,
+      "aiTalentPoolThousands": 14.2,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2017,
+      "country": "Israel",
+      "aiIndexScore": 22.2,
+      "investmentBillionsUsd": 0.69,
+      "publishedPapersThousands": 2.5,
+      "aiTalentPoolThousands": 9.4,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2017,
+      "country": "Australia",
+      "aiIndexScore": 18.6,
+      "investmentBillionsUsd": 0.29,
+      "publishedPapersThousands": 3.0,
+      "aiTalentPoolThousands": 11.7,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2017,
+      "country": "Brazil",
+      "aiIndexScore": 11.0,
+      "investmentBillionsUsd": 0.07,
+      "publishedPapersThousands": 2.1,
+      "aiTalentPoolThousands": 29.3,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2017,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 14.3,
+      "investmentBillionsUsd": 0.18,
+      "publishedPapersThousands": 0.4,
+      "aiTalentPoolThousands": 2.7,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2018,
+      "country": "United States",
+      "aiIndexScore": 63.0,
+      "investmentBillionsUsd": 10.44,
+      "publishedPapersThousands": 20.5,
+      "aiTalentPoolThousands": 115.5,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2018,
+      "country": "China",
+      "aiIndexScore": 40.8,
+      "investmentBillionsUsd": 4.01,
+      "publishedPapersThousands": 27.8,
+      "aiTalentPoolThousands": 142.9,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2018,
+      "country": "United Kingdom",
+      "aiIndexScore": 31.8,
+      "investmentBillionsUsd": 1.27,
+      "publishedPapersThousands": 6.7,
+      "aiTalentPoolThousands": 27.4,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2018,
+      "country": "Germany",
+      "aiIndexScore": 28.8,
+      "investmentBillionsUsd": 0.83,
+      "publishedPapersThousands": 6.1,
+      "aiTalentPoolThousands": 23.7,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2018,
+      "country": "France",
+      "aiIndexScore": 26.8,
+      "investmentBillionsUsd": 0.68,
+      "publishedPapersThousands": 5.2,
+      "aiTalentPoolThousands": 20.1,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2018,
+      "country": "Japan",
+      "aiIndexScore": 31.9,
+      "investmentBillionsUsd": 1.02,
+      "publishedPapersThousands": 5.9,
+      "aiTalentPoolThousands": 26.9,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2018,
+      "country": "South Korea",
+      "aiIndexScore": 27.7,
+      "investmentBillionsUsd": 0.67,
+      "publishedPapersThousands": 4.9,
+      "aiTalentPoolThousands": 18.5,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2018,
+      "country": "Singapore",
+      "aiIndexScore": 24.0,
+      "investmentBillionsUsd": 0.26,
+      "publishedPapersThousands": 1.7,
+      "aiTalentPoolThousands": 5.7,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2018,
+      "country": "India",
+      "aiIndexScore": 17.7,
+      "investmentBillionsUsd": 0.49,
+      "publishedPapersThousands": 7.6,
+      "aiTalentPoolThousands": 155.6,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2018,
+      "country": "Canada",
+      "aiIndexScore": 25.9,
+      "investmentBillionsUsd": 0.69,
+      "publishedPapersThousands": 4.6,
+      "aiTalentPoolThousands": 16.3,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2018,
+      "country": "Israel",
+      "aiIndexScore": 24.4,
+      "investmentBillionsUsd": 0.85,
+      "publishedPapersThousands": 2.9,
+      "aiTalentPoolThousands": 10.7,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2018,
+      "country": "Australia",
+      "aiIndexScore": 18.3,
+      "investmentBillionsUsd": 0.32,
+      "publishedPapersThousands": 3.0,
+      "aiTalentPoolThousands": 11.9,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2018,
+      "country": "Brazil",
+      "aiIndexScore": 12.3,
+      "investmentBillionsUsd": 0.09,
+      "publishedPapersThousands": 2.4,
+      "aiTalentPoolThousands": 33.8,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2018,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 16.1,
+      "investmentBillionsUsd": 0.26,
+      "publishedPapersThousands": 0.5,
+      "aiTalentPoolThousands": 3.2,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2019,
+      "country": "United States",
+      "aiIndexScore": 64.1,
+      "investmentBillionsUsd": 12.52,
+      "publishedPapersThousands": 21.7,
+      "aiTalentPoolThousands": 124.1,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2019,
+      "country": "China",
+      "aiIndexScore": 42.1,
+      "investmentBillionsUsd": 5.04,
+      "publishedPapersThousands": 30.9,
+      "aiTalentPoolThousands": 157.4,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2019,
+      "country": "United Kingdom",
+      "aiIndexScore": 34.9,
+      "investmentBillionsUsd": 1.56,
+      "publishedPapersThousands": 7.5,
+      "aiTalentPoolThousands": 31.2,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2019,
+      "country": "Germany",
+      "aiIndexScore": 30.7,
+      "investmentBillionsUsd": 1.0,
+      "publishedPapersThousands": 6.7,
+      "aiTalentPoolThousands": 26.2,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2019,
+      "country": "France",
+      "aiIndexScore": 26.1,
+      "investmentBillionsUsd": 0.74,
+      "publishedPapersThousands": 5.2,
+      "aiTalentPoolThousands": 20.3,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2019,
+      "country": "Japan",
+      "aiIndexScore": 31.2,
+      "investmentBillionsUsd": 1.13,
+      "publishedPapersThousands": 5.9,
+      "aiTalentPoolThousands": 27.3,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2019,
+      "country": "South Korea",
+      "aiIndexScore": 27.2,
+      "investmentBillionsUsd": 0.74,
+      "publishedPapersThousands": 4.9,
+      "aiTalentPoolThousands": 18.9,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2019,
+      "country": "Singapore",
+      "aiIndexScore": 24.6,
+      "investmentBillionsUsd": 0.33,
+      "publishedPapersThousands": 1.9,
+      "aiTalentPoolThousands": 6.3,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2019,
+      "country": "India",
+      "aiIndexScore": 19.0,
+      "investmentBillionsUsd": 0.59,
+      "publishedPapersThousands": 8.3,
+      "aiTalentPoolThousands": 172.6,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2019,
+      "country": "Canada",
+      "aiIndexScore": 26.6,
+      "investmentBillionsUsd": 0.79,
+      "publishedPapersThousands": 4.9,
+      "aiTalentPoolThousands": 17.3,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2019,
+      "country": "Israel",
+      "aiIndexScore": 23.6,
+      "investmentBillionsUsd": 0.92,
+      "publishedPapersThousands": 2.8,
+      "aiTalentPoolThousands": 10.7,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2019,
+      "country": "Australia",
+      "aiIndexScore": 19.6,
+      "investmentBillionsUsd": 0.38,
+      "publishedPapersThousands": 3.4,
+      "aiTalentPoolThousands": 13.2,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2019,
+      "country": "Brazil",
+      "aiIndexScore": 12.5,
+      "investmentBillionsUsd": 0.1,
+      "publishedPapersThousands": 2.5,
+      "aiTalentPoolThousands": 35.6,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2019,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 17.3,
+      "investmentBillionsUsd": 0.35,
+      "publishedPapersThousands": 0.6,
+      "aiTalentPoolThousands": 3.8,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2020,
+      "country": "United States",
+      "aiIndexScore": 71.0,
+      "investmentBillionsUsd": 16.38,
+      "publishedPapersThousands": 24.9,
+      "aiTalentPoolThousands": 145.5,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2020,
+      "country": "China",
+      "aiIndexScore": 47.8,
+      "investmentBillionsUsd": 7.0,
+      "publishedPapersThousands": 37.9,
+      "aiTalentPoolThousands": 191.7,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2020,
+      "country": "United Kingdom",
+      "aiIndexScore": 35.4,
+      "investmentBillionsUsd": 1.78,
+      "publishedPapersThousands": 7.9,
+      "aiTalentPoolThousands": 32.9,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2020,
+      "country": "Germany",
+      "aiIndexScore": 32.3,
+      "investmentBillionsUsd": 1.18,
+      "publishedPapersThousands": 7.3,
+      "aiTalentPoolThousands": 28.6,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2020,
+      "country": "France",
+      "aiIndexScore": 27.2,
+      "investmentBillionsUsd": 0.87,
+      "publishedPapersThousands": 5.6,
+      "aiTalentPoolThousands": 21.9,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2020,
+      "country": "Japan",
+      "aiIndexScore": 33.3,
+      "investmentBillionsUsd": 1.35,
+      "publishedPapersThousands": 6.5,
+      "aiTalentPoolThousands": 30.3,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2020,
+      "country": "South Korea",
+      "aiIndexScore": 31.0,
+      "investmentBillionsUsd": 0.95,
+      "publishedPapersThousands": 5.8,
+      "aiTalentPoolThousands": 22.3,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2020,
+      "country": "Singapore",
+      "aiIndexScore": 26.8,
+      "investmentBillionsUsd": 0.45,
+      "publishedPapersThousands": 2.3,
+      "aiTalentPoolThousands": 7.4,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2020,
+      "country": "India",
+      "aiIndexScore": 18.7,
+      "investmentBillionsUsd": 0.66,
+      "publishedPapersThousands": 8.5,
+      "aiTalentPoolThousands": 177.4,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2020,
+      "country": "Canada",
+      "aiIndexScore": 27.7,
+      "investmentBillionsUsd": 0.93,
+      "publishedPapersThousands": 5.2,
+      "aiTalentPoolThousands": 18.7,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2020,
+      "country": "Israel",
+      "aiIndexScore": 26.7,
+      "investmentBillionsUsd": 1.18,
+      "publishedPapersThousands": 3.3,
+      "aiTalentPoolThousands": 12.7,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2020,
+      "country": "Australia",
+      "aiIndexScore": 21.2,
+      "investmentBillionsUsd": 0.47,
+      "publishedPapersThousands": 3.7,
+      "aiTalentPoolThousands": 14.9,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2020,
+      "country": "Brazil",
+      "aiIndexScore": 13.6,
+      "investmentBillionsUsd": 0.12,
+      "publishedPapersThousands": 2.8,
+      "aiTalentPoolThousands": 40.4,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2020,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 17.6,
+      "investmentBillionsUsd": 0.45,
+      "publishedPapersThousands": 0.7,
+      "aiTalentPoolThousands": 4.2,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2021,
+      "country": "United States",
+      "aiIndexScore": 70.3,
+      "investmentBillionsUsd": 19.24,
+      "publishedPapersThousands": 25.8,
+      "aiTalentPoolThousands": 153.2,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2021,
+      "country": "China",
+      "aiIndexScore": 47.3,
+      "investmentBillionsUsd": 8.5,
+      "publishedPapersThousands": 40.7,
+      "aiTalentPoolThousands": 203.9,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2021,
+      "country": "United Kingdom",
+      "aiIndexScore": 38.7,
+      "investmentBillionsUsd": 2.2,
+      "publishedPapersThousands": 8.9,
+      "aiTalentPoolThousands": 37.5,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2021,
+      "country": "Germany",
+      "aiIndexScore": 33.4,
+      "investmentBillionsUsd": 1.38,
+      "publishedPapersThousands": 7.8,
+      "aiTalentPoolThousands": 30.9,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2021,
+      "country": "France",
+      "aiIndexScore": 28.6,
+      "investmentBillionsUsd": 1.03,
+      "publishedPapersThousands": 6.1,
+      "aiTalentPoolThousands": 24.0,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2021,
+      "country": "Japan",
+      "aiIndexScore": 36.4,
+      "investmentBillionsUsd": 1.67,
+      "publishedPapersThousands": 7.4,
+      "aiTalentPoolThousands": 34.5,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2021,
+      "country": "South Korea",
+      "aiIndexScore": 29.8,
+      "investmentBillionsUsd": 1.03,
+      "publishedPapersThousands": 5.8,
+      "aiTalentPoolThousands": 22.4,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2021,
+      "country": "Singapore",
+      "aiIndexScore": 28.3,
+      "investmentBillionsUsd": 0.61,
+      "publishedPapersThousands": 2.7,
+      "aiTalentPoolThousands": 8.5,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2021,
+      "country": "India",
+      "aiIndexScore": 20.7,
+      "investmentBillionsUsd": 0.82,
+      "publishedPapersThousands": 9.6,
+      "aiTalentPoolThousands": 203.9,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2021,
+      "country": "Canada",
+      "aiIndexScore": 29.1,
+      "investmentBillionsUsd": 1.1,
+      "publishedPapersThousands": 5.7,
+      "aiTalentPoolThousands": 20.5,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2021,
+      "country": "Israel",
+      "aiIndexScore": 26.9,
+      "investmentBillionsUsd": 1.33,
+      "publishedPapersThousands": 3.4,
+      "aiTalentPoolThousands": 13.3,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2021,
+      "country": "Australia",
+      "aiIndexScore": 21.2,
+      "investmentBillionsUsd": 0.53,
+      "publishedPapersThousands": 3.9,
+      "aiTalentPoolThousands": 15.5,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2021,
+      "country": "Brazil",
+      "aiIndexScore": 13.2,
+      "investmentBillionsUsd": 0.13,
+      "publishedPapersThousands": 2.8,
+      "aiTalentPoolThousands": 40.8,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2021,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 19.2,
+      "investmentBillionsUsd": 0.62,
+      "publishedPapersThousands": 0.8,
+      "aiTalentPoolThousands": 5.0,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2022,
+      "country": "United States",
+      "aiIndexScore": 73.4,
+      "investmentBillionsUsd": 23.88,
+      "publishedPapersThousands": 28.1,
+      "aiTalentPoolThousands": 170.3,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2022,
+      "country": "China",
+      "aiIndexScore": 49.6,
+      "investmentBillionsUsd": 7.83,
+      "publishedPapersThousands": 46.5,
+      "aiTalentPoolThousands": 230.8,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2022,
+      "country": "United Kingdom",
+      "aiIndexScore": 39.6,
+      "investmentBillionsUsd": 2.54,
+      "publishedPapersThousands": 9.4,
+      "aiTalentPoolThousands": 40.1,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2022,
+      "country": "Germany",
+      "aiIndexScore": 34.3,
+      "investmentBillionsUsd": 1.6,
+      "publishedPapersThousands": 8.3,
+      "aiTalentPoolThousands": 33.1,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2022,
+      "country": "France",
+      "aiIndexScore": 32.5,
+      "investmentBillionsUsd": 1.33,
+      "publishedPapersThousands": 7.1,
+      "aiTalentPoolThousands": 28.5,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2022,
+      "country": "Japan",
+      "aiIndexScore": 36.6,
+      "investmentBillionsUsd": 1.89,
+      "publishedPapersThousands": 7.6,
+      "aiTalentPoolThousands": 36.2,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2022,
+      "country": "South Korea",
+      "aiIndexScore": 32.2,
+      "investmentBillionsUsd": 1.26,
+      "publishedPapersThousands": 6.4,
+      "aiTalentPoolThousands": 25.3,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2022,
+      "country": "Singapore",
+      "aiIndexScore": 31.3,
+      "investmentBillionsUsd": 0.85,
+      "publishedPapersThousands": 3.3,
+      "aiTalentPoolThousands": 10.3,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2022,
+      "country": "India",
+      "aiIndexScore": 20.2,
+      "investmentBillionsUsd": 0.91,
+      "publishedPapersThousands": 9.8,
+      "aiTalentPoolThousands": 208.4,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2022,
+      "country": "Canada",
+      "aiIndexScore": 31.0,
+      "investmentBillionsUsd": 1.32,
+      "publishedPapersThousands": 6.2,
+      "aiTalentPoolThousands": 22.8,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2022,
+      "country": "Israel",
+      "aiIndexScore": 29.4,
+      "investmentBillionsUsd": 1.65,
+      "publishedPapersThousands": 3.9,
+      "aiTalentPoolThousands": 15.1,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2022,
+      "country": "Australia",
+      "aiIndexScore": 23.6,
+      "investmentBillionsUsd": 0.66,
+      "publishedPapersThousands": 4.4,
+      "aiTalentPoolThousands": 18.0,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2022,
+      "country": "Brazil",
+      "aiIndexScore": 14.4,
+      "investmentBillionsUsd": 0.16,
+      "publishedPapersThousands": 3.1,
+      "aiTalentPoolThousands": 46.4,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2022,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 20.0,
+      "investmentBillionsUsd": 0.82,
+      "publishedPapersThousands": 1.0,
+      "aiTalentPoolThousands": 5.7,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2023,
+      "country": "United States",
+      "aiIndexScore": 83.6,
+      "investmentBillionsUsd": 22.44,
+      "publishedPapersThousands": 33.6,
+      "aiTalentPoolThousands": 207.0,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2023,
+      "country": "China",
+      "aiIndexScore": 56.3,
+      "investmentBillionsUsd": 9.47,
+      "publishedPapersThousands": 57.7,
+      "aiTalentPoolThousands": 284.0,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2023,
+      "country": "United Kingdom",
+      "aiIndexScore": 41.5,
+      "investmentBillionsUsd": 3.01,
+      "publishedPapersThousands": 10.2,
+      "aiTalentPoolThousands": 43.9,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2023,
+      "country": "Germany",
+      "aiIndexScore": 37.0,
+      "investmentBillionsUsd": 1.96,
+      "publishedPapersThousands": 9.3,
+      "aiTalentPoolThousands": 37.4,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2023,
+      "country": "France",
+      "aiIndexScore": 32.2,
+      "investmentBillionsUsd": 1.49,
+      "publishedPapersThousands": 7.3,
+      "aiTalentPoolThousands": 29.5,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2023,
+      "country": "Japan",
+      "aiIndexScore": 39.4,
+      "investmentBillionsUsd": 2.31,
+      "publishedPapersThousands": 8.5,
+      "aiTalentPoolThousands": 40.8,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2023,
+      "country": "South Korea",
+      "aiIndexScore": 35.0,
+      "investmentBillionsUsd": 1.54,
+      "publishedPapersThousands": 7.2,
+      "aiTalentPoolThousands": 28.6,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2023,
+      "country": "Singapore",
+      "aiIndexScore": 31.0,
+      "investmentBillionsUsd": 0.61,
+      "publishedPapersThousands": 3.7,
+      "aiTalentPoolThousands": 11.2,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2023,
+      "country": "India",
+      "aiIndexScore": 21.3,
+      "investmentBillionsUsd": 1.08,
+      "publishedPapersThousands": 10.7,
+      "aiTalentPoolThousands": 229.8,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2023,
+      "country": "Canada",
+      "aiIndexScore": 31.9,
+      "investmentBillionsUsd": 1.54,
+      "publishedPapersThousands": 6.6,
+      "aiTalentPoolThousands": 24.5,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2023,
+      "country": "Israel",
+      "aiIndexScore": 30.8,
+      "investmentBillionsUsd": 1.96,
+      "publishedPapersThousands": 4.2,
+      "aiTalentPoolThousands": 16.6,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2023,
+      "country": "Australia",
+      "aiIndexScore": 22.6,
+      "investmentBillionsUsd": 0.72,
+      "publishedPapersThousands": 4.4,
+      "aiTalentPoolThousands": 18.1,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2023,
+      "country": "Brazil",
+      "aiIndexScore": 15.3,
+      "investmentBillionsUsd": 0.19,
+      "publishedPapersThousands": 3.4,
+      "aiTalentPoolThousands": 51.5,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2023,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 22.0,
+      "investmentBillionsUsd": 0.65,
+      "publishedPapersThousands": 1.2,
+      "aiTalentPoolThousands": 6.8,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2024,
+      "country": "United States",
+      "aiIndexScore": 87.4,
+      "investmentBillionsUsd": 26.43,
+      "publishedPapersThousands": 36.9,
+      "aiTalentPoolThousands": 231.4,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2024,
+      "country": "China",
+      "aiIndexScore": 58.9,
+      "investmentBillionsUsd": 10.54,
+      "publishedPapersThousands": 66.0,
+      "aiTalentPoolThousands": 321.9,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2024,
+      "country": "United Kingdom",
+      "aiIndexScore": 44.6,
+      "investmentBillionsUsd": 3.67,
+      "publishedPapersThousands": 11.4,
+      "aiTalentPoolThousands": 49.4,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2024,
+      "country": "Germany",
+      "aiIndexScore": 35.6,
+      "investmentBillionsUsd": 2.13,
+      "publishedPapersThousands": 9.2,
+      "aiTalentPoolThousands": 37.6,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2024,
+      "country": "France",
+      "aiIndexScore": 32.2,
+      "investmentBillionsUsd": 1.69,
+      "publishedPapersThousands": 7.6,
+      "aiTalentPoolThousands": 30.9,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2024,
+      "country": "Japan",
+      "aiIndexScore": 41.2,
+      "investmentBillionsUsd": 2.74,
+      "publishedPapersThousands": 9.3,
+      "aiTalentPoolThousands": 44.7,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2024,
+      "country": "South Korea",
+      "aiIndexScore": 36.8,
+      "investmentBillionsUsd": 1.85,
+      "publishedPapersThousands": 7.9,
+      "aiTalentPoolThousands": 31.6,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2024,
+      "country": "Singapore",
+      "aiIndexScore": 32.6,
+      "investmentBillionsUsd": 0.76,
+      "publishedPapersThousands": 4.3,
+      "aiTalentPoolThousands": 13.0,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2024,
+      "country": "India",
+      "aiIndexScore": 23.2,
+      "investmentBillionsUsd": 1.33,
+      "publishedPapersThousands": 12.0,
+      "aiTalentPoolThousands": 261.4,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2024,
+      "country": "Canada",
+      "aiIndexScore": 33.7,
+      "investmentBillionsUsd": 1.85,
+      "publishedPapersThousands": 7.3,
+      "aiTalentPoolThousands": 27.2,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2024,
+      "country": "Israel",
+      "aiIndexScore": 29.5,
+      "investmentBillionsUsd": 2.12,
+      "publishedPapersThousands": 4.2,
+      "aiTalentPoolThousands": 16.6,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2024,
+      "country": "Australia",
+      "aiIndexScore": 25.7,
+      "investmentBillionsUsd": 0.93,
+      "publishedPapersThousands": 5.2,
+      "aiTalentPoolThousands": 21.5,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2024,
+      "country": "Brazil",
+      "aiIndexScore": 15.6,
+      "investmentBillionsUsd": 0.22,
+      "publishedPapersThousands": 3.6,
+      "aiTalentPoolThousands": 54.9,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2024,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 21.9,
+      "investmentBillionsUsd": 0.77,
+      "publishedPapersThousands": 1.3,
+      "aiTalentPoolThousands": 7.5,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2025,
+      "country": "United States",
+      "aiIndexScore": 83.7,
+      "investmentBillionsUsd": 28.62,
+      "publishedPapersThousands": 37.2,
+      "aiTalentPoolThousands": 237.8,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2025,
+      "country": "China",
+      "aiIndexScore": 58.0,
+      "investmentBillionsUsd": 11.1,
+      "publishedPapersThousands": 71.4,
+      "aiTalentPoolThousands": 345.1,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2025,
+      "country": "United Kingdom",
+      "aiIndexScore": 45.8,
+      "investmentBillionsUsd": 4.28,
+      "publishedPapersThousands": 12.1,
+      "aiTalentPoolThousands": 53.3,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2025,
+      "country": "Germany",
+      "aiIndexScore": 39.4,
+      "investmentBillionsUsd": 2.69,
+      "publishedPapersThousands": 10.6,
+      "aiTalentPoolThousands": 43.8,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2025,
+      "country": "France",
+      "aiIndexScore": 35.6,
+      "investmentBillionsUsd": 2.12,
+      "publishedPapersThousands": 8.7,
+      "aiTalentPoolThousands": 35.9,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2025,
+      "country": "Japan",
+      "aiIndexScore": 40.5,
+      "investmentBillionsUsd": 3.06,
+      "publishedPapersThousands": 9.5,
+      "aiTalentPoolThousands": 46.1,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2025,
+      "country": "South Korea",
+      "aiIndexScore": 35.1,
+      "investmentBillionsUsd": 2.0,
+      "publishedPapersThousands": 7.8,
+      "aiTalentPoolThousands": 31.7,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2025,
+      "country": "Singapore",
+      "aiIndexScore": 35.3,
+      "investmentBillionsUsd": 0.98,
+      "publishedPapersThousands": 5.3,
+      "aiTalentPoolThousands": 15.5,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2025,
+      "country": "India",
+      "aiIndexScore": 24.9,
+      "investmentBillionsUsd": 1.63,
+      "publishedPapersThousands": 13.4,
+      "aiTalentPoolThousands": 294.6,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2025,
+      "country": "Canada",
+      "aiIndexScore": 33.9,
+      "investmentBillionsUsd": 2.11,
+      "publishedPapersThousands": 7.6,
+      "aiTalentPoolThousands": 28.6,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2025,
+      "country": "Israel",
+      "aiIndexScore": 32.4,
+      "investmentBillionsUsd": 2.65,
+      "publishedPapersThousands": 4.8,
+      "aiTalentPoolThousands": 19.2,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2025,
+      "country": "Australia",
+      "aiIndexScore": 25.0,
+      "investmentBillionsUsd": 1.02,
+      "publishedPapersThousands": 5.3,
+      "aiTalentPoolThousands": 21.9,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2025,
+      "country": "Brazil",
+      "aiIndexScore": 16.2,
+      "investmentBillionsUsd": 0.27,
+      "publishedPapersThousands": 3.9,
+      "aiTalentPoolThousands": 60.1,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2025,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 22.4,
+      "investmentBillionsUsd": 0.93,
+      "publishedPapersThousands": 1.5,
+      "aiTalentPoolThousands": 8.4,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    },
+    {
+      "year": 2026,
+      "country": "United States",
+      "aiIndexScore": 100.0,
+      "investmentBillionsUsd": 34.37,
+      "publishedPapersThousands": 41.7,
+      "aiTalentPoolThousands": 271.0,
+      "primaryFocusArea": "Generative AI & Enterprise"
+    },
+    {
+      "year": 2026,
+      "country": "China",
+      "aiIndexScore": 58.9,
+      "investmentBillionsUsd": 12.07,
+      "publishedPapersThousands": 79.6,
+      "aiTalentPoolThousands": 381.8,
+      "primaryFocusArea": "Computer Vision & Smart City"
+    },
+    {
+      "year": 2026,
+      "country": "United Kingdom",
+      "aiIndexScore": 46.8,
+      "investmentBillionsUsd": 4.97,
+      "publishedPapersThousands": 12.9,
+      "aiTalentPoolThousands": 57.1,
+      "primaryFocusArea": "AI Ethics & Deep Learning"
+    },
+    {
+      "year": 2026,
+      "country": "Germany",
+      "aiIndexScore": 40.4,
+      "investmentBillionsUsd": 3.13,
+      "publishedPapersThousands": 11.4,
+      "aiTalentPoolThousands": 47.1,
+      "primaryFocusArea": "Industrial Automation & Robotics"
+    },
+    {
+      "year": 2026,
+      "country": "France",
+      "aiIndexScore": 36.0,
+      "investmentBillionsUsd": 2.43,
+      "publishedPapersThousands": 9.2,
+      "aiTalentPoolThousands": 38.1,
+      "primaryFocusArea": "Open Source Models & Math Foundations"
+    },
+    {
+      "year": 2026,
+      "country": "Japan",
+      "aiIndexScore": 41.2,
+      "investmentBillionsUsd": 3.54,
+      "publishedPapersThousands": 10.0,
+      "aiTalentPoolThousands": 49.3,
+      "primaryFocusArea": "Robotics & Hardware Integration"
+    },
+    {
+      "year": 2026,
+      "country": "South Korea",
+      "aiIndexScore": 39.4,
+      "investmentBillionsUsd": 2.55,
+      "publishedPapersThousands": 9.1,
+      "aiTalentPoolThousands": 37.2,
+      "primaryFocusArea": "Semiconductors & Electronics AI"
+    },
+    {
+      "year": 2026,
+      "country": "Singapore",
+      "aiIndexScore": 38.3,
+      "investmentBillionsUsd": 1.27,
+      "publishedPapersThousands": 6.4,
+      "aiTalentPoolThousands": 18.6,
+      "primaryFocusArea": "FinTech & GovTech Integration"
+    },
+    {
+      "year": 2026,
+      "country": "India",
+      "aiIndexScore": 24.3,
+      "investmentBillionsUsd": 1.8,
+      "publishedPapersThousands": 13.6,
+      "aiTalentPoolThousands": 301.6,
+      "primaryFocusArea": "IT Services & AI Talent Export"
+    },
+    {
+      "year": 2026,
+      "country": "Canada",
+      "aiIndexScore": 34.0,
+      "investmentBillionsUsd": 2.41,
+      "publishedPapersThousands": 8.0,
+      "aiTalentPoolThousands": 30.2,
+      "primaryFocusArea": "Reinforcement Learning & Health"
+    },
+    {
+      "year": 2026,
+      "country": "Israel",
+      "aiIndexScore": 34.2,
+      "investmentBillionsUsd": 3.18,
+      "publishedPapersThousands": 5.3,
+      "aiTalentPoolThousands": 21.3,
+      "primaryFocusArea": "Cybersecurity & Autonomous Tech"
+    },
+    {
+      "year": 2026,
+      "country": "Australia",
+      "aiIndexScore": 25.6,
+      "investmentBillionsUsd": 1.19,
+      "publishedPapersThousands": 5.6,
+      "aiTalentPoolThousands": 23.6,
+      "primaryFocusArea": "Mining & Climate Applications"
+    },
+    {
+      "year": 2026,
+      "country": "Brazil",
+      "aiIndexScore": 16.4,
+      "investmentBillionsUsd": 0.3,
+      "publishedPapersThousands": 4.1,
+      "aiTalentPoolThousands": 63.7,
+      "primaryFocusArea": "AgriTech & FinTech"
+    },
+    {
+      "year": 2026,
+      "country": "United Arab Emirates",
+      "aiIndexScore": 25.0,
+      "investmentBillionsUsd": 1.24,
+      "publishedPapersThousands": 1.9,
+      "aiTalentPoolThousands": 10.4,
+      "primaryFocusArea": "Sovereign LLMs & Smart Gov"
+    }
+  ],
+  "intelligence": [
+    {
+      "year": 2018,
+      "readingComprehension": 65.2,
+      "mathReasoning": 15.1,
+      "codeGeneration": 10.5,
+      "complexReasoningHumanityExam": 5.0
+    },
+    {
+      "year": 2019,
+      "readingComprehension": 72.4,
+      "mathReasoning": 22.3,
+      "codeGeneration": 15.0,
+      "complexReasoningHumanityExam": 8.2
+    },
+    {
+      "year": 2020,
+      "readingComprehension": 88.5,
+      "mathReasoning": 30.2,
+      "codeGeneration": 28.4,
+      "complexReasoningHumanityExam": 12.5
+    },
+    {
+      "year": 2021,
+      "readingComprehension": 94.1,
+      "mathReasoning": 42.6,
+      "codeGeneration": 41.2,
+      "complexReasoningHumanityExam": 18.0
+    },
+    {
+      "year": 2022,
+      "readingComprehension": 99.8,
+      "mathReasoning": 55.0,
+      "codeGeneration": 54.8,
+      "complexReasoningHumanityExam": 25.4
+    },
+    {
+      "year": 2023,
+      "readingComprehension": 102.3,
+      "mathReasoning": 71.4,
+      "codeGeneration": 68.2,
+      "complexReasoningHumanityExam": 42.1
+    },
+    {
+      "year": 2024,
+      "readingComprehension": 105.1,
+      "mathReasoning": 84.6,
+      "codeGeneration": 81.0,
+      "complexReasoningHumanityExam": 60.5
+    },
+    {
+      "year": 2025,
+      "readingComprehension": 108.4,
+      "mathReasoning": 92.3,
+      "codeGeneration": 91.5,
+      "complexReasoningHumanityExam": 85.2
+    },
+    {
+      "year": 2026,
+      "readingComprehension": 110.5,
+      "mathReasoning": 96.8,
+      "codeGeneration": 95.2,
+      "complexReasoningHumanityExam": 95.8
+    }
+  ]
+}

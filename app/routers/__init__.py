@@ -4,11 +4,13 @@ from fastapi import APIRouter
 
 from app.routers.modules import (
     ai_news,
+    ai_trends,
     attendance,
     chat,
     cobol_migrate,
     complaints,
     documents,
+    epoch,
     insight,
     meeting,
     my_agent,
@@ -40,4 +42,6 @@ def all_routers() -> tuple[APIRouter, ...]:
         zha_jinhua.router,
         llm_usage.router,
         error_logs.router,
+        epoch.router,
+        ai_trends.router,
     )

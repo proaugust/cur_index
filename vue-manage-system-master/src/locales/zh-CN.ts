@@ -18,7 +18,7 @@
         off: '关闭',
     },
     header: {
-        appTitle: 'AI功能演示',
+        appTitle: 'AI实验室',
         editHint: '点击图标编辑说明，保存后写入后端',
         theme: '设置主题',
         fullscreen: '全屏',
@@ -857,7 +857,7 @@
             resolveFailed: '更新状态失败',
         },
         login: {
-            title: 'AI功能演示',
+            title: 'AI实验室',
             username: '用户名',
             password: '密码',
             remember: '记住密码',

@@ -112,30 +112,31 @@ function parseCsv(raw: string): AiTrendRow[] {
 
 export const AI_TRENDS_DATA: AiTrendRow[] = parseCsv(csvRaw);
 
-function getYears(): number[] {
-    return [...new Set(AI_TRENDS_DATA.map((row) => row.year))].sort((a, b) => a - b);
+function getYears(data: AiTrendRow[] = AI_TRENDS_DATA): number[] {
+    return [...new Set(data.map((row) => row.year))].sort((a, b) => a - b);
 }
 
-function getCountries(): string[] {
-    const latest = AI_TRENDS_DATA.filter((row) => row.year === LATEST_YEAR)
+function getCountries(data: AiTrendRow[] = AI_TRENDS_DATA): string[] {
+    const latest = data.filter((row) => row.year === LATEST_YEAR)
         .sort((a, b) => b.aiIndexScore - a.aiIndexScore)
         .map((row) => row.country);
     return latest;
 }
 
-function rowsByYear(year: number): AiTrendRow[] {
-    return AI_TRENDS_DATA.filter((row) => row.year === year);
+function rowsByYear(data: AiTrendRow[], year: number): AiTrendRow[] {
+    return data.filter((row) => row.year === year);
 }
 
-function countryColor(country: string): string {
-    const countries = getCountries();
+function countryColor(data: AiTrendRow[], country: string): string {
+    const countries = getCountries(data);
     const index = countries.indexOf(country);
     return COUNTRY_COLORS[index >= 0 ? index : 0] ?? '#2d8cf0';
 }
 
-export function buildIndexTrendOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const years = getYears().map(String);
-    const countries = getCountries();
+export function buildIndexTrendOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
+    const data = customData || AI_TRENDS_DATA;
+    const years = getYears(data).map(String);
+    const countries = getCountries(data);
 
     return {
         tooltip: {
@@ -174,19 +175,20 @@ export function buildIndexTrendOption(texts: DashboardChartTexts = DEFAULT_CHART
             showSymbol: false,
             emphasis: { focus: 'series' },
             data: years.map((year) => {
-                const row = AI_TRENDS_DATA.find((item) => item.year === Number(year) && item.country === country);
+                const row = data.find((item) => item.year === Number(year) && item.country === country);
                 return row?.aiIndexScore ?? null;
             }),
         })),
     };
 }
 
-export function buildInvestmentBarRaceOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const years = getYears();
-    const maxInvestment = Math.ceil(Math.max(...AI_TRENDS_DATA.map((row) => row.investmentBillionsUsd)) * 1.1);
+export function buildInvestmentBarRaceOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
+    const data = customData || AI_TRENDS_DATA;
+    const years = getYears(data);
+    const maxInvestment = Math.ceil(Math.max(...data.map((row) => row.investmentBillionsUsd)) * 1.1);
 
     const buildFrame = (year: number) => {
-        const ranked = [...rowsByYear(year)].sort((a, b) => a.investmentBillionsUsd - b.investmentBillionsUsd);
+        const ranked = [...rowsByYear(data, year)].sort((a, b) => a.investmentBillionsUsd - b.investmentBillionsUsd);
 
         return {
             yAxis: {
@@ -203,7 +205,7 @@ export function buildInvestmentBarRaceOption(texts: DashboardChartTexts = DEFAUL
                     type: 'bar',
                     data: ranked.map((row) => ({
                         value: row.investmentBillionsUsd,
-                        itemStyle: { color: countryColor(row.country) },
+                        itemStyle: { color: countryColor(data, row.country) },
                     })),
                     label: {
                         show: true,
@@ -269,9 +271,10 @@ export function buildInvestmentBarRaceOption(texts: DashboardChartTexts = DEFAUL
     };
 }
 
-export function buildInvestmentPieOption(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const latest = [...rowsByYear(LATEST_YEAR)].sort((a, b) => b.investmentBillionsUsd - a.investmentBillionsUsd).slice(0, 6);
-    const othersInvestment = rowsByYear(LATEST_YEAR)
+export function buildInvestmentPieOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
+    const data = customData || AI_TRENDS_DATA;
+    const latest = [...rowsByYear(data, LATEST_YEAR)].sort((a, b) => b.investmentBillionsUsd - a.investmentBillionsUsd).slice(0, 6);
+    const othersInvestment = rowsByYear(data, LATEST_YEAR)
         .filter((row) => !latest.some((item) => item.country === row.country))
         .reduce((sum, row) => sum + row.investmentBillionsUsd, 0);
 
@@ -314,8 +317,9 @@ export function buildInvestmentPieOption(texts: DashboardChartTexts = DEFAULT_CH
     };
 }
 
-export function buildSummaryCards() {
-    const latest = rowsByYear(LATEST_YEAR);
+export function buildSummaryCards(customData?: AiTrendRow[]) {
+    const data = customData || AI_TRENDS_DATA;
+    const latest = rowsByYear(data, LATEST_YEAR);
     const totalInvestment = latest.reduce((sum, row) => sum + row.investmentBillionsUsd, 0);
     const totalPapers = latest.reduce((sum, row) => sum + row.publishedPapersThousands, 0);
     const avgScore = latest.reduce((sum, row) => sum + row.aiIndexScore, 0) / latest.length;
@@ -330,8 +334,9 @@ export function buildSummaryCards() {
     };
 }
 
-export function buildWorldMapOption(year: number = LATEST_YEAR, texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const rows = rowsByYear(year);
+export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LATEST_YEAR, texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
+    const data = customData || AI_TRENDS_DATA;
+    const rows = rowsByYear(data, year);
 
     type MapDataItem = {
         name: string;
@@ -435,8 +440,9 @@ export function buildWorldMapOption(year: number = LATEST_YEAR, texts: Dashboard
     };
 }
 
-export function buildRegionRanks(texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const latest = [...rowsByYear(LATEST_YEAR)].sort((a, b) => b.aiIndexScore - a.aiIndexScore).slice(0, 5);
+export function buildRegionRanks(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
+    const data = customData || AI_TRENDS_DATA;
+    const latest = [...rowsByYear(data, LATEST_YEAR)].sort((a, b) => b.aiIndexScore - a.aiIndexScore).slice(0, 5);
     const maxScore = latest[0]?.aiIndexScore ?? 100;
 
     return latest.map((row, index) => ({

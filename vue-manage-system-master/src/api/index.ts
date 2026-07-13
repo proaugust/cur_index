@@ -452,3 +452,9 @@ export const fetchAppErrorLogs = (params?: AppErrorLogQuery) =>
 
 export const patchAppErrorLogStatus = (errorId: number, status: 'open' | 'resolved') =>
     request.patch(`/error-logs/${errorId}/status`, { status });
+
+export const fetchEpochStats = () =>
+    request.get('/epoch/stats');
+
+export const fetchAiTrendsStats = () =>
+    request.get('/ai-trends/stats');

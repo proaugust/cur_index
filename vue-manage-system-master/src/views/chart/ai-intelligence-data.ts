@@ -40,9 +40,10 @@ function parseCsv(raw: string): AiIntelligenceRow[] {
 
 export const AI_INTELLIGENCE_DATA: AiIntelligenceRow[] = parseCsv(csvRaw);
 
-export function buildIntelligenceTrendOption(metricLabels?: Record<string, string>, abilityScoreLabel = '能力得分') {
+export function buildIntelligenceTrendOption(customData?: AiIntelligenceRow[], metricLabels?: Record<string, string>, abilityScoreLabel = '能力得分') {
+    const data = customData || AI_INTELLIGENCE_DATA;
     const labels = metricLabels ?? METRIC_LABELS;
-    const years = AI_INTELLIGENCE_DATA.map((row) => String(row.year));
+    const years = data.map((row) => String(row.year));
 
     return {
         tooltip: {
@@ -79,7 +80,7 @@ export function buildIntelligenceTrendOption(metricLabels?: Record<string, strin
             symbolSize: 6,
             showSymbol: true,
             emphasis: { focus: 'series' },
-            data: AI_INTELLIGENCE_DATA.map((row) => row[key]),
+            data: data.map((row) => row[key]),
         })),
     };
 }

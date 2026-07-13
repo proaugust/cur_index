@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 build/
 .git/
@@ -40,6 +40,7 @@ yarn.lock
 # 二进制模型与人脸权重（体积大，AI 无法理解）
 *.bin
 vue-manage-system-master/public/models/
+vue-manage-system-master/public/models/*.json
 data/
 
 # 大体积地理/图表数据
@@ -51,3 +52,9 @@ data/
 vue-manage-system-master/screenshots/
 auto-imports.d.ts
 components.d.ts
+**/*.map
+
+# 前端静态资源与大体积源文件（日常无需索引）
+vue-manage-system-master/src/assets/img/
+vue-manage-system-master/src/utils/china.ts
+vue-manage-system-master/src/locales/
