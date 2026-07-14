@@ -206,6 +206,7 @@ const documentChunkRowActions: ApiResultRowActions = {
     ],
 };
 
+/** 通用文档库（单表 documents）：导入 / 按文件查 / 检索 / 检索+LLM */
 export const documentEndpoints: ApiEndpoint[] = [
     {
         id: 'import',
@@ -349,11 +350,133 @@ export const documentEndpoints: ApiEndpoint[] = [
     },
 ];
 
+/** 业务知识库（物理分表）：导入 / 列表 / 文件 / 清空；检索见 CorporaBrowsePanel */
+export const corporaEndpoints: ApiEndpoint[] = [
+    {
+        id: 'corpora-import',
+        name: '资料库导入',
+        method: 'POST',
+        path: '/documents/corpora/import',
+        description: '按资料名写入物理分表；可上传单文件或填本机文件夹路径',
+        formParams: [
+            { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '如 FastAPI / 休假规则' },
+            { name: 'file', label: '文档文件', type: 'file' },
+            {
+                name: 'folder_path',
+                label: '本机文件夹',
+                type: 'string',
+                placeholder: '与文件二选一，如 D:/docs/fastapi',
+            },
+            { name: 'replace_existing', label: '覆盖同名文件', type: 'boolean', default: true },
+            {
+                name: 'chunk_strategy',
+                label: '切分策略',
+                type: 'string',
+                default: 'structure',
+                placeholder: 'structure 或 legacy',
+            },
+            {
+                name: 'max_chunk_len',
+                label: '最大块长度',
+                type: 'number',
+                default: 500,
+                min: 50,
+                max: 2000,
+            },
+            {
+                name: 'min_chunk_len',
+                label: '最小块长度',
+                type: 'number',
+                default: 300,
+                min: 20,
+                max: 1000,
+            },
+            {
+                name: 'chunk_overlap',
+                label: '块重叠长度',
+                type: 'number',
+                default: 80,
+                min: 0,
+                max: 500,
+            },
+            {
+                name: 'async_mode',
+                label: '异步导入',
+                type: 'boolean',
+                default: false,
+            },
+        ],
+    },
+    {
+        id: 'corpora-import-job',
+        name: '资料库导入任务',
+        method: 'GET',
+        path: '/documents/corpora/import/jobs/{job_id}',
+        description: '查询异步导入进度：pending/running/done/failed',
+        pathParams: [{ name: 'job_id', label: '任务 ID', type: 'string', required: true }],
+    },
+    {
+        id: 'corpora-list',
+        name: '资料库列表',
+        method: 'GET',
+        path: '/documents/corpora',
+        description: '列出已注册业务知识库及物理表名',
+        resultView: {
+            mode: 'table',
+            pageSize: 20,
+            columns: [
+                { prop: 'id', label: 'ID', width: 70 },
+                { prop: 'name', label: '资料名', minWidth: 120, showOverflowTooltip: true },
+                { prop: 'table_name', label: '物理表', minWidth: 160, showOverflowTooltip: true },
+                { prop: 'default_chunk_strategy', label: '默认切分', width: 100 },
+            ],
+        },
+    },
+    {
+        id: 'corpora-files',
+        name: '资料库文件',
+        method: 'GET',
+        path: '/documents/corpora/files',
+        description: '查询某资料库下已导入的文件名',
+        queryParams: [
+            { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '与导入时一致' },
+        ],
+        resultView: {
+            mode: 'table',
+            dataPath: 'files',
+            pageSize: 20,
+            highlightFields: [
+                { key: 'corpus_name', label: '资料名' },
+                { key: 'table_name', label: '物理表' },
+            ],
+            columns: [{ prop: 'source_file', label: '文件路径', minWidth: 280, showOverflowTooltip: true }],
+        },
+    },
+    {
+        id: 'corpora-clear',
+        name: '资料库清空',
+        method: 'DELETE',
+        path: '/documents/corpora',
+        description: '清空指定资料库全部切块数据；保留注册与物理表结构',
+        queryParams: [
+            { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '与导入时一致' },
+        ],
+    },
+];
+
 const DOCUMENT_EP_I18N_KEY: Record<string, string> = {
     import: 'import',
     listByFile: 'listByFile',
     search: 'search',
     'search-and-llm': 'searchAndLlm',
+};
+
+const CORPORA_EP_I18N_KEY: Record<string, string> = {
+    'corpora-import': 'corporaImport',
+    'corpora-import-job': 'corporaImportJob',
+    'corpora-list': 'corporaList',
+    'corpora-files': 'corporaFiles',
+    'corpora-clear': 'corporaClear',
 };
 
 const DOCUMENT_QUERY_EXAMPLE_IDS: Record<string, string[]> = {
@@ -395,9 +518,14 @@ const localizeRowActions = (actions: ApiResultRowActions, t: TranslateFn): ApiRe
     };
 };
 
-export function getDocumentEndpoints(t: TranslateFn, te?: (key: string) => boolean): ApiEndpoint[] {
-    return documentEndpoints.map((ep) => {
-        const epKey = DOCUMENT_EP_I18N_KEY[ep.id] ?? ep.id;
+function localizeRagEndpoints(
+    endpoints: ApiEndpoint[],
+    i18nKeyMap: Record<string, string>,
+    t: TranslateFn,
+    te?: (key: string) => boolean,
+): ApiEndpoint[] {
+    return endpoints.map((ep) => {
+        const epKey = i18nKeyMap[ep.id] ?? ep.id;
         const localized: ApiEndpoint = {
             ...ep,
             name: t(`pages.rag.tabs.${epKey}`),
@@ -440,6 +568,14 @@ export function getDocumentEndpoints(t: TranslateFn, te?: (key: string) => boole
 
         return localized;
     });
+}
+
+export function getDocumentEndpoints(t: TranslateFn, te?: (key: string) => boolean): ApiEndpoint[] {
+    return localizeRagEndpoints(documentEndpoints, DOCUMENT_EP_I18N_KEY, t, te);
+}
+
+export function getCorporaEndpoints(t: TranslateFn, te?: (key: string) => boolean): ApiEndpoint[] {
+    return localizeRagEndpoints(corporaEndpoints, CORPORA_EP_I18N_KEY, t, te);
 }
 
 export const meetingEndpoints: ApiEndpoint[] = [

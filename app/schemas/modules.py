@@ -39,6 +39,7 @@ class DocumentChunkRead(BaseModel):
     chunk_index: int
     content: str
     char_count: int
+    embedding_preview: str | None = Field(default=None, description="向量摘要，如 [0.01, …] ×512")
 
     model_config = {"from_attributes": True}
 
@@ -72,6 +73,7 @@ class DocumentSearchPolishedSource(BaseModel):
     content: str = Field(description="数据库中的原始文本片段")
     char_count: int
     similarity: float = Field(description="与查询的向量相似度，越高越相关")
+    embedding_preview: str | None = Field(default=None, description="向量摘要")
 
     model_config = {"from_attributes": True}
 

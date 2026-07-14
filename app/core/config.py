@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     embedding_model_name: str = "BAAI/bge-small-zh-v1.5"
     embedding_dim: int = 512
     embedding_query_instruction: str = "为这个句子生成表示以用于检索相关文章："
+    # auto：有 CUDA 用 gpu；也可强制 cpu / cuda。batch_size=0 按设备自适应
+    embedding_device: str = "auto"
+    embedding_batch_size: int = 0
     complaint_classify_threshold: float = 0.65
     complaint_name_dedupe_threshold: float = 0.85
     llm_api_base: str = "https://api.deepseek.com/v1"

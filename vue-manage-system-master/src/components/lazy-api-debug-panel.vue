@@ -21,7 +21,7 @@ import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
 import { usePermissStore } from '@/store/permiss';
 
 const props = defineProps<{
-    endpointKey: 'complaint' | 'document' | 'chat';
+    endpointKey: 'complaint' | 'document' | 'corpora' | 'chat';
     introPageKey?: string;
     intros?: FeatureIntroMap;
 }>();
@@ -33,6 +33,7 @@ const emit = defineEmits<{
 const MENU_CODE_MAP: Record<typeof props.endpointKey, string> = {
     complaint: '81',
     document: '82',
+    corpora: '82',
     chat: '83',
 };
 
@@ -55,6 +56,7 @@ const loadEndpoints = async () => {
     const map: Record<typeof props.endpointKey, ApiEndpoint[]> = {
         complaint: mod.complaintEndpoints,
         document: mod.getDocumentEndpoints(t, te),
+        corpora: mod.getCorporaEndpoints(t, te),
         chat: mod.chatEndpoints,
     };
     endpoints.value = map[props.endpointKey];

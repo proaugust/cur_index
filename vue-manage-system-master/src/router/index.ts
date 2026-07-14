@@ -88,7 +88,7 @@ const routes: RouteRecordRaw[] = [
                 name: 'demo-agent',
                 meta: {
                     titleKey: 'route.demoAgent',
-                    title: 'Agent 展示',
+                    title: 'agent测试',
                     permiss: '84',
                 },
                 component: () => import(/* webpackChunkName: "demo-agent" */ '../views/demo/agent.vue'),

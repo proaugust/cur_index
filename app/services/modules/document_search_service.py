@@ -129,7 +129,9 @@ class DocumentSearchService:
             )
 
         user_prompt = f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n" + "\n\n".join(context_blocks)
-        polished_answer = chat_completion(_SYSTEM_PROMPT, user_prompt, temperature=0.5, caller="rag.search_and_llm")
+        polished_answer = chat_completion(
+            _SYSTEM_PROMPT, user_prompt, temperature=0.5, disable_thinking=True, caller="rag.search_and_llm"
+        )
 
         return schemas.DocumentSearchPolishedResult(
             query=query, polished_answer=polished_answer, source_count=len(original_sources), original_sources=original_sources

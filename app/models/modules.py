@@ -20,12 +20,25 @@ class DocumentChunk(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source_file: Mapped[str] = mapped_column(String(500), index=True)
-    section_title: Mapped[str] = mapped_column(String(200), default="")
-    section_path: Mapped[str] = mapped_column(String(200), default="")
+    section_title: Mapped[str] = mapped_column(String(500), default="")
+    section_path: Mapped[str] = mapped_column(String(500), default="")
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     char_count: Mapped[int] = mapped_column(Integer)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(512), nullable=True)
+
+
+class DocumentCorpus(Base):
+    """业务知识库注册表：资料名 → 物理切块表 document_{slug}_chunk。"""
+
+    __tablename__ = "document_corpora"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    table_slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    table_name: Mapped[str] = mapped_column(String(80), unique=True)
+    default_chunk_strategy: Mapped[str] = mapped_column(String(32), default="structure")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"))
 
 
 class ComplaintCategory(Base):

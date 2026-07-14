@@ -194,6 +194,29 @@ export const updateDocumentChunk = (
 export const deleteDocumentChunk = (chunkId: number) =>
     request.delete(`/documents/chunks/${chunkId}`);
 
+/** 业务知识库：检索 / 检索+LLM / 清空切块 */
+export const searchCorpus = (params: {
+    corpus_name: string;
+    q?: string;
+    limit?: number;
+    min_similarity?: number;
+    source_file?: string;
+    retrieve_mode?: string;
+    expand_parent?: boolean;
+}) => request.get('/documents/corpora/search', { params });
+
+export const searchCorpusAndLlm = (params: {
+    corpus_name: string;
+    q?: string;
+    limit?: number;
+    min_similarity?: number;
+    retrieve_mode?: string;
+    expand_parent?: boolean;
+}) => request.get('/documents/corpora/search_and_llm', { params });
+
+export const clearCorpus = (params: { corpus_name: string }) =>
+    request.delete('/documents/corpora', { params });
+
 // --- meeting ---
 export const organizeMeeting = (data: { text: string; style?: 'concise' | 'formal'; temperature?: number }) =>
     request.post('/meeting/organize', data);
