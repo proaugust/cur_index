@@ -87,6 +87,9 @@
     pages: {
         aiNews: {
             title: 'AI ニュースナビ',
+            tabEpoch: 'Epoch AI ボード',
+            tabLinks: 'ニュースナビ',
+            hfTrending: 'Hugging Face Trending Papers',
             intro: '国内外の主要 AI ニュースサイトです。URL を貼り付けると海外/国内欄に自動分類されます。左の ≡ で並べ替え・移動、↑ で先頭に固定。お気に入り・並び順はログインアカウントに同期されます。',
             sectionInternational: '海外',
             sectionDomestic: '国内',

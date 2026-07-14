@@ -86,9 +86,9 @@ SYSTEM_PRESETS: list[AiNewsPreset] = [
     },
     {
         "slug": "huggingfacePapers",
-        "url": "https://huggingface.co/papers",
-        "name": "Hugging Face Papers",
-        "description": "每日热门 AI 论文精选",
+        "url": "https://huggingface.co/papers/trending",
+        "name": "Hugging Face Trending Papers",
+        "description": "社区热门 AI 论文榜单",
         "region": "international",
         "icon": "https://huggingface.co/favicon.ico",
         "letter": "P",

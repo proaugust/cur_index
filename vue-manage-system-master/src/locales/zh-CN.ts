@@ -87,6 +87,9 @@
     pages: {
         aiNews: {
             title: 'AI 资讯导航',
+            tabEpoch: 'Epoch AI 看板',
+            tabLinks: '资讯导航',
+            hfTrending: 'Hugging Face Trending Papers',
             intro: '以下为国内外常用 AI 资讯站点。可粘贴链接新增站点，系统会自动归入国外或国内栏目；拖动左侧把手可排序或移到其它栏目，↑ 可置顶。所有偏好（含收藏与排序）均同步到当前登录账号。',
             sectionInternational: '国外',
             sectionDomestic: '国内',

@@ -1,5 +1,5 @@
 <template>
-    <div class="container ai-news-page" v-loading="prefsLoading">
+    <div class="container ai-news-page">
         <el-card shadow="hover">
             <template #header>
                 <div class="page-header">
@@ -7,166 +7,187 @@
                 </div>
             </template>
 
-            <p class="page-intro">{{ t('pages.aiNews.intro') }}</p>
+            <el-tabs v-model="activeTab" type="border-card" class="ai-news-tabs">
+                <el-tab-pane :label="t('pages.aiNews.tabEpoch')" name="epoch" lazy>
+                    <EpochAiBoard />
+                </el-tab-pane>
 
-            <div class="add-bar">
-                <el-input
-                    v-model="urlInput"
-                    :placeholder="t('pages.aiNews.addPlaceholder')"
-                    clearable
-                    @keyup.enter="onAddUrl"
-                />
-                <el-button type="primary" :disabled="!urlInput.trim()" @click="onAddUrl">
-                    {{ t('pages.aiNews.add') }}
-                </el-button>
-            </div>
+                <el-tab-pane :label="t('pages.aiNews.tabLinks')" name="links" lazy>
+                    <div v-loading="prefsLoading">
+                        <p class="page-intro">{{ t('pages.aiNews.intro') }}</p>
 
-            <p class="drag-hint">{{ t('pages.aiNews.dragHint') }}</p>
+                        <p class="quick-links">
+                            <el-link
+                                type="primary"
+                                href="https://huggingface.co/papers/trending"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {{ t('pages.aiNews.hfTrending') }}
+                            </el-link>
+                        </p>
 
-            <el-row :gutter="20" class="columns-row">
-                <el-col :xs="24" :md="8">
-                    <div
-                        class="link-section panel-box"
-                        :class="{ 'panel-box--drop': dragOverColumn === 'international' }"
-                        @dragover.prevent="onColumnDragOver('international')"
-                        @dragleave="onColumnDragLeave('international')"
-                        @drop.prevent="(event) => onColumnDrop('international', internationalLinks.length, event)"
-                    >
-                        <div class="section-label">{{ t('pages.aiNews.sectionInternational') }}</div>
-                        <div class="link-list">
-                            <div
-                                v-for="(item, index) in internationalLinks"
-                                :key="item.stableKey"
-                                class="link-item-wrapper"
-                                :class="{
-                                    'link-item-wrapper--insert-before': isInsertBefore('international', index),
-                                    'link-item-wrapper--insert-after': isInsertAfter('international', index),
-                                }"
-                                @dragover.prevent="onItemDragOver('international', index, $event)"
-                                @drop.prevent.stop="(event) => onColumnDrop('international', index, event)"
-                            >
-                                <LinkCard
-                                    :item="item"
-                                    :name="item.name"
-                                    :desc="item.description || item.url"
-                                    :favorited="isFavoriteItem(item)"
-                                    column="international"
-                                    :index="index"
-                                    @open="openLink"
-                                    @delete="onDeleteLink"
-                                    @favorite="onToggleFavorite"
-                                    @pin-top="onPinTop('international', $event)"
-                                    @drag-end="clearDragState"
-                                />
-                            </div>
-                            <div
-                                v-if="!internationalLinks.length"
-                                class="empty-hint"
-                                @dragover.prevent="onColumnDragOver('international')"
-                                @drop.prevent="(event) => onColumnDrop('international', 0, event)"
-                            >
-                                {{ t('pages.aiNews.emptySection') }}
-                            </div>
+                        <div class="add-bar">
+                            <el-input
+                                v-model="urlInput"
+                                :placeholder="t('pages.aiNews.addPlaceholder')"
+                                clearable
+                                @keyup.enter="onAddUrl"
+                            />
+                            <el-button type="primary" :disabled="!urlInput.trim()" @click="onAddUrl">
+                                {{ t('pages.aiNews.add') }}
+                            </el-button>
                         </div>
+
+                        <p class="drag-hint">{{ t('pages.aiNews.dragHint') }}</p>
+
+                        <el-row :gutter="20" class="columns-row">
+                            <el-col :xs="24" :md="8">
+                                <div
+                                    class="link-section panel-box"
+                                    :class="{ 'panel-box--drop': dragOverColumn === 'international' }"
+                                    @dragover.prevent="onColumnDragOver('international')"
+                                    @dragleave="onColumnDragLeave('international')"
+                                    @drop.prevent="(event) => onColumnDrop('international', internationalLinks.length, event)"
+                                >
+                                    <div class="section-label">{{ t('pages.aiNews.sectionInternational') }}</div>
+                                    <div class="link-list">
+                                        <div
+                                            v-for="(item, index) in internationalLinks"
+                                            :key="item.stableKey"
+                                            class="link-item-wrapper"
+                                            :class="{
+                                                'link-item-wrapper--insert-before': isInsertBefore('international', index),
+                                                'link-item-wrapper--insert-after': isInsertAfter('international', index),
+                                            }"
+                                            @dragover.prevent="onItemDragOver('international', index, $event)"
+                                            @drop.prevent.stop="(event) => onColumnDrop('international', index, event)"
+                                        >
+                                            <LinkCard
+                                                :item="item"
+                                                :name="item.name"
+                                                :desc="item.description || item.url"
+                                                :favorited="isFavoriteItem(item)"
+                                                column="international"
+                                                :index="index"
+                                                @open="openLink"
+                                                @delete="onDeleteLink"
+                                                @favorite="onToggleFavorite"
+                                                @pin-top="onPinTop('international', $event)"
+                                                @drag-end="clearDragState"
+                                            />
+                                        </div>
+                                        <div
+                                            v-if="!internationalLinks.length"
+                                            class="empty-hint"
+                                            @dragover.prevent="onColumnDragOver('international')"
+                                            @drop.prevent="(event) => onColumnDrop('international', 0, event)"
+                                        >
+                                            {{ t('pages.aiNews.emptySection') }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-col>
+                            <el-col :xs="24" :md="8">
+                                <div
+                                    class="link-section panel-box"
+                                    :class="{ 'panel-box--drop': dragOverColumn === 'domestic' }"
+                                    @dragover.prevent="onColumnDragOver('domestic')"
+                                    @dragleave="onColumnDragLeave('domestic')"
+                                    @drop.prevent="(event) => onColumnDrop('domestic', domesticLinks.length, event)"
+                                >
+                                    <div class="section-label">{{ t('pages.aiNews.sectionDomestic') }}</div>
+                                    <div class="link-list">
+                                        <div
+                                            v-for="(item, index) in domesticLinks"
+                                            :key="item.stableKey"
+                                            class="link-item-wrapper"
+                                            :class="{
+                                                'link-item-wrapper--insert-before': isInsertBefore('domestic', index),
+                                                'link-item-wrapper--insert-after': isInsertAfter('domestic', index),
+                                            }"
+                                            @dragover.prevent="onItemDragOver('domestic', index, $event)"
+                                            @drop.prevent.stop="(event) => onColumnDrop('domestic', index, event)"
+                                        >
+                                            <LinkCard
+                                                :item="item"
+                                                :name="item.name"
+                                                :desc="item.description || item.url"
+                                                :favorited="isFavoriteItem(item)"
+                                                column="domestic"
+                                                :index="index"
+                                                @open="openLink"
+                                                @delete="onDeleteLink"
+                                                @favorite="onToggleFavorite"
+                                                @pin-top="onPinTop('domestic', $event)"
+                                                @drag-end="clearDragState"
+                                            />
+                                        </div>
+                                        <div
+                                            v-if="!domesticLinks.length"
+                                            class="empty-hint"
+                                            @dragover.prevent="onColumnDragOver('domestic')"
+                                            @drop.prevent="(event) => onColumnDrop('domestic', 0, event)"
+                                        >
+                                            {{ t('pages.aiNews.emptySection') }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-col>
+                            <el-col :xs="24" :md="8">
+                                <div
+                                    class="favorites-panel panel-box"
+                                    :class="{ 'panel-box--drop': dragOverColumn === 'favorites' }"
+                                    @dragover.prevent="onColumnDragOver('favorites')"
+                                    @dragleave="onColumnDragLeave('favorites')"
+                                    @drop.prevent="(event) => onColumnDrop('favorites', favoriteLinks.length, event)"
+                                >
+                                    <div class="section-label">
+                                        <el-icon class="fav-icon"><Star /></el-icon>
+                                        {{ t('pages.aiNews.favorites') }}
+                                    </div>
+                                    <p class="fav-hint">{{ t('pages.aiNews.favoritesHint') }}</p>
+                                    <div class="link-list link-list--grow">
+                                        <div
+                                            v-for="(item, index) in favoriteLinks"
+                                            :key="item.stableKey"
+                                            class="link-item-wrapper"
+                                            :class="{
+                                                'link-item-wrapper--insert-before': isInsertBefore('favorites', index),
+                                                'link-item-wrapper--insert-after': isInsertAfter('favorites', index),
+                                            }"
+                                            @dragover.prevent="onItemDragOver('favorites', index, $event)"
+                                            @drop.prevent.stop="(event) => onColumnDrop('favorites', index, event)"
+                                        >
+                                            <LinkCard
+                                                :item="item"
+                                                :name="item.name"
+                                                :desc="displayDescForFavorites(item)"
+                                                :favorited="true"
+                                                column="favorites"
+                                                :index="index"
+                                                @open="openLink"
+                                                @delete="onRemoveFavorite"
+                                                @favorite="onRemoveFavorite"
+                                                @pin-top="onPinTop('favorites', $event)"
+                                                @drag-end="clearDragState"
+                                            />
+                                        </div>
+                                        <div
+                                            v-if="!favoriteLinks.length"
+                                            class="fav-empty fav-empty--grow"
+                                            @dragover.prevent="onColumnDragOver('favorites')"
+                                            @drop.prevent="(event) => onColumnDrop('favorites', 0, event)"
+                                        >
+                                            {{ t('pages.aiNews.favoritesEmpty') }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-col>
+                        </el-row>
                     </div>
-                </el-col>
-                <el-col :xs="24" :md="8">
-                    <div
-                        class="link-section panel-box"
-                        :class="{ 'panel-box--drop': dragOverColumn === 'domestic' }"
-                        @dragover.prevent="onColumnDragOver('domestic')"
-                        @dragleave="onColumnDragLeave('domestic')"
-                        @drop.prevent="(event) => onColumnDrop('domestic', domesticLinks.length, event)"
-                    >
-                        <div class="section-label">{{ t('pages.aiNews.sectionDomestic') }}</div>
-                        <div class="link-list">
-                            <div
-                                v-for="(item, index) in domesticLinks"
-                                :key="item.stableKey"
-                                class="link-item-wrapper"
-                                :class="{
-                                    'link-item-wrapper--insert-before': isInsertBefore('domestic', index),
-                                    'link-item-wrapper--insert-after': isInsertAfter('domestic', index),
-                                }"
-                                @dragover.prevent="onItemDragOver('domestic', index, $event)"
-                                @drop.prevent.stop="(event) => onColumnDrop('domestic', index, event)"
-                            >
-                                <LinkCard
-                                    :item="item"
-                                    :name="item.name"
-                                    :desc="item.description || item.url"
-                                    :favorited="isFavoriteItem(item)"
-                                    column="domestic"
-                                    :index="index"
-                                    @open="openLink"
-                                    @delete="onDeleteLink"
-                                    @favorite="onToggleFavorite"
-                                    @pin-top="onPinTop('domestic', $event)"
-                                    @drag-end="clearDragState"
-                                />
-                            </div>
-                            <div
-                                v-if="!domesticLinks.length"
-                                class="empty-hint"
-                                @dragover.prevent="onColumnDragOver('domestic')"
-                                @drop.prevent="(event) => onColumnDrop('domestic', 0, event)"
-                            >
-                                {{ t('pages.aiNews.emptySection') }}
-                            </div>
-                        </div>
-                    </div>
-                </el-col>
-                <el-col :xs="24" :md="8">
-                    <div
-                        class="favorites-panel panel-box"
-                        :class="{ 'panel-box--drop': dragOverColumn === 'favorites' }"
-                        @dragover.prevent="onColumnDragOver('favorites')"
-                        @dragleave="onColumnDragLeave('favorites')"
-                        @drop.prevent="(event) => onColumnDrop('favorites', favoriteLinks.length, event)"
-                    >
-                        <div class="section-label">
-                            <el-icon class="fav-icon"><Star /></el-icon>
-                            {{ t('pages.aiNews.favorites') }}
-                        </div>
-                        <p class="fav-hint">{{ t('pages.aiNews.favoritesHint') }}</p>
-                        <div class="link-list link-list--grow">
-                            <div
-                                v-for="(item, index) in favoriteLinks"
-                                :key="item.stableKey"
-                                class="link-item-wrapper"
-                                :class="{
-                                    'link-item-wrapper--insert-before': isInsertBefore('favorites', index),
-                                    'link-item-wrapper--insert-after': isInsertAfter('favorites', index),
-                                }"
-                                @dragover.prevent="onItemDragOver('favorites', index, $event)"
-                                @drop.prevent.stop="(event) => onColumnDrop('favorites', index, event)"
-                            >
-                                <LinkCard
-                                    :item="item"
-                                    :name="item.name"
-                                    :desc="displayDescForFavorites(item)"
-                                    :favorited="true"
-                                    column="favorites"
-                                    :index="index"
-                                    @open="openLink"
-                                    @delete="onRemoveFavorite"
-                                    @favorite="onRemoveFavorite"
-                                    @pin-top="onPinTop('favorites', $event)"
-                                    @drag-end="clearDragState"
-                                />
-                            </div>
-                            <div
-                                v-if="!favoriteLinks.length"
-                                class="fav-empty fav-empty--grow"
-                                @dragover.prevent="onColumnDragOver('favorites')"
-                                @drop.prevent="(event) => onColumnDrop('favorites', 0, event)"
-                            >
-                                {{ t('pages.aiNews.favoritesEmpty') }}
-                            </div>
-                        </div>
-                    </div>
-                </el-col>
-            </el-row>
+                </el-tab-pane>
+            </el-tabs>
         </el-card>
     </div>
 </template>
@@ -184,8 +205,10 @@ import {
     useAiNewsBoard,
 } from './ai-news-links-store';
 import LinkCard from './ai-news-link-card.vue';
+import EpochAiBoard from './epoch-ai-board.vue';
 
 const { t } = useI18n();
+const activeTab = ref('epoch');
 const {
     internationalLinks,
     domesticLinks,
@@ -339,6 +362,10 @@ const onToggleFavorite = (item: ResolvedLink) => {
     width: 100%;
 }
 
+.ai-news-tabs {
+    border-radius: 6px;
+}
+
 .page-header {
     display: flex;
     align-items: center;
@@ -355,6 +382,11 @@ const onToggleFavorite = (item: ResolvedLink) => {
     font-size: 14px;
     color: #666;
     line-height: 1.6;
+}
+
+.quick-links {
+    margin: 0 0 12px;
+    font-size: 13px;
 }
 
 .drag-hint {
