@@ -1,9 +1,8 @@
-"""业务知识库导入：资料名 → 物理表，支持单文件 / 本机文件夹。"""
+"""业务知识库导入：资料名 → 物理表，支持单文件 / zip / 本机文件夹。"""
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -16,6 +15,7 @@ from app.services.modules.chunk_table_ops import (
     drop_hnsw_index,
     refresh_search_vectors,
 )
+from app.services.modules.corpus_import_io import read_folder_texts, read_zip_texts
 from app.services.modules.corpus_retrieve import chunk_embed_text
 from app.services.shared.embedding import embed_texts
 from app.services.shared.structure_chunker import (
@@ -27,7 +27,6 @@ from app.services.shared.structure_chunker import (
 )
 from app.services.shared.text_chunker import chunk_document, parse_sections
 
-_TEXT_SUFFIXES = {".md", ".markdown", ".txt"}
 ProgressCb = Callable[[int, int], None]
 
 
@@ -134,6 +133,33 @@ class CorpusImportService:
             details=details,
         )
 
+    def _prepare_chunked(
+        self,
+        items: list[tuple[str, str]],
+        *,
+        chunk_strategy: str,
+        min_chunk_len: int,
+        max_chunk_len: int,
+        chunk_overlap: int,
+        on_progress: ProgressCb | None,
+    ) -> list[tuple[str, int, list]]:
+        prepared: list[tuple[str, int, list]] = []
+        total = len(items)
+        for i, (source_file, text) in enumerate(items, start=1):
+            chunks, section_count = self._chunk_text(
+                text,
+                strategy=chunk_strategy,
+                min_chunk_len=min_chunk_len,
+                max_chunk_len=max_chunk_len,
+                chunk_overlap=chunk_overlap,
+            )
+            if not chunks:
+                raise HTTPException(status_code=400, detail=f"未解析到有效文本块: {source_file}")
+            prepared.append((source_file, section_count, chunks))
+            if on_progress:
+                on_progress(i, total)
+        return prepared
+
     def import_text(
         self,
         text: str,
@@ -166,50 +192,30 @@ class CorpusImportService:
         )
         return result.details[0]
 
-    def import_folder(
+    def _import_items(
         self,
-        folder_path: str,
+        items: list[tuple[str, str]],
         *,
         corpus_name: str,
-        replace_existing: bool = True,
-        chunk_strategy: str = "structure",
-        min_chunk_len: int = DEFAULT_MIN_CHUNK,
-        max_chunk_len: int = DEFAULT_MAX_CHUNK,
-        chunk_overlap: int = DEFAULT_OVERLAP,
-        on_progress: ProgressCb | None = None,
+        replace_existing: bool,
+        chunk_strategy: str,
+        min_chunk_len: int,
+        max_chunk_len: int,
+        chunk_overlap: int,
+        on_progress: ProgressCb | None,
     ) -> schemas.CorpusImportResult:
         self._validate_import(corpus_name, chunk_strategy, min_chunk_len, max_chunk_len)
-        root = Path(folder_path)
-        if not root.is_dir():
-            raise HTTPException(status_code=400, detail=f"文件夹不存在: {folder_path}")
-
-        files = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _TEXT_SUFFIXES)
-        if not files:
-            raise HTTPException(status_code=400, detail="文件夹内没有 .md / .txt 文件")
-
         corpus = corpus_crud.get_or_create_corpus(
             self.db, corpus_name.strip(), default_chunk_strategy=chunk_strategy
         )
-        prepared: list[tuple[str, int, list]] = []
-        total = len(files)
-        for i, path in enumerate(files, start=1):
-            try:
-                text = path.read_text(encoding="utf-8-sig")
-            except UnicodeDecodeError as exc:
-                raise HTTPException(status_code=400, detail=f"文件编码必须是 UTF-8: {path}") from exc
-            chunks, section_count = self._chunk_text(
-                text,
-                strategy=chunk_strategy,
-                min_chunk_len=min_chunk_len,
-                max_chunk_len=max_chunk_len,
-                chunk_overlap=chunk_overlap,
-            )
-            if not chunks:
-                raise HTTPException(status_code=400, detail=f"未解析到有效文本块: {path}")
-            prepared.append((str(path.resolve()), section_count, chunks))
-            if on_progress:
-                on_progress(i, total)
-
+        prepared = self._prepare_chunked(
+            items,
+            chunk_strategy=chunk_strategy,
+            min_chunk_len=min_chunk_len,
+            max_chunk_len=max_chunk_len,
+            chunk_overlap=chunk_overlap,
+            on_progress=on_progress,
+        )
         return self._embed_and_persist(corpus, prepared, replace_existing=replace_existing)
 
     def import_upload_or_folder(
@@ -224,21 +230,24 @@ class CorpusImportService:
         min_chunk_len: int,
         max_chunk_len: int,
         chunk_overlap: int,
+        file_bytes: bytes | None = None,
         on_progress: ProgressCb | None = None,
     ) -> schemas.CorpusImportResult:
+        kw = dict(
+            corpus_name=corpus_name,
+            replace_existing=replace_existing,
+            chunk_strategy=chunk_strategy,
+            min_chunk_len=min_chunk_len,
+            max_chunk_len=max_chunk_len,
+            chunk_overlap=chunk_overlap,
+            on_progress=on_progress,
+        )
         if folder_path and folder_path.strip():
-            return self.import_folder(
-                folder_path.strip(),
-                corpus_name=corpus_name,
-                replace_existing=replace_existing,
-                chunk_strategy=chunk_strategy,
-                min_chunk_len=min_chunk_len,
-                max_chunk_len=max_chunk_len,
-                chunk_overlap=chunk_overlap,
-                on_progress=on_progress,
-            )
+            return self._import_items(read_folder_texts(folder_path.strip()), **kw)
+        if file_bytes is not None and file_name:
+            return self._import_items(read_zip_texts(file_bytes), **kw)
         if file_text is None or not file_name:
-            raise HTTPException(status_code=400, detail="请上传文件，或填写本机 folder_path")
+            raise HTTPException(status_code=400, detail="请上传 .md/.txt/.zip，或填写本机 folder_path")
         one = self.import_text(
             file_text,
             corpus_name=corpus_name,

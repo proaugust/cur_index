@@ -357,15 +357,15 @@ export const corporaEndpoints: ApiEndpoint[] = [
         name: '资料库导入',
         method: 'POST',
         path: '/documents/corpora/import',
-        description: '按资料名写入物理分表；可上传单文件或填本机文件夹路径',
+        description: '按资料名写入物理分表；可上传 .md/.txt、.zip，或填本机文件夹路径',
         formParams: [
             { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '如 FastAPI / 休假规则' },
-            { name: 'file', label: '文档文件', type: 'file' },
+            { name: 'file', label: '文档/.zip', type: 'file' },
             {
                 name: 'folder_path',
                 label: '本机文件夹',
                 type: 'string',
-                placeholder: '与文件二选一，如 D:/docs/fastapi',
+                placeholder: '可选；如 D:/docs/fastapi',
             },
             { name: 'replace_existing', label: '覆盖同名文件', type: 'boolean', default: true },
             {

@@ -57,7 +57,10 @@ def get_corpus_import_job(
 async def import_corpus(
     background_tasks: BackgroundTasks,
     corpus_name: str = Form(..., description="资料名（相同则入同一物理表）"),
-    file: UploadFile | None = File(default=None, description="单文件上传（与 folder_path 二选一）"),
+    file: UploadFile | None = File(
+        default=None,
+        description="单文件 .md/.txt 或 .zip（与 folder_path 三选一）",
+    ),
     folder_path: str | None = Form(default=None, description="本机文件夹绝对路径"),
     replace_existing: bool = Form(True, description="覆盖同文件名已有切块"),
     chunk_strategy: str = Form("structure", description="structure | legacy"),
@@ -70,18 +73,23 @@ async def import_corpus(
 ) -> Union[schemas.CorpusImportResult, schemas.CorpusImportJobAccepted]:
     file_name = None
     file_text = None
+    file_bytes = None
     if file is not None and file.filename:
-        raw = await file.read()
-        try:
-            file_text = raw.decode("utf-8-sig")
-        except UnicodeDecodeError as exc:
-            raise HTTPException(status_code=400, detail="文件编码必须是 UTF-8") from exc
         file_name = file.filename
+        raw = await file.read()
+        if file_name.lower().endswith(".zip"):
+            file_bytes = raw
+        else:
+            try:
+                file_text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise HTTPException(status_code=400, detail="文件编码必须是 UTF-8") from exc
 
     params = {
         "corpus_name": corpus_name,
         "file_name": file_name,
         "file_text": file_text,
+        "file_bytes": file_bytes,
         "folder_path": folder_path,
         "replace_existing": replace_existing,
         "chunk_strategy": chunk_strategy,
