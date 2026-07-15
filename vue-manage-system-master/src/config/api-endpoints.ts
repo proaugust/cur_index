@@ -58,6 +58,13 @@ export interface ApiQueryExample {
     query: Record<string, string | number>;
 }
 
+/** 提交后轮询异步任务（响应含 job_id） */
+export interface ApiAsyncJobConfig {
+    statusPath: string;
+    pollIntervalMs?: number;
+    timeoutMs?: number;
+}
+
 export interface ApiEndpoint {
     id: string;
     name: string;
@@ -71,6 +78,8 @@ export interface ApiEndpoint {
     resultView?: ApiResultView;
     /** 快捷填充 Query 参数示例 */
     queryExamples?: ApiQueryExample[];
+    /** 若配置：提交成功且响应含 job_id 时自动轮询 */
+    asyncJob?: ApiAsyncJobConfig;
 }
 
 export const complaintEndpoints: ApiEndpoint[] = [
@@ -357,7 +366,12 @@ export const corporaEndpoints: ApiEndpoint[] = [
         name: '资料库导入',
         method: 'POST',
         path: '/documents/corpora/import',
-        description: '按资料名写入物理分表；可上传 .md/.txt、.zip，或填本机文件夹路径',
+        description: '异步导入：立即返回 job_id，后台切分向量化；可上传 .md/.txt、.zip，或填本机文件夹路径',
+        asyncJob: {
+            statusPath: '/documents/corpora/import/jobs/{job_id}',
+            pollIntervalMs: 1500,
+            timeoutMs: 600_000,
+        },
         formParams: [
             { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '如 FastAPI / 休假规则' },
             { name: 'file', label: '文档/.zip', type: 'file' },
@@ -398,12 +412,6 @@ export const corporaEndpoints: ApiEndpoint[] = [
                 default: 80,
                 min: 0,
                 max: 500,
-            },
-            {
-                name: 'async_mode',
-                label: '异步导入',
-                type: 'boolean',
-                default: false,
             },
         ],
     },

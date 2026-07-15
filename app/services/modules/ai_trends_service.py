@@ -17,13 +17,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = BASE_DIR / "data" / "ai_trends"
 CACHE_FILE = DATA_DIR / "ai_trends_stats.json"
 
-# 本地备份的 CSV 路径
 LOCAL_TRENDS_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "global_ai_trends_2015_2026.csv"
 LOCAL_INTEL_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "ai_intelligence_growth.csv"
 
-# 线上订阅源 (Our World in Data)
-ONLINE_INVESTMENT_URL = "https://ourworldindata.org/grapher/private-investment-in-artificial-intelligence.csv?v=1&csvType=full&useColumnShortNames=false"
-ONLINE_INTEL_URL = "https://ourworldindata.org/grapher/test-scores-ai-capabilities-relative-human-performance.csv?v=1&csvType=full&useColumnShortNames=false"
+# OWID：分国投资（CSET）+ AI 论文总量；智能演进口径不对齐，仍用本地
+ONLINE_SOURCES = [
+    (
+        "https://ourworldindata.org/grapher/private-investment-in-artificial-intelligence-cset.csv"
+        "?v=1&csvType=full&useColumnShortNames=false",
+        "investment.csv",
+    ),
+    (
+        "https://ourworldindata.org/grapher/annual-scholarly-publications-on-artificial-intelligence.csv"
+        "?v=1&csvType=full&useColumnShortNames=false",
+        "papers.csv",
+    ),
+]
+
+INVESTMENT_VALUE_COL = "Estimated funding raised by privately held AI companies - Field: All"
+PAPERS_VALUE_COL = "AI scholarly publications - Field: All"
+
+# 本地国名 → OWID Entity（当前均为同名，保留映射以便扩展）
+COUNTRY_ALIAS = {
+    "United States": "United States",
+    "United Kingdom": "United Kingdom",
+    "United Arab Emirates": "United Arab Emirates",
+    "South Korea": "South Korea",
+}
 
 _update_lock = threading.Lock()
 
@@ -42,7 +62,7 @@ class AiTrendsService:
 
         if not stats:
             logger.info("AI Trends 缓存未就绪，同步解析本地备份...")
-            stats = self._build_from_local()
+            stats = self._build_stats()
             if stats:
                 self._write_cache(stats)
             else:
@@ -87,46 +107,92 @@ class AiTrendsService:
             "updated_date": date.today().isoformat(),
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "trends": [],
-            "intelligence": []
+            "intelligence": [],
         }
 
     def _update_all_data(self) -> None:
-        """下载最新的 CSV 数据并进行解析。"""
-        # 尝试下载最新的数据（此处作为扩展接口，由于 OWID 存在 403 限制，我们在此处捕获异常并优雅降级）
-        # 在实际部署中，如果配置了代理或有特定 User-Agent 允许，则可成功下载
+        """下载 OWID CSV，并与本地宽表 merge 后写缓存。"""
         ctx = ssl._create_unverified_context()
-        headers = {"User-Agent": "Our World In Data data fetch/1.0"}
-        
-        for url, filename in [(ONLINE_INVESTMENT_URL, "investment.csv"), (ONLINE_INTEL_URL, "intelligence.csv")]:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; cur_index-ai-trends/1.0)"}
+
+        for url, filename in ONLINE_SOURCES:
             try:
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=10, context=ctx) as response:
+                with urllib.request.urlopen(req, timeout=30, context=ctx) as response:
                     (DATA_DIR / filename).write_bytes(response.read())
                 logger.info("成功下载: %s", filename)
             except Exception as exc:
-                logger.warning("下载 %s 失败 (%s)，将使用本地备份。", filename, exc)
+                logger.warning("下载 %s 失败 (%s)，若有旧文件则继续 merge。", filename, exc)
 
-        # 无论线上下载是否成功，我们都构建最新的缓存（优先使用本地已有的高精度清洗数据）
-        stats = self._build_from_local()
+        stats = self._build_stats()
         if stats:
             self._write_cache(stats)
             logger.info("AI Trends 缓存更新成功！")
 
-    def _build_from_local(self) -> dict | None:
-        """从本地备份的 CSV 文件解析全球 AI 趋势和智能演进指标。"""
+    def _build_stats(self) -> dict | None:
+        """本地宽表为底，用已下载的投资/论文覆盖可对齐字段。"""
         trends = self._parse_trends_csv(LOCAL_TRENDS_CSV)
         intelligence = self._parse_intelligence_csv(LOCAL_INTEL_CSV)
-
         if not trends and not intelligence:
             return None
+
+        if trends:
+            inv_map = self._parse_owid_kv(DATA_DIR / "investment.csv", INVESTMENT_VALUE_COL)
+            papers_map = self._parse_owid_kv(DATA_DIR / "papers.csv", PAPERS_VALUE_COL)
+            self._merge_trends(trends, inv_map, papers_map)
 
         return {
             "status": "success",
             "updated_date": date.today().isoformat(),
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "trends": trends,
-            "intelligence": intelligence
+            "intelligence": intelligence,
         }
+
+    def _merge_trends(
+        self,
+        trends: list[dict],
+        inv_map: dict[tuple[str, int], float],
+        papers_map: dict[tuple[str, int], float],
+    ) -> None:
+        """有 OWID 投资时只保留源数据；未命中置 null，避免本地演示年与真数混播。"""
+        inv_hits = papers_hits = 0
+        for row in trends:
+            entity = COUNTRY_ALIAS.get(row["country"], row["country"])
+            key = (entity, row["year"])
+            if inv_map:
+                if key in inv_map:
+                    row["investmentBillionsUsd"] = round(inv_map[key] / 1e9, 2)
+                    inv_hits += 1
+                else:
+                    row["investmentBillionsUsd"] = None
+            if key in papers_map:
+                row["publishedPapersThousands"] = round(papers_map[key] / 1000, 2)
+                papers_hits += 1
+        logger.info("OWID merge: investment=%s rows, papers=%s rows", inv_hits, papers_hits)
+
+    def _parse_owid_kv(self, file_path: Path, value_col: str) -> dict[tuple[str, int], float]:
+        """解析 OWID 长表 Entity/Year/值为 (entity, year) -> float。"""
+        if not file_path.exists():
+            return {}
+        try:
+            result: dict[tuple[str, int], float] = {}
+            with open(file_path, mode="r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    entity = (row.get("Entity") or "").strip()
+                    year_raw = row.get("Year")
+                    raw_val = row.get(value_col)
+                    if not entity or not year_raw or raw_val in (None, ""):
+                        continue
+                    try:
+                        result[(entity, int(year_raw))] = float(raw_val)
+                    except (TypeError, ValueError):
+                        continue
+            return result
+        except Exception as exc:
+            logger.error("解析 OWID CSV 失败 %s: %s", file_path.name, exc)
+            return {}
 
     def _parse_trends_csv(self, file_path: Path) -> list[dict]:
         """解析全球 AI 趋势 CSV。"""
@@ -148,7 +214,7 @@ class AiTrendsService:
                         "investmentBillionsUsd": float(row.get("Investment_Billions_USD") or 0),
                         "publishedPapersThousands": float(row.get("Published_Papers_Thousands") or 0),
                         "aiTalentPoolThousands": float(row.get("AI_Talent_Pool_Thousands") or 0),
-                        "primaryFocusArea": row.get("Primary_Focus_Area") or ""
+                        "primaryFocusArea": row.get("Primary_Focus_Area") or "",
                     })
             return result
         except Exception as exc:
@@ -172,7 +238,7 @@ class AiTrendsService:
                         "readingComprehension": float(row.get("Reading_Comprehension") or 0),
                         "mathReasoning": float(row.get("Math_Reasoning") or 0),
                         "codeGeneration": float(row.get("Code_Generation") or 0),
-                        "complexReasoningHumanityExam": float(row.get("Complex_Reasoning_Humanity_Exam") or 0)
+                        "complexReasoningHumanityExam": float(row.get("Complex_Reasoning_Humanity_Exam") or 0),
                     })
             return result
         except Exception as exc:

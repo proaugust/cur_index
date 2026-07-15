@@ -8,7 +8,7 @@
             </template>
 
             <el-tabs v-model="activeTab" type="border-card" class="ai-news-tabs">
-                <el-tab-pane :label="t('pages.aiNews.tabEpoch')" name="epoch" lazy>
+                <el-tab-pane :label="t('pages.aiNews.tabEpoch')" name="epoch">
                     <EpochAiBoard />
                 </el-tab-pane>
 

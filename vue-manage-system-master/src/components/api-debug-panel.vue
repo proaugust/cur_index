@@ -339,7 +339,7 @@ import request from '@/utils/request';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { readDemoCache, writeDemoCache } from '@/composables/useFormCache';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
-import type { ApiEndpoint, ApiParam, ApiQueryExample } from '@/config/api-endpoints';
+import type { ApiAsyncJobConfig, ApiEndpoint, ApiParam, ApiQueryExample } from '@/config/api-endpoints';
 
 const { t } = useI18n();
 
@@ -785,6 +785,47 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
     }
 };
 
+type AsyncJobStatus = {
+    job_id: string;
+    status: 'pending' | 'running' | 'done' | 'failed';
+    files_done?: number;
+    files_total?: number;
+    chunks?: number;
+    error?: string | null;
+    result?: unknown;
+};
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const pollAsyncJob = async (
+    ep: ApiEndpoint,
+    cfg: ApiAsyncJobConfig,
+    jobId: string,
+): Promise<AsyncJobStatus> => {
+    const interval = cfg.pollIntervalMs ?? 1500;
+    const timeout = cfg.timeoutMs ?? 600_000;
+    const started = Date.now();
+    while (Date.now() - started < timeout) {
+        const statusPath = cfg.statusPath.replace('{job_id}', encodeURIComponent(jobId));
+        const { data } = await request.get<AsyncJobStatus>(statusPath);
+        responses[ep.id] = formatJson(data);
+        const done = data.files_done ?? 0;
+        const total = data.files_total ?? 0;
+        statusInfo[ep.id] = {
+            ok: true,
+            text: t('apiDebug.asyncJobPolling', {
+                status: data.status,
+                progress: total > 0 ? `${done}/${total}` : data.status,
+            }),
+        };
+        if (data.status === 'done' || data.status === 'failed') {
+            return data;
+        }
+        await sleep(interval);
+    }
+    throw new Error('job_timeout');
+};
+
 const sendRequest = async (ep: ApiEndpoint) => {
     loading[ep.id] = true;
     statusInfo[ep.id] = { ok: true, text: t('apiDebug.requesting') };
@@ -802,13 +843,57 @@ const sendRequest = async (ep: ApiEndpoint) => {
             res = await request[method](path, buildBody(ep), { params: buildQueryParams(ep) });
         }
 
+        let payload: unknown = res.data;
+        const jobId =
+            ep.asyncJob &&
+            payload &&
+            typeof payload === 'object' &&
+            'job_id' in payload &&
+            typeof (payload as { job_id: unknown }).job_id === 'string'
+                ? (payload as { job_id: string }).job_id
+                : null;
+
+        if (ep.asyncJob && jobId) {
+            ElMessage.info(t('apiDebug.asyncJobAccepted', { jobId }));
+            responses[ep.id] = formatJson(payload);
+            statusInfo[ep.id] = { ok: true, text: t('apiDebug.asyncJobSubmitted') };
+            const final = await pollAsyncJob(ep, ep.asyncJob, jobId);
+            payload = final;
+            if (final.status === 'done') {
+                ElMessage.success(
+                    t('apiDebug.asyncJobDone', {
+                        files: final.files_done ?? 0,
+                        chunks: final.chunks ?? 0,
+                    }),
+                );
+            } else {
+                ElMessage.error(final.error || t('apiDebug.asyncJobFailed'));
+            }
+        }
+
         responses[ep.id] = ep.resultView?.mode === 'content'
-            ? applyContentView(ep, res.data)
-            : formatJson(res.data);
-        applyResultView(ep, res.data);
+            ? applyContentView(ep, payload)
+            : formatJson(payload);
+        applyResultView(ep, payload);
         selectedRow[ep.id] = null;
-        statusInfo[ep.id] = { ok: true, text: `HTTP ${res.status}` };
+        const failed =
+            payload &&
+            typeof payload === 'object' &&
+            'status' in payload &&
+            (payload as { status: string }).status === 'failed';
+        statusInfo[ep.id] = {
+            ok: !failed,
+            text: failed
+                ? t('apiDebug.asyncJobFailed')
+                : `HTTP ${res.status}${jobId ? ` · ${t('apiDebug.asyncJobFinished')}` : ''}`,
+        };
     } catch (err) {
+        if (err instanceof Error && err.message === 'job_timeout') {
+            responses[ep.id] = formatJson({ error: t('apiDebug.asyncJobTimeout') });
+            statusInfo[ep.id] = { ok: false, text: t('apiDebug.asyncJobTimeout') };
+            ElMessage.error(t('apiDebug.asyncJobTimeout'));
+            return;
+        }
         const axiosErr = err as AxiosError;
         const status = axiosErr.response?.status;
         const detail = axiosErr.response?.data ?? { message: axiosErr.message || '请求失败' };

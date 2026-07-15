@@ -84,13 +84,22 @@
         </el-row>
 
         <el-row :gutter="20" class="mgb20">
-            <el-col :span="24">
+            <el-col :span="12">
                 <el-card shadow="hover">
                     <div class="card-header">
                         <p class="card-header-title">{{ t('pages.dashboard.barRaceTitle') }}</p>
                         <p class="card-header-desc">{{ t('pages.dashboard.barRaceDesc') }}</p>
                     </div>
                     <component :is="VChart" v-if="VChart" class="chart chart-tall" :option="barRaceOption" autoresize />
+                </el-card>
+            </el-col>
+            <el-col :span="12">
+                <el-card shadow="hover">
+                    <div class="card-header">
+                        <p class="card-header-title">{{ t('pages.dashboard.annualBarRaceTitle') }}</p>
+                        <p class="card-header-desc">{{ t('pages.dashboard.annualBarRaceDesc') }}</p>
+                    </div>
+                    <component :is="VChart" v-if="VChart" class="chart chart-tall" :option="annualBarRaceOption" autoresize />
                 </el-card>
             </el-col>
         </el-row>
@@ -168,13 +177,16 @@ import countup from '@/components/countup.vue';
 import { fetchAiTrendsStats } from '@/api';
 import {
     buildIndexTrendOption,
-    buildInvestmentBarRaceOption,
     buildInvestmentPieOption,
     buildRegionRanks,
     buildSummaryCards,
     buildWorldMapOption,
     type DashboardChartTexts,
 } from './chart/ai-index-data';
+import {
+    buildAnnualInvestmentBarRaceOption,
+    buildInvestmentBarRaceOption,
+} from './chart/ai-investment-charts';
 import { buildIntelligenceTrendOption } from './chart/ai-intelligence-data';
 
 const { t, tm } = useI18n();
@@ -234,6 +246,8 @@ const chartTexts = computed<DashboardChartTexts>(() => ({
     aiIndex: t('pages.dashboard.mapIndex'),
     investmentBillion: t('pages.dashboard.investmentBillion'),
     investmentAxis: t('pages.dashboard.investmentAxis'),
+    investmentAxisCumulative: t('pages.dashboard.investmentAxisCumulative'),
+    investmentAxisAnnual: t('pages.dashboard.investmentAxisAnnual'),
     yearSuffix: t('pages.dashboard.yearSuffix'),
     othersRegion: t('pages.dashboard.othersRegion'),
     mapHigh: t('pages.dashboard.mapHigh'),
@@ -241,6 +255,8 @@ const chartTexts = computed<DashboardChartTexts>(() => ({
     noData: t('pages.dashboard.noData'),
     formatTooltipIndex: (score) => t('pages.dashboard.tooltipIndex', { value: score }),
     formatTooltipInvestment: (v) => t('pages.dashboard.tooltipInvestment', { value: v }),
+    formatTooltipCumulative: (cum, yearAdd) =>
+        t('pages.dashboard.tooltipCumulative', { cum, yearAdd }),
     formatTooltipPapers: (v) => t('pages.dashboard.tooltipPapers', { value: v }),
 }));
 
@@ -252,6 +268,9 @@ const aiMilestones = computed(
 const indexTrendOption = computed(() => buildIndexTrendOption(dynamicTrends.value, chartTexts.value));
 const investmentPieOption = computed(() => buildInvestmentPieOption(dynamicTrends.value, chartTexts.value));
 const barRaceOption = computed(() => buildInvestmentBarRaceOption(dynamicTrends.value, chartTexts.value));
+const annualBarRaceOption = computed(() =>
+    buildAnnualInvestmentBarRaceOption(dynamicTrends.value, chartTexts.value),
+);
 const worldMapOption = computed(() => buildWorldMapOption(dynamicTrends.value, 2026, chartTexts.value));
 const intelligenceTrendOption = computed(() =>
     buildIntelligenceTrendOption(

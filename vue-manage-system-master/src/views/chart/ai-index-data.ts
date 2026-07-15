@@ -4,7 +4,8 @@ export interface AiTrendRow {
     year: number;
     country: string;
     aiIndexScore: number;
-    investmentBillionsUsd: number;
+    /** 无 OWID 覆盖时为 null，投资类图表跳过 */
+    investmentBillionsUsd: number | null;
     publishedPapersThousands: number;
     aiTalentPoolThousands: number;
     primaryFocusArea: string;
@@ -45,7 +46,7 @@ export const GEO_NAME_MAP: Record<string, string> = {
     'United Arab Emirates': 'United Arab Emirates',
 };
 
-const COUNTRY_COLORS = [
+export const COUNTRY_COLORS = [
     '#2d8cf0',
     '#f25e43',
     '#64d572',
@@ -69,6 +70,10 @@ export interface DashboardChartTexts {
     aiIndex: string;
     investmentBillion: string;
     investmentAxis: string;
+    /** 累计投资轴名；缺省用 investmentAxis */
+    investmentAxisCumulative?: string;
+    /** 当年投资轴名；缺省用 investmentAxis */
+    investmentAxisAnnual?: string;
     yearSuffix: string;
     othersRegion: string;
     mapHigh: string;
@@ -76,6 +81,8 @@ export interface DashboardChartTexts {
     noData: string;
     formatTooltipIndex: (score: number) => string;
     formatTooltipInvestment: (v: number) => string;
+    /** 累计图 tooltip：累计额 + 本年增量 */
+    formatTooltipCumulative?: (cum: number, yearAdd: number) => string;
     formatTooltipPapers: (v: number) => string;
 }
 
@@ -84,6 +91,8 @@ const DEFAULT_CHART_TEXTS: DashboardChartTexts = {
     aiIndex: 'AI 指数',
     investmentBillion: '十亿美元',
     investmentAxis: '投资 (十亿美元)',
+    investmentAxisCumulative: '累计投资 (十亿美元)',
+    investmentAxisAnnual: '当年投资 (十亿美元)',
     yearSuffix: ' 年',
     othersRegion: '其他地区',
     mapHigh: '高',
@@ -91,6 +100,7 @@ const DEFAULT_CHART_TEXTS: DashboardChartTexts = {
     noData: '暂无数据',
     formatTooltipIndex: (score) => `AI 指数：${score}`,
     formatTooltipInvestment: (v) => `投资：${v} 十亿美元`,
+    formatTooltipCumulative: (cum, yearAdd) => `累计：${cum} 十亿美元（本年 +${yearAdd}）`,
     formatTooltipPapers: (v) => `论文：${v} 千篇`,
 };
 
@@ -127,10 +137,18 @@ function rowsByYear(data: AiTrendRow[], year: number): AiTrendRow[] {
     return data.filter((row) => row.year === year);
 }
 
-function countryColor(data: AiTrendRow[], country: string): string {
-    const countries = getCountries(data);
-    const index = countries.indexOf(country);
-    return COUNTRY_COLORS[index >= 0 ? index : 0] ?? '#2d8cf0';
+function hasInvestment(row: AiTrendRow): boolean {
+    return row.investmentBillionsUsd != null && !Number.isNaN(row.investmentBillionsUsd);
+}
+
+/** 仅含有 OWID/有效投资的年份，避免本地未覆盖年混入排行 */
+function getInvestmentYears(data: AiTrendRow[]): number[] {
+    return [...new Set(data.filter(hasInvestment).map((row) => row.year))].sort((a, b) => a - b);
+}
+
+function latestInvestmentYear(data: AiTrendRow[]): number {
+    const years = getInvestmentYears(data);
+    return years.length ? years[years.length - 1]! : LATEST_YEAR;
 }
 
 export function buildIndexTrendOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
@@ -182,105 +200,18 @@ export function buildIndexTrendOption(customData?: AiTrendRow[], texts: Dashboar
     };
 }
 
-export function buildInvestmentBarRaceOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const data = customData || AI_TRENDS_DATA;
-    const years = getYears(data);
-    const maxInvestment = Math.ceil(Math.max(...data.map((row) => row.investmentBillionsUsd)) * 1.1);
-
-    const buildFrame = (year: number) => {
-        const ranked = [...rowsByYear(data, year)].sort((a, b) => a.investmentBillionsUsd - b.investmentBillionsUsd);
-
-        return {
-            yAxis: {
-                type: 'category',
-                inverse: true,
-                data: ranked.map((row) => texts.countryLabel(row.country)),
-                animationDuration: 300,
-                animationDurationUpdate: 300,
-                max: 13,
-            },
-            series: [
-                {
-                    realtimeSort: true,
-                    type: 'bar',
-                    data: ranked.map((row) => ({
-                        value: row.investmentBillionsUsd,
-                        itemStyle: { color: countryColor(data, row.country) },
-                    })),
-                    label: {
-                        show: true,
-                        position: 'right',
-                        valueAnimation: true,
-                        formatter: '{c} B',
-                    },
-                },
-            ],
-        };
-    };
-
-    return {
-        baseOption: {
-            timeline: {
-                axisType: 'category',
-                autoPlay: true,
-                playInterval: 1200,
-                data: years,
-                label: {
-                    formatter: (value: string) => `${value}${texts.yearSuffix}`,
-                },
-                left: '3%',
-                right: '3%',
-                bottom: 0,
-            },
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'shadow' },
-                valueFormatter: (value: number) => `${value} ${texts.investmentBillion}`,
-            },
-            grid: {
-                top: '6%',
-                left: '3%',
-                right: '12%',
-                bottom: '14%',
-                containLabel: true,
-            },
-            xAxis: {
-                type: 'value',
-                max: maxInvestment,
-                name: texts.investmentAxis,
-            },
-            yAxis: {
-                type: 'category',
-                inverse: true,
-                animationDuration: 300,
-                animationDurationUpdate: 300,
-            },
-            series: [
-                {
-                    type: 'bar',
-                    realtimeSort: true,
-                    seriesLayoutBy: 'column',
-                },
-            ],
-            animationDuration: 0,
-            animationDurationUpdate: 800,
-            animationEasing: 'linear',
-            animationEasingUpdate: 'linear',
-        },
-        options: years.map((year) => buildFrame(year)),
-    };
-}
-
 export function buildInvestmentPieOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
     const data = customData || AI_TRENDS_DATA;
-    const latest = [...rowsByYear(data, LATEST_YEAR)].sort((a, b) => b.investmentBillionsUsd - a.investmentBillionsUsd).slice(0, 6);
-    const othersInvestment = rowsByYear(data, LATEST_YEAR)
+    const year = latestInvestmentYear(data);
+    const yearRows = rowsByYear(data, year).filter(hasInvestment);
+    const latest = [...yearRows].sort((a, b) => (b.investmentBillionsUsd as number) - (a.investmentBillionsUsd as number)).slice(0, 6);
+    const othersInvestment = yearRows
         .filter((row) => !latest.some((item) => item.country === row.country))
-        .reduce((sum, row) => sum + row.investmentBillionsUsd, 0);
+        .reduce((sum, row) => sum + (row.investmentBillionsUsd as number), 0);
 
     const pieData = latest.map((row) => ({
         name: texts.countryLabel(row.country),
-        value: Math.round(row.investmentBillionsUsd * 100) / 100,
+        value: Math.round((row.investmentBillionsUsd as number) * 100) / 100,
     }));
 
     if (othersInvestment > 0) {
@@ -320,9 +251,13 @@ export function buildInvestmentPieOption(customData?: AiTrendRow[], texts: Dashb
 export function buildSummaryCards(customData?: AiTrendRow[]) {
     const data = customData || AI_TRENDS_DATA;
     const latest = rowsByYear(data, LATEST_YEAR);
-    const totalInvestment = latest.reduce((sum, row) => sum + row.investmentBillionsUsd, 0);
+    const invYear = latestInvestmentYear(data);
+    const invRows = rowsByYear(data, invYear).filter(hasInvestment);
+    const totalInvestment = invRows.reduce((sum, row) => sum + (row.investmentBillionsUsd as number), 0);
     const totalPapers = latest.reduce((sum, row) => sum + row.publishedPapersThousands, 0);
-    const avgScore = latest.reduce((sum, row) => sum + row.aiIndexScore, 0) / latest.length;
+    const avgScore = latest.length
+        ? latest.reduce((sum, row) => sum + row.aiIndexScore, 0) / latest.length
+        : 0;
     const usRow = latest.find((row) => row.country === 'United States');
 
     return {
@@ -342,7 +277,7 @@ export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LA
         name: string;
         value: number;
         label: string;
-        investment: number;
+        investment: number | null;
         papers: number;
     };
 
@@ -350,7 +285,7 @@ export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LA
         name: GEO_NAME_MAP[row.country] ?? row.country,
         value: row.aiIndexScore,
         label: texts.countryLabel(row.country),
-        investment: row.investmentBillionsUsd,
+        investment: hasInvestment(row) ? (row.investmentBillionsUsd as number) : null,
         papers: row.publishedPapersThousands,
     }));
 
@@ -381,12 +316,15 @@ export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LA
                     return `${params.name ?? ''}<br/>${texts.noData}`;
                 }
 
-                return [
+                const lines = [
                     item.label,
                     texts.formatTooltipIndex(Number(score)),
-                    texts.formatTooltipInvestment(item.investment),
-                    texts.formatTooltipPapers(item.papers),
-                ].join('<br/>');
+                ];
+                if (item.investment != null) {
+                    lines.push(texts.formatTooltipInvestment(item.investment));
+                }
+                lines.push(texts.formatTooltipPapers(item.papers));
+                return lines.join('<br/>');
             },
         },
         visualMap: {

@@ -1,7 +1,5 @@
 """业务知识库 API：物理分表导入 / 列文件 / 检索 / 清空切块。"""
 
-from typing import Union
-
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
@@ -11,15 +9,10 @@ from app.core.permissions import require_permission
 from app.crud import document_corpora as corpus_crud
 from app.models import User
 from app.services.modules.corpus_import_jobs import create_import_job, get_import_job, run_import_job
-from app.services.modules.corpus_import_service import CorpusImportService
 from app.services.modules.corpus_search_service import CorpusSearchService
 from app.services.shared.structure_chunker import DEFAULT_MAX_CHUNK, DEFAULT_MIN_CHUNK, DEFAULT_OVERLAP
 
 router = APIRouter(prefix="/documents/corpora", tags=["documents-corpora"])
-
-
-def _import_service(db: Session = Depends(get_db)) -> CorpusImportService:
-    return CorpusImportService(db)
 
 
 def _search_service(db: Session = Depends(get_db)) -> CorpusSearchService:
@@ -51,8 +44,8 @@ def get_corpus_import_job(
 
 @router.post(
     "/import",
-    response_model=Union[schemas.CorpusImportResult, schemas.CorpusImportJobAccepted],
-    summary="导入到业务知识库",
+    response_model=schemas.CorpusImportJobAccepted,
+    summary="导入到业务知识库（异步）",
 )
 async def import_corpus(
     background_tasks: BackgroundTasks,
@@ -67,10 +60,8 @@ async def import_corpus(
     max_chunk_len: int = Form(DEFAULT_MAX_CHUNK, ge=50, le=2000),
     min_chunk_len: int = Form(DEFAULT_MIN_CHUNK, ge=20, le=1000),
     chunk_overlap: int = Form(DEFAULT_OVERLAP, ge=0, le=500),
-    async_mode: bool = Form(False, description="True 时立即返回 job_id，后台导入"),
-    service: CorpusImportService = Depends(_import_service),
     _: User = Depends(require_permission("82.corpora-import", name="资料库导入")),
-) -> Union[schemas.CorpusImportResult, schemas.CorpusImportJobAccepted]:
+) -> schemas.CorpusImportJobAccepted:
     file_name = None
     file_text = None
     file_bytes = None
@@ -97,12 +88,14 @@ async def import_corpus(
         "max_chunk_len": max_chunk_len,
         "chunk_overlap": chunk_overlap,
     }
-    if async_mode:
-        job_id = create_import_job(corpus_name=corpus_name.strip())
-        background_tasks.add_task(run_import_job, job_id, params)
-        return schemas.CorpusImportJobAccepted(job_id=job_id)
+    has_upload = bool(file_name and (file_text is not None or file_bytes is not None))
+    has_folder = bool(folder_path and folder_path.strip())
+    if not has_upload and not has_folder:
+        raise HTTPException(status_code=400, detail="请上传 .md/.txt/.zip，或填写本机 folder_path")
 
-    return service.import_upload_or_folder(**params)
+    job_id = create_import_job(corpus_name=corpus_name.strip())
+    background_tasks.add_task(run_import_job, job_id, params)
+    return schemas.CorpusImportJobAccepted(job_id=job_id)
 
 
 @router.get("/files", response_model=schemas.CorpusFileListResult, summary="资料库内文件名列表")
