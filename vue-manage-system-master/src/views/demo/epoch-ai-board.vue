@@ -320,12 +320,65 @@ const epochWeightsOption = computed(() => {
     };
 });
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function todayIso(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function isReady(data: { status?: string } | null | undefined): boolean {
+    return data?.status === 'success';
+}
+
+function isFresh(data: { updated_date?: string } | null | undefined): boolean {
+    return Boolean(data?.updated_date && data.updated_date === todayIso());
+}
+
+async function fetchOnce() {
+    const { data } = await fetchEpochStats();
+    epochStats.value = data;
+    return data;
+}
+
+/** 无种子时阻塞轮询；已有数据则后台刷新到当日 */
+async function loadEpochStats() {
+    const data = await fetchOnce();
+    if (isReady(data) && isFresh(data)) {
+        return;
+    }
+    if (!isReady(data)) {
+        for (let i = 0; i < 7; i++) {
+            await sleep(2000);
+            const next = await fetchOnce();
+            if (isReady(next)) {
+                return;
+            }
+        }
+        return;
+    }
+    // 有种子但非当日：不阻塞 UI，后台再拉几次
+    void (async () => {
+        for (let i = 0; i < 6; i++) {
+            await sleep(3000);
+            const next = await fetchOnce();
+            if (isFresh(next)) {
+                return;
+            }
+        }
+    })();
+}
+
 onMounted(async () => {
     loading.value = true;
     try {
         await ensureCharts();
-        const { data } = await fetchEpochStats();
-        epochStats.value = data;
+        await loadEpochStats();
     } catch (err) {
         console.error('加载 Epoch AI 数据失败', err);
     } finally {

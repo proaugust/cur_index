@@ -27,6 +27,9 @@ build/
 *.db
 data/attendance_faces/
 data/insight/models/
+# 看板运行时下载的 CSV 不入库；种子用 *_stats.json
+data/epoch_ai/*.csv
+data/ai_trends/*.csv
 
 # OS
 .DS_Store

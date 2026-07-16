@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     complaint_stats_memory_cache_maxsize: int = 32
     llm_usage_stats_cache_ttl: int = 90
     insight_profile_cache_ttl: int = 86400
+    epoch_ai_cache_ttl: int = 259200  # Epoch 看板 Redis TTL：3 天，避免日切空窗
+    ai_trends_cache_ttl: int = 259200  # 首页 AI Trends Redis TTL：3 天
     insight_model_dir: Path = BASE_DIR / "data" / "insight" / "models"
     insight_auto_train: bool = True
     insight_model_backend: str = "auto"

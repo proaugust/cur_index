@@ -1,5 +1,3 @@
-import csvRaw from './global_ai_trends_2015_2026.csv?raw';
-
 export interface AiTrendRow {
     year: number;
     country: string;
@@ -104,29 +102,11 @@ const DEFAULT_CHART_TEXTS: DashboardChartTexts = {
     formatTooltipPapers: (v) => `论文：${v} 千篇`,
 };
 
-function parseCsv(raw: string): AiTrendRow[] {
-    const lines = raw.trim().split(/\r?\n/);
-    return lines.slice(1).map((line) => {
-        const parts = line.split(',');
-        return {
-            year: Number(parts[0]),
-            country: parts[1],
-            aiIndexScore: Number(parts[2]),
-            investmentBillionsUsd: Number(parts[3]),
-            publishedPapersThousands: Number(parts[4]),
-            aiTalentPoolThousands: Number(parts[5]),
-            primaryFocusArea: parts.slice(6).join(','),
-        };
-    });
-}
-
-export const AI_TRENDS_DATA: AiTrendRow[] = parseCsv(csvRaw);
-
-function getYears(data: AiTrendRow[] = AI_TRENDS_DATA): number[] {
+function getYears(data: AiTrendRow[]): number[] {
     return [...new Set(data.map((row) => row.year))].sort((a, b) => a - b);
 }
 
-function getCountries(data: AiTrendRow[] = AI_TRENDS_DATA): string[] {
+function getCountries(data: AiTrendRow[]): string[] {
     const latest = data.filter((row) => row.year === LATEST_YEAR)
         .sort((a, b) => b.aiIndexScore - a.aiIndexScore)
         .map((row) => row.country);
@@ -152,7 +132,7 @@ function latestInvestmentYear(data: AiTrendRow[]): number {
 }
 
 export function buildIndexTrendOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const years = getYears(data).map(String);
     const countries = getCountries(data);
 
@@ -201,7 +181,7 @@ export function buildIndexTrendOption(customData?: AiTrendRow[], texts: Dashboar
 }
 
 export function buildInvestmentPieOption(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const year = latestInvestmentYear(data);
     const yearRows = rowsByYear(data, year).filter(hasInvestment);
     const latest = [...yearRows].sort((a, b) => (b.investmentBillionsUsd as number) - (a.investmentBillionsUsd as number)).slice(0, 6);
@@ -249,7 +229,7 @@ export function buildInvestmentPieOption(customData?: AiTrendRow[], texts: Dashb
 }
 
 export function buildSummaryCards(customData?: AiTrendRow[]) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const latest = rowsByYear(data, LATEST_YEAR);
     const invYear = latestInvestmentYear(data);
     const invRows = rowsByYear(data, invYear).filter(hasInvestment);
@@ -270,7 +250,7 @@ export function buildSummaryCards(customData?: AiTrendRow[]) {
 }
 
 export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LATEST_YEAR, texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const rows = rowsByYear(data, year);
 
     type MapDataItem = {
@@ -379,7 +359,7 @@ export function buildWorldMapOption(customData?: AiTrendRow[], year: number = LA
 }
 
 export function buildRegionRanks(customData?: AiTrendRow[], texts: DashboardChartTexts = DEFAULT_CHART_TEXTS) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const latest = [...rowsByYear(data, LATEST_YEAR)].sort((a, b) => b.aiIndexScore - a.aiIndexScore).slice(0, 5);
     const maxScore = latest[0]?.aiIndexScore ?? 100;
 

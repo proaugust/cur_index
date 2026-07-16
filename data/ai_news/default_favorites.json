@@ -1,0 +1,31 @@
+{
+  "slugs": [
+    "huggingfacePapers",
+    "jiqizhixin",
+    "anthropic",
+    "deepmind",
+    "arxiv"
+  ],
+  "custom": [
+    {
+      "url": "https://paperswithcode.com",
+      "name": "Papers with Code",
+      "region": "international"
+    },
+    {
+      "url": "https://openai.com/research",
+      "name": "OpenAI Research 博客",
+      "region": "international"
+    },
+    {
+      "url": "https://www.aiera.com.cn",
+      "name": "新智元",
+      "region": "domestic"
+    },
+    {
+      "url": "https://www.zhihu.com/topic/19551275/hot",
+      "name": "知乎·人工智能",
+      "region": "domestic"
+    }
+  ]
+}

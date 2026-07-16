@@ -1,4 +1,4 @@
-"""全球 AI 发展趋势与智能演进数据自动更新服务。"""
+"""全球 AI 发展趋势：Redis + 种子文件缓存，每日异步更新。"""
 
 from __future__ import annotations
 
@@ -11,16 +11,21 @@ import urllib.request
 from datetime import date, datetime
 from pathlib import Path
 
+from app.core.config import settings
+from app.services.shared.redis_client import cache_get_json, cache_set_json
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = BASE_DIR / "data" / "ai_trends"
 CACHE_FILE = DATA_DIR / "ai_trends_stats.json"
+REDIS_KEY = "cache:ai_trends:stats"
 
+# 本地底表（入库种子，不删）；OWID 下载到 DATA_DIR，解析后删除
 LOCAL_TRENDS_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "global_ai_trends_2015_2026.csv"
 LOCAL_INTEL_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "ai_intelligence_growth.csv"
+RUNTIME_CSVS = (DATA_DIR / "investment.csv", DATA_DIR / "papers.csv")
 
-# OWID：分国投资（CSET）+ AI 论文总量；智能演进口径不对齐，仍用本地
 ONLINE_SOURCES = [
     (
         "https://ourworldindata.org/grapher/private-investment-in-artificial-intelligence-cset.csv"
@@ -36,8 +41,6 @@ ONLINE_SOURCES = [
 
 INVESTMENT_VALUE_COL = "Estimated funding raised by privately held AI companies - Field: All"
 PAPERS_VALUE_COL = "AI scholarly publications - Field: All"
-
-# 本地国名 → OWID Entity（当前均为同名，保留映射以便扩展）
 COUNTRY_ALIAS = {
     "United States": "United States",
     "United Kingdom": "United Kingdom",
@@ -53,25 +56,21 @@ class AiTrendsService:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     def get_cached_stats(self) -> dict:
-        """获取本地缓存的统计数据，若过期或不存在则异步触发更新。"""
+        """Redis → 种子 json；过期则异步刷新。请求不读运行时 CSV。"""
         stats = self._read_cache()
-        today_str = date.today().isoformat()
-
-        if not stats or stats.get("updated_date") != today_str:
+        if not stats or stats.get("updated_date") != date.today().isoformat():
             self.trigger_async_update()
 
         if not stats:
-            logger.info("AI Trends 缓存未就绪，同步解析本地备份...")
+            # 冷启动无种子时，用本地底表同步建一次（不依赖 OWID 下载）
             stats = self._build_stats()
             if stats:
                 self._write_cache(stats)
             else:
                 stats = self._get_empty_fallback()
-
         return stats
 
     def trigger_async_update(self) -> None:
-        """启动后台线程去下载并更新数据，不阻塞主线程。"""
         if not _update_lock.acquire(blocking=False):
             return
 
@@ -83,38 +82,57 @@ class AiTrendsService:
             finally:
                 _update_lock.release()
 
-        thread = threading.Thread(target=_task, name="ai-trends-updater", daemon=True)
-        thread.start()
+        threading.Thread(target=_task, name="ai-trends-updater", daemon=True).start()
 
     def _read_cache(self) -> dict | None:
+        if settings.redis_enabled:
+            cached = cache_get_json(REDIS_KEY)
+            if isinstance(cached, dict) and cached.get("status") == "success":
+                return cached
+
         if not CACHE_FILE.exists():
             return None
         try:
-            return json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data.get("status") == "success":
+                self._write_redis(data)
+                return data
         except Exception as exc:
-            logger.warning("读取 AI Trends 缓存失败: %s", exc)
-            return None
+            logger.warning("读取 AI Trends 种子/缓存失败: %s", exc)
+        return None
+
+    def _write_redis(self, stats: dict) -> None:
+        if not settings.redis_enabled:
+            return
+        cache_set_json(REDIS_KEY, stats, ttl=settings.ai_trends_cache_ttl)
 
     def _write_cache(self, stats: dict) -> None:
+        self._write_redis(stats)
         try:
             CACHE_FILE.write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as exc:
-            logger.error("写入 AI Trends 缓存文件失败: %s", exc)
+            logger.warning("写入 AI Trends 本地缓存失败（容器只读时属预期）: %s", exc)
+
+    def _cleanup_runtime_csv(self) -> None:
+        for path in RUNTIME_CSVS:
+            try:
+                if path.exists():
+                    path.unlink()
+            except Exception as exc:
+                logger.warning("删除 AI Trends 运行时 CSV 失败 %s: %s", path.name, exc)
 
     def _get_empty_fallback(self) -> dict:
         return {
             "status": "initializing",
-            "updated_date": date.today().isoformat(),
+            "updated_date": "",
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "trends": [],
             "intelligence": [],
         }
 
     def _update_all_data(self) -> None:
-        """下载 OWID CSV，并与本地宽表 merge 后写缓存。"""
         ctx = ssl._create_unverified_context()
         headers = {"User-Agent": "Mozilla/5.0 (compatible; cur_index-ai-trends/1.0)"}
-
         for url, filename in ONLINE_SOURCES:
             try:
                 req = urllib.request.Request(url, headers=headers)
@@ -122,23 +140,23 @@ class AiTrendsService:
                     (DATA_DIR / filename).write_bytes(response.read())
                 logger.info("成功下载: %s", filename)
             except Exception as exc:
-                logger.warning("下载 %s 失败 (%s)，若有旧文件则继续 merge。", filename, exc)
+                logger.warning("下载 %s 失败 (%s)，若有底表则继续 merge。", filename, exc)
 
         stats = self._build_stats()
         if stats:
             self._write_cache(stats)
-            logger.info("AI Trends 缓存更新成功！")
+            logger.info("AI Trends 缓存更新成功")
+        self._cleanup_runtime_csv()
 
     def _build_stats(self) -> dict | None:
-        """本地宽表为底，用已下载的投资/论文覆盖可对齐字段。"""
         trends = self._parse_trends_csv(LOCAL_TRENDS_CSV)
         intelligence = self._parse_intelligence_csv(LOCAL_INTEL_CSV)
         if not trends and not intelligence:
             return None
 
         if trends:
-            inv_map = self._parse_owid_kv(DATA_DIR / "investment.csv", INVESTMENT_VALUE_COL)
-            papers_map = self._parse_owid_kv(DATA_DIR / "papers.csv", PAPERS_VALUE_COL)
+            inv_map = self._parse_owid_kv(RUNTIME_CSVS[0], INVESTMENT_VALUE_COL)
+            papers_map = self._parse_owid_kv(RUNTIME_CSVS[1], PAPERS_VALUE_COL)
             self._merge_trends(trends, inv_map, papers_map)
 
         return {
@@ -155,7 +173,6 @@ class AiTrendsService:
         inv_map: dict[tuple[str, int], float],
         papers_map: dict[tuple[str, int], float],
     ) -> None:
-        """有 OWID 投资时只保留源数据；未命中置 null，避免本地演示年与真数混播。"""
         inv_hits = papers_hits = 0
         for row in trends:
             entity = COUNTRY_ALIAS.get(row["country"], row["country"])
@@ -172,7 +189,6 @@ class AiTrendsService:
         logger.info("OWID merge: investment=%s rows, papers=%s rows", inv_hits, papers_hits)
 
     def _parse_owid_kv(self, file_path: Path, value_col: str) -> dict[tuple[str, int], float]:
-        """解析 OWID 长表 Entity/Year/值为 (entity, year) -> float。"""
         if not file_path.exists():
             return {}
         try:
@@ -195,7 +211,6 @@ class AiTrendsService:
             return {}
 
     def _parse_trends_csv(self, file_path: Path) -> list[dict]:
-        """解析全球 AI 趋势 CSV。"""
         if not file_path.exists():
             return []
         try:
@@ -222,7 +237,6 @@ class AiTrendsService:
             return []
 
     def _parse_intelligence_csv(self, file_path: Path) -> list[dict]:
-        """解析 AI 智能演进 CSV。"""
         if not file_path.exists():
             return []
         try:

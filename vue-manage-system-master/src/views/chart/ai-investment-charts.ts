@@ -1,5 +1,4 @@
 import {
-    AI_TRENDS_DATA,
     type AiTrendRow,
     type DashboardChartTexts,
     COUNTRY_COLORS,
@@ -148,7 +147,7 @@ export function buildInvestmentBarRaceOption(
         formatTooltipPapers: (v) => `论文：${v} 千篇`,
     },
 ) {
-    const annual = customData || AI_TRENDS_DATA;
+    const annual = customData ?? [];
     const data = toCumulativeInvestment(annual);
     const years = getInvestmentYears(data);
     const invValues = data.filter(hasInvestment).map((row) => row.investmentBillionsUsd as number);
@@ -235,7 +234,7 @@ export function buildAnnualInvestmentBarRaceOption(
         formatTooltipPapers: (v) => `论文：${v} 千篇`,
     },
 ) {
-    const data = customData || AI_TRENDS_DATA;
+    const data = customData ?? [];
     const years = getInvestmentYears(data);
     const invValues = data.filter(hasInvestment).map((row) => row.investmentBillionsUsd as number);
     const maxInvestment = invValues.length ? Math.ceil(Math.max(...invValues) * 1.1) : 1;
