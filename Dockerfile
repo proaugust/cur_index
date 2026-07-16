@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements-hf.txt
 
 COPY --chown=user app ./app
+COPY --chown=user data ./data
 COPY --chown=user --from=frontend /frontend/dist ./static
 
 ENV PYTHONUNBUFFERED=1
