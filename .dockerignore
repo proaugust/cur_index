@@ -11,7 +11,10 @@ __pycache__
 .vscode
 *.md
 !README.md
-data
+data/attendance_faces/
+data/insight/models/
+data/epoch_ai/*.csv
+data/ai_trends/*.csv
 vue-manage-system-master/node_modules
 vue-manage-system-master/dist
 .cursor
