@@ -109,6 +109,17 @@
                     </el-table>
                 </div>
             </el-tab-pane>
+
+            <el-tab-pane label="职业能力与 AI 应用" name="career-ai" lazy>
+                <div class="pane-pad insight-image-wrap">
+                    <el-image
+                        src="/epoch-ai-insight.png"
+                        :preview-src-list="['/epoch-ai-insight.png']"
+                        fit="contain"
+                        class="insight-image"
+                    />
+                </div>
+            </el-tab-pane>
         </el-tabs>
     </div>
 </template>
@@ -476,5 +487,14 @@ onMounted(async () => {
 
 .chart {
     width: 100%;
+}
+
+.insight-image-wrap {
+    text-align: center;
+}
+
+.insight-image {
+    width: 100%;
+    max-width: 1024px;
 }
 </style>
