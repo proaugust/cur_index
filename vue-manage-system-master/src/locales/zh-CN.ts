@@ -738,6 +738,10 @@
                 weightsTitle: '特征权重（来自模型）',
                 feature: '特征',
                 coef: '影响系数',
+                valAccuracy: '验证集准确率',
+                valAuc: '验证集 AUC',
+                metricsHint: '准确率基于弱标签 holdout（投诉/满意度等 proxy），不是真实流失标签，仅供演示参考。',
+                holdoutRows: 'Holdout：训练 {train} / 验证 {val}',
             },
         },
         complaints: {

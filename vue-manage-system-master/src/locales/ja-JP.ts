@@ -738,6 +738,10 @@
                 weightsTitle: '特徴量重み',
                 feature: '特徴量',
                 coef: '係数',
+                valAccuracy: '検証Accuracy',
+                valAuc: '検証AUC',
+                metricsHint: 'Accuracyは弱ラベルholdout（苦情/満足度などのproxy）に基づき、実離脱ラベルではありません。デモ参考値です。',
+                holdoutRows: 'Holdout：学習 {train} / 検証 {val}',
             },
         },
         complaints: {

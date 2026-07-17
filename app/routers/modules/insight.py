@@ -328,8 +328,7 @@ def insight_train_model(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("91.seed-samples", name="Insight 模型训练")),
 ) -> InsightModelTrainResult:
-    version = InsightDecisionService(db).train_model()
-    return InsightModelTrainResult(model_version=version)
+    return InsightDecisionService(db).train_model()
 
 
 @router.get("/simulation-weights", response_model=list[InsightSimulationWeightRead])

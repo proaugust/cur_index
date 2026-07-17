@@ -111,7 +111,7 @@ async function handleTrain() {
     training.value = true;
     try {
         const { data } = await postInsightTrainModel();
-        ElMessage.success(t('pages.insight.action.trainDone', { version: data.model_version }));
+        ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
     } finally {
         training.value = false;
     }

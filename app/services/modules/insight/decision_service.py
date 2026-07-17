@@ -12,6 +12,7 @@ from app.schemas.insight import (
     InsightDecisionDashboard,
     InsightDecisionRecommendation,
     InsightDecisionSimulateResult,
+    InsightModelTrainResult,
     InsightSimulationWeightRead,
 )
 from app.services.modules.insight.ml.feature_builder import InsightFeatureBuilder
@@ -47,6 +48,7 @@ class InsightDecisionService:
                 or 0
             )
         weights = [InsightSimulationWeightRead.model_validate(row) for row in self.db.query(CfgSimulationWeight).all()]
+        metrics = self._load_train_metrics()
         return InsightDecisionDashboard(
             model_version=self.registry.resolve_version(),
             has_trained_model=self.registry.has_model(),
@@ -54,6 +56,7 @@ class InsightDecisionService:
             snapshot_total=int(total_snapshots),
             high_risk_total=int(high_risk),
             simulation_weights=weights,
+            **metrics,
         )
 
     def recommendations(self, *, limit: int = 20) -> list[InsightDecisionRecommendation]:
@@ -104,10 +107,35 @@ class InsightDecisionService:
             adjustments=adjustments,
         )
 
-    def train_model(self) -> str:
-        version = InsightModelTrainer(self.db).train()
+    def train_model(self) -> InsightModelTrainResult:
+        result = InsightModelTrainer(self.db).train()
         self.db.commit()
-        return version
+        msg = "训练完成（弱标签 holdout，非真实流失准确率）"
+        if result.val_accuracy is not None:
+            msg = f"{msg}；Accuracy={result.val_accuracy:.2%}"
+            if result.val_auc is not None:
+                msg = f"{msg}，AUC={result.val_auc:.4f}"
+        return InsightModelTrainResult(
+            model_version=result.model_version,
+            message=msg,
+            val_auc=result.val_auc,
+            val_accuracy=result.val_accuracy,
+            train_rows=result.train_rows,
+            val_rows=result.val_rows,
+            label_source=result.label_source,
+        )
+
+    def _load_train_metrics(self) -> dict:
+        if not self.registry.has_model():
+            return {}
+        art = self.registry.load_artifacts()
+        return {
+            "val_auc": art.val_auc,
+            "val_accuracy": art.val_accuracy,
+            "train_rows": art.train_rows,
+            "val_rows": art.val_rows,
+            "label_source": art.label_source,
+        }
 
     def _predict_one(self, user: DimUserProfile, feature) -> Decimal:
         if self.registry.has_model():

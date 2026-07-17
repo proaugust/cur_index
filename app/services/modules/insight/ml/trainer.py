@@ -1,10 +1,13 @@
 """离线训练 LightGBM + K-Means，并同步仿真权重。"""
 
 import logging
+from dataclasses import dataclass
 from datetime import date
 
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sqlalchemy.orm import Session
 
@@ -17,6 +20,18 @@ from app.services.modules.insight.ml.weak_label import weak_label
 
 logger = logging.getLogger(__name__)
 _MIN_TRAIN_ROWS = 30
+_HOLDOUT_RATIO = 0.2
+_LABEL_SOURCE = "weak_label"
+
+
+@dataclass
+class InsightTrainResult:
+    model_version: str
+    val_auc: float | None
+    val_accuracy: float | None
+    train_rows: int
+    val_rows: int
+    label_source: str = _LABEL_SOURCE
 
 
 class InsightModelTrainer:
@@ -25,7 +40,7 @@ class InsightModelTrainer:
         self.registry = InsightModelRegistry()
         self.feature_builder = InsightFeatureBuilder(db)
 
-    def train(self, users: list[DimUserProfile] | None = None) -> str:
+    def train(self, users: list[DimUserProfile] | None = None) -> InsightTrainResult:
         users = users or self.db.query(DimUserProfile).all()
         if not users:
             raise ValueError("无用户主数据，无法训练")
@@ -35,12 +50,13 @@ class InsightModelTrainer:
             raise ValueError(f"有标签样本不足 {len(train_rows)} < {_MIN_TRAIN_ROWS}")
 
         names = InsightFeatureBuilder.feature_names()
-        x_train = np.array([features[row.user_id].values for row in train_rows], dtype=np.float32)
-        y_train = np.array([row.label for row in train_rows], dtype=np.int32)
+        x_all = np.array([features[row.user_id].values for row in train_rows], dtype=np.float32)
+        y_all = np.array([row.label for row in train_rows], dtype=np.int32)
+        metrics = self._holdout_metrics(x_all, y_all)
 
         scaler = StandardScaler()
-        x_scaled = scaler.fit_transform(x_train)
-        booster = self._fit_lgbm(x_scaled, y_train)
+        x_scaled = scaler.fit_transform(x_all)
+        booster = self._fit_lgbm(x_scaled, y_all)
         kmeans, cluster_shap = self._fit_clusters(train_rows, features, names, scaler, booster)
         version = f"lgbm-v1.0-{date.today().isoformat()}"
         artifacts = InsightModelArtifacts(
@@ -49,11 +65,28 @@ class InsightModelTrainer:
             scaler=scaler,
             kmeans=kmeans,
             cluster_shap=cluster_shap,
+            val_auc=metrics["val_auc"],
+            val_accuracy=metrics["val_accuracy"],
+            train_rows=metrics["train_rows"],
+            val_rows=metrics["val_rows"],
+            label_source=_LABEL_SOURCE,
         )
         self.registry.save(booster, artifacts)
         self._sync_simulation_weights(booster, names)
-        logger.info("Insight 模型训练完成 version=%s train_rows=%s", version, len(train_rows))
-        return version
+        logger.info(
+            "Insight 训练完成 version=%s rows=%s val_auc=%s val_acc=%s",
+            version,
+            len(train_rows),
+            metrics["val_auc"],
+            metrics["val_accuracy"],
+        )
+        return InsightTrainResult(
+            model_version=version,
+            val_auc=metrics["val_auc"],
+            val_accuracy=metrics["val_accuracy"],
+            train_rows=metrics["train_rows"],
+            val_rows=metrics["val_rows"],
+        )
 
     def _collect_train_rows(self, users: list[DimUserProfile], features: dict[str, UserFeatureRow]):
         rows = []
@@ -63,6 +96,30 @@ class InsightModelTrainer:
                 continue
             rows.append(type("Row", (), {"user_id": user.user_id, "label": weak_label(user, feature)})())
         return rows
+
+    @classmethod
+    def _holdout_metrics(cls, x_all: np.ndarray, y_all: np.ndarray) -> dict:
+        """弱标签 holdout：先在训练集拟合，再在验证集算 AUC/Accuracy。"""
+        empty = {"val_auc": None, "val_accuracy": None, "train_rows": int(len(x_all)), "val_rows": 0}
+        if len(x_all) < _MIN_TRAIN_ROWS or len(np.unique(y_all)) < 2:
+            return empty
+        stratify = y_all if int(np.min(np.bincount(y_all))) >= 2 else None
+        x_tr, x_va, y_tr, y_va = train_test_split(
+            x_all, y_all, test_size=_HOLDOUT_RATIO, random_state=42, stratify=stratify
+        )
+        scaler = StandardScaler()
+        booster = cls._fit_lgbm(scaler.fit_transform(x_tr), y_tr)
+        probs = booster.predict(scaler.transform(x_va))
+        preds = (probs >= 0.5).astype(np.int32)
+        auc = None
+        if len(np.unique(y_va)) >= 2:
+            auc = round(float(roc_auc_score(y_va, probs)), 4)
+        return {
+            "val_auc": auc,
+            "val_accuracy": round(float(accuracy_score(y_va, preds)), 4),
+            "train_rows": int(len(x_tr)),
+            "val_rows": int(len(x_va)),
+        }
 
     @staticmethod
     def _fit_lgbm(x_train: np.ndarray, y_train: np.ndarray):

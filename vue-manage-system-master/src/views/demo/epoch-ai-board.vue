@@ -113,8 +113,8 @@
             <el-tab-pane label="职业能力与 AI 应用" name="career-ai" lazy>
                 <div class="pane-pad insight-image-wrap">
                     <el-image
-                        src="/epoch-ai-insight.png"
-                        :preview-src-list="['/epoch-ai-insight.png']"
+                        src="/epoch-ai-insight.jpg"
+                        :preview-src-list="['/epoch-ai-insight.jpg']"
                         fit="contain"
                         class="insight-image"
                     />

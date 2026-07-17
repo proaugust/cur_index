@@ -53,6 +53,5 @@ exit /b 0
 :fail
 echo.
 echo FAILED. See messages above.
-@REM pause
 endlocal
 exit /b 1

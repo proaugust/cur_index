@@ -296,6 +296,12 @@ class InsightSimulationWeightRead(BaseModel):
 class InsightModelTrainResult(BaseModel):
     model_version: str
     message: str = "训练完成"
+    # 弱标签 holdout 指标（非真实流失准确率）
+    val_auc: float | None = None
+    val_accuracy: float | None = None
+    train_rows: int = 0
+    val_rows: int = 0
+    label_source: str = "weak_label"
 
 
 class InsightDecisionDashboard(BaseModel):
@@ -305,6 +311,11 @@ class InsightDecisionDashboard(BaseModel):
     snapshot_total: int = 0
     high_risk_total: int = 0
     simulation_weights: list[InsightSimulationWeightRead] = Field(default_factory=list)
+    val_auc: float | None = None
+    val_accuracy: float | None = None
+    train_rows: int = 0
+    val_rows: int = 0
+    label_source: str | None = None
 
 
 class InsightDecisionRecommendation(BaseModel):

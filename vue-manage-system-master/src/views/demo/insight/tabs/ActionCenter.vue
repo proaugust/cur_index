@@ -10,24 +10,28 @@
                 <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.highRisk')" :value="dashboard?.high_risk_total || 0" /></el-card>
             </el-col>
             <el-col :xs="12" :sm="6">
-                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.snapshotTotal')" :value="dashboard?.snapshot_total || 0" /></el-card>
+                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.valAccuracy')" :value="formatPct(dashboard?.val_accuracy)" /></el-card>
             </el-col>
             <el-col :xs="12" :sm="6">
-                <el-card shadow="hover">
-                    <el-statistic :title="t('pages.insight.action.trained')">
-                        <template #default>
-                            <el-tag :type="dashboard?.has_trained_model ? 'success' : 'warning'" size="small">
-                                {{ dashboard?.has_trained_model ? t('pages.insight.action.yes') : t('pages.insight.action.no') }}
-                            </el-tag>
-                        </template>
-                    </el-statistic>
-                </el-card>
+                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.valAuc')" :value="formatMetric(dashboard?.val_auc)" /></el-card>
             </el-col>
         </el-row>
+        <el-alert
+            v-if="dashboard?.label_source === 'weak_label'"
+            :title="t('pages.insight.action.metricsHint')"
+            type="warning"
+            show-icon
+            :closable="false"
+            class="mgb20"
+        />
 
         <div class="toolbar mgb20">
             <el-button type="primary" :loading="training" @click="handleTrain">{{ t('pages.insight.action.trainModel') }}</el-button>
             <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
+            <el-tag v-if="dashboard?.has_trained_model" type="success" size="small">{{ t('pages.insight.action.trained') }}</el-tag>
+            <span v-if="dashboard?.val_rows" class="metrics-meta">
+                {{ t('pages.insight.action.holdoutRows', { train: dashboard.train_rows, val: dashboard.val_rows }) }}
+            </span>
         </div>
 
         <el-row :gutter="16">
@@ -129,7 +133,7 @@ async function handleTrain() {
     training.value = true;
     try {
         const { data } = await postInsightTrainModel();
-        ElMessage.success(t('pages.insight.action.trainDone', { version: data.model_version }));
+        ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
         await loadAll();
     } finally {
         training.value = false;
@@ -160,6 +164,18 @@ function formatDelta(value: unknown) {
     return `${num >= 0 ? '+' : ''}${num.toFixed(4)}`;
 }
 
+function formatPct(value: unknown) {
+    if (value === null || value === undefined || value === '') return '-';
+    const num = Number(value);
+    return Number.isFinite(num) ? `${(num * 100).toFixed(1)}%` : '-';
+}
+
+function formatMetric(value: unknown) {
+    if (value === null || value === undefined || value === '') return '-';
+    const num = Number(value);
+    return Number.isFinite(num) ? num.toFixed(4) : '-';
+}
+
 function deltaClass(value: unknown) {
     return Number(value) < 0 ? 'delta-good' : Number(value) > 0 ? 'delta-bad' : '';
 }
@@ -168,7 +184,8 @@ onMounted(loadAll);
 </script>
 
 <style scoped>
-.toolbar { display: flex; gap: 12px; flex-wrap: wrap; }
+.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.metrics-meta { color: var(--el-text-color-secondary); font-size: 13px; }
 .mgb20 { margin-bottom: 20px; }
 .delta-good { color: var(--el-color-success); font-weight: 600; }
 .delta-bad { color: var(--el-color-danger); font-weight: 600; }

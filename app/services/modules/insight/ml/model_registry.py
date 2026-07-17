@@ -17,6 +17,12 @@ class InsightModelArtifacts:
     scaler: object
     kmeans: object | None
     cluster_shap: dict[int, dict[str, float]]
+    # 弱标签 holdout 指标（旧 artifacts 无此字段时保持默认）
+    val_auc: float | None = None
+    val_accuracy: float | None = None
+    train_rows: int = 0
+    val_rows: int = 0
+    label_source: str = "weak_label"
 
 
 class InsightModelRegistry:
@@ -36,7 +42,8 @@ class InsightModelRegistry:
     def load_artifacts(self) -> InsightModelArtifacts:
         with self.artifacts_path.open("rb") as handle:
             payload = pickle.load(handle)
-        return InsightModelArtifacts(**payload)
+        fields = {f.name for f in InsightModelArtifacts.__dataclass_fields__.values()}
+        return InsightModelArtifacts(**{k: v for k, v in payload.items() if k in fields})
 
     def save(self, booster, artifacts: InsightModelArtifacts) -> None:
         self.model_dir.mkdir(parents=True, exist_ok=True)
