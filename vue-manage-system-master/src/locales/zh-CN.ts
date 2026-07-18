@@ -715,6 +715,8 @@
                 overall: '综合分',
                 loadFailed: '加载画像失败',
                 shapInferred: '（簇推断归因）',
+                shapInsufficient: '分数偏高，证据不足（无直接/外推归因）',
+                shapEmpty: '暂无归因',
             },
             action: {
                 hint: '决策中心读取最新风险快照与模型特征权重，提供高风险挽留建议与 WHAT-IF 仿真。',

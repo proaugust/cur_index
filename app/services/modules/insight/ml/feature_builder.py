@@ -15,6 +15,9 @@ from app.services.modules.insight.ml.feature_labels import (
 )
 from app.services.modules.insight.ml.types import UserFeatureRow
 
+# 分批 IN，避免待评估用户过多时退化为三次全表扫描
+FEATURE_AGG_CHUNK = 2000
+
 
 class InsightFeatureBuilder:
     def __init__(self, db: Session):
@@ -145,14 +148,24 @@ class InsightFeatureBuilder:
     def _load_aggregates(self, user_ids: list[str] | None = None) -> dict[str, dict]:
         if user_ids is not None and not user_ids:
             return {}
-        # 如果待评估用户数很大，直接全表扫描聚合（因为投诉样本表 FactComplaintSample 记录数通常远少于用户主表）
-        use_in_clause = user_ids is not None and len(user_ids) <= 1000
+        if user_ids is None:
+            agg = self._load_base_counts(False, None)
+            self._load_complaint_types(agg, False, None)
+            self._load_survey_scores(agg, False, None)
+            return self._finalize_aggregates(agg)
 
-        agg = self._load_base_counts(use_in_clause, user_ids)
-        self._load_complaint_types(agg, use_in_clause, user_ids)
-        self._load_survey_scores(agg, use_in_clause, user_ids)
+        agg: dict[str, dict] = {}
+        for offset in range(0, len(user_ids), FEATURE_AGG_CHUNK):
+            chunk = user_ids[offset : offset + FEATURE_AGG_CHUNK]
+            part = self._load_base_counts(True, chunk)
+            self._load_complaint_types(part, True, chunk)
+            self._load_survey_scores(part, True, chunk)
+            agg.update(part)
+        return self._finalize_aggregates(agg)
 
-        for user_id, bucket in agg.items():
+    @staticmethod
+    def _finalize_aggregates(agg: dict[str, dict]) -> dict[str, dict]:
+        for bucket in agg.values():
             if bucket["ctype_counts"]:
                 bucket["dominant_type"] = max(bucket["ctype_counts"], key=bucket["ctype_counts"].get)
             bucket["survey_scores"] = {

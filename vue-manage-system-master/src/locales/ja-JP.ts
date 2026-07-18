@@ -715,6 +715,8 @@
                 overall: '総合',
                 loadFailed: 'プロファイル読込失敗',
                 shapInferred: '（クラスタ推定帰属）',
+                shapInsufficient: 'スコアは高いが根拠不足（直接/外推帰属なし）',
+                shapEmpty: '帰属なし',
             },
             action: {
                 hint: '意思決定センター：最新スナップショットと特徴量重みに基づく高リスク挽留提案と WHAT-IF シミュレーション。',

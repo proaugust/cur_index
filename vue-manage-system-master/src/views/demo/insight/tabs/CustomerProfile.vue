@@ -135,7 +135,7 @@
                                                     </div>
                                                     <div v-if="isInferredShap" class="shap-note">{{ t('pages.insight.profile.shapInferred') }}</div>
                                                 </div>
-                                                <span v-else>-</span>
+                                                <span v-else class="shap-note">{{ shapEmptyText }}</span>
                                             </el-descriptions-item>
                                         </el-descriptions>
                                     </el-card>
@@ -194,6 +194,17 @@ const shapItems = computed(() => {
 const isInferredShap = computed(() =>
     (profile.value?.profile?.tags || []).some((tag: string) => tag.startsWith('沉默客户')),
 );
+/** SHAP 为空时用标签/短文案占位，避免页面显示「-」 */
+const shapEmptyText = computed(() => {
+    const tags = (profile.value?.profile?.tags || []) as string[];
+    if (tags.includes('证据不足')) {
+        const extras = tags.filter((tag) => tag !== '证据不足');
+        const base = t('pages.insight.profile.shapInsufficient');
+        return extras.length ? `${base}：${extras.join(' · ')}` : base;
+    }
+    if (tags.length) return tags.join(' · ');
+    return t('pages.insight.profile.shapEmpty');
+});
 const flowRows = computed(() => {
     const samples = profile.value?.recent_samples || profile.value?.recent_touchpoints || [];
     return samples.map((row: Record<string, any>) => ({

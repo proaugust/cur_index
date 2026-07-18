@@ -2,6 +2,7 @@
 
 import logging
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # 兼容旧 import
 MOCK_MODEL_VERSION = "mock-v1.0"
+ShapPolicy = Literal["all_sample", "high_only"]
 
 __all__ = ["InsightAiRiskEngine", "RiskPrediction", "MOCK_MODEL_VERSION", "risk_level"]
 
@@ -38,14 +40,21 @@ class InsightAiRiskEngine:
         users: list[DimUserProfile],
         *,
         dampen: Decimal = Decimal("0"),
+        shap_policy: ShapPolicy = "all_sample",
     ) -> list[RiskPrediction]:
         features = InsightFeatureBuilder(db).build_batch(users)
         self._ensure_model(db, users)
         if self.registry.has_model():
-            predictions = self._run_lgbm(users, features, dampen=dampen)
+            predictions = self._run_lgbm(users, features, dampen=dampen, shap_policy=shap_policy)
         else:
-            predictions = self._run_mock(users, features, dampen=dampen)
-        logger.info("AI 风险引擎完成 users=%s model=%s", len(predictions), self.model_version)
+            predictions = self._run_mock(users, features, dampen=dampen, shap_policy=shap_policy)
+        _downgrade_unexplained_high(predictions)
+        logger.info(
+            "AI 风险引擎完成 users=%s model=%s shap_policy=%s",
+            len(predictions),
+            self.model_version,
+            shap_policy,
+        )
         return predictions
 
     def _ensure_model(self, db: Session, users: list[DimUserProfile]) -> None:
@@ -64,12 +73,15 @@ class InsightAiRiskEngine:
         features: dict[str, UserFeatureRow],
         *,
         dampen: Decimal,
+        shap_policy: ShapPolicy,
     ) -> list[RiskPrediction]:
         scorer = LgbmRiskScorer(self.registry)
         scores = scorer.predict_batch(features, dampen=float(dampen))
         sample_ids = [user_id for user_id, row in features.items() if row.has_sample]
         score_float = {user_id: float(score) for user_id, score in scores.items()}
-        shap_map = explain_batch(scorer, features, sample_ids, score_float)
+        shap_ids = _select_shap_ids(sample_ids, scores, shap_policy)
+        logger.info("SHAP 归因 %s/%s (policy=%s)", len(shap_ids), len(sample_ids), shap_policy)
+        shap_map = explain_batch(scorer, features, shap_ids, score_float)
         predictions = [
             self._build_row(user, features[user.user_id], scores[user.user_id], shap_map.get(user.user_id))
             for user in users
@@ -83,12 +95,15 @@ class InsightAiRiskEngine:
         features: dict[str, UserFeatureRow],
         *,
         dampen: Decimal,
+        shap_policy: ShapPolicy,
     ) -> list[RiskPrediction]:
         predictions = []
         for user in users:
             feature = features[user.user_id]
             score = mock_score(user, feature, dampen=dampen)
-            predictions.append(self._build_row(user, feature, score, mock_shap(user, feature, score)))
+            need_shap = shap_policy == "all_sample" or risk_level(score) == "high"
+            shap = mock_shap(user, feature, score) if need_shap else {}
+            predictions.append(self._build_row(user, feature, score, shap))
         self._apply_rule_tags(predictions, features)
         return predictions
 
@@ -132,6 +147,28 @@ class InsightAiRiskEngine:
 
                 mode = Counter(tags).most_common(1)[0][0]
                 row["tags"] = [*row["tags"], f"沉默客户·{mode}"]
+
+
+def _downgrade_unexplained_high(predictions: list[RiskPrediction]) -> None:
+    """高风险必须有可展示归因；无 SHAP 则降为 medium 并打证据不足标签。"""
+    for row in predictions:
+        if row["churn_risk_level"] != "high":
+            continue
+        if row.get("shap_values"):
+            continue
+        row["churn_risk_level"] = "medium"
+        if "证据不足" not in row["tags"]:
+            row["tags"] = [*row["tags"], "证据不足"]
+
+
+def _select_shap_ids(
+    sample_ids: list[str],
+    scores: dict[str, Decimal],
+    shap_policy: ShapPolicy,
+) -> list[str]:
+    if shap_policy == "all_sample":
+        return sample_ids
+    return [uid for uid in sample_ids if risk_level(scores[uid]) == "high"]
 
 
 def _activity_trend(feature: UserFeatureRow) -> str:

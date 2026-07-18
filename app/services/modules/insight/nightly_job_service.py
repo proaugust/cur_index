@@ -88,12 +88,18 @@ class InsightNightlyJobService:
                 prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
                 if prev_users:
                     prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
-                        prev_users, prev_date, dampen=Decimal("0.12"), replace_day=replace_day
+                        prev_users,
+                        prev_date,
+                        dampen=Decimal("0.12"),
+                        replace_day=replace_day,
+                        mode=mode,
                     )
                     steps.extend(prev_steps)
 
             if users:
-                snapshots, regions, today_steps = self._run_pipeline(users, target_date, replace_day=replace_day)
+                snapshots, regions, today_steps = self._run_pipeline(
+                    users, target_date, replace_day=replace_day, mode=mode
+                )
                 steps.extend(today_steps)
             else:
                 steps.append(
@@ -190,10 +196,13 @@ class InsightNightlyJobService:
         *,
         dampen: Decimal = Decimal("0"),
         replace_day: bool = True,
+        mode: InsightRunMode = "full",
     ) -> tuple[int, int, list[InsightPipelineStepResult]]:
         steps: list[InsightPipelineStepResult] = []
         ai_started = time.perf_counter()
-        predictions = self.ai_engine.run(self.db, users, dampen=dampen)
+        # 增量只对高风险做 SHAP，全量保留有样本全量归因
+        shap_policy = "high_only" if mode == "incremental" else "all_sample"
+        predictions = self.ai_engine.run(self.db, users, dampen=dampen, shap_policy=shap_policy)
         steps.append(
             InsightPipelineStepResult(
                 step="ai_risk_engine",
