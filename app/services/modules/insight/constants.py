@@ -17,6 +17,13 @@ SAMPLE_BATCH_SIZE = 1_000
 SNAPSHOT_WRITE_BATCH_SIZE = 100
 COMPLAINT_VECTOR_DIM = 768
 
+# 真实流失标签：观察日 as_of 后 N 天内销户/携转为正样本；y 不得由特征规则生成
+CHURN_HORIZON_DAYS = 90
+LABEL_SOURCE_REAL = "real_churn"
+LABEL_SOURCE_WEAK = "weak_label"
+LABEL_SOURCE_CSV = "csv_import"
+LABEL_SOURCE_SEED = "seed_synthetic"
+
 SURNAMES = ("张", "李", "王", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙", "胡", "朱", "高", "林")
 GIVEN_NAMES = ("伟", "芳", "娜", "敏", "静", "强", "磊", "洋", "勇", "艳", "杰", "娟", "涛", "明", "超", "秀英")
 

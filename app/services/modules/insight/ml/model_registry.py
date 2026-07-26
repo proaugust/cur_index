@@ -22,7 +22,7 @@ class InsightModelArtifacts:
     val_accuracy: float | None = None
     train_rows: int = 0
     val_rows: int = 0
-    label_source: str = "weak_label"
+    label_source: str = "weak_label"  # real_churn | weak_label
 
 
 class InsightModelRegistry:

@@ -23,11 +23,13 @@ class InsightFeatureBuilder:
     def __init__(self, db: Session):
         self.db = db
 
-    def build_batch(self, users: list[DimUserProfile]) -> dict[str, UserFeatureRow]:
+    def build_batch(
+        self, users: list[DimUserProfile], *, as_of_date: date | None = None
+    ) -> dict[str, UserFeatureRow]:
         user_map = {user.user_id: user for user in users}
-        agg = self._load_aggregates(list(user_map.keys()))
+        agg = self._load_aggregates(list(user_map.keys()), as_of_date=as_of_date)
         rows: dict[str, UserFeatureRow] = {}
-        today = date.today()
+        ref_day = as_of_date or date.today()
         for user_id, user in user_map.items():
             stat = agg.get(
                 user_id,
@@ -46,7 +48,7 @@ class InsightFeatureBuilder:
                 complaint_cnt=int(stat["complaint_cnt"]),
                 avg_satisfaction=stat["avg_satisfaction"],
                 dominant_type=stat["dominant_type"],
-                values=self._build_vector(user, stat, today),
+                values=self._build_vector(user, stat, ref_day),
             )
         return rows
 
@@ -71,7 +73,12 @@ class InsightFeatureBuilder:
         values.extend(float(survey_scores.get(key, 3.0)) for key in SURVEY_KEYS)
         return values
 
-    def _load_base_counts(self, use_in_clause: bool, user_ids: list[str] | None) -> dict[str, dict]:
+    def _load_base_counts(
+        self,
+        use_in_clause: bool,
+        user_ids: list[str] | None,
+        as_of_date: date | None = None,
+    ) -> dict[str, dict]:
         base_q = self.db.query(
             FactComplaintSample.user_id,
             func.count(FactComplaintSample.sample_id),
@@ -80,6 +87,8 @@ class InsightFeatureBuilder:
         )
         if use_in_clause and user_ids:
             base_q = base_q.filter(FactComplaintSample.user_id.in_(user_ids))
+        if as_of_date is not None:
+            base_q = base_q.filter(FactComplaintSample.record_date <= as_of_date)
         base_rows = base_q.group_by(FactComplaintSample.user_id).all()
 
         agg: dict[str, dict] = {}
@@ -94,7 +103,13 @@ class InsightFeatureBuilder:
             }
         return agg
 
-    def _load_complaint_types(self, agg: dict[str, dict], use_in_clause: bool, user_ids: list[str] | None) -> None:
+    def _load_complaint_types(
+        self,
+        agg: dict[str, dict],
+        use_in_clause: bool,
+        user_ids: list[str] | None,
+        as_of_date: date | None = None,
+    ) -> None:
         type_q = (
             self.db.query(
                 FactComplaintSample.user_id,
@@ -105,6 +120,8 @@ class InsightFeatureBuilder:
         )
         if use_in_clause and user_ids:
             type_q = type_q.filter(FactComplaintSample.user_id.in_(user_ids))
+        if as_of_date is not None:
+            type_q = type_q.filter(FactComplaintSample.record_date <= as_of_date)
         for user_id, complaint_type, count in type_q.group_by(
             FactComplaintSample.user_id, FactComplaintSample.complaint_type
         ).all():
@@ -121,13 +138,21 @@ class InsightFeatureBuilder:
             )
             bucket["ctype_counts"][complaint_type] += int(count)
 
-    def _load_survey_scores(self, agg: dict[str, dict], use_in_clause: bool, user_ids: list[str] | None) -> None:
+    def _load_survey_scores(
+        self,
+        agg: dict[str, dict],
+        use_in_clause: bool,
+        user_ids: list[str] | None,
+        as_of_date: date | None = None,
+    ) -> None:
         survey_q = self.db.query(
             FactComplaintSample.user_id,
             FactComplaintSample.survey_category_scores,
         ).filter(FactComplaintSample.survey_category_scores.isnot(None))
         if use_in_clause and user_ids:
             survey_q = survey_q.filter(FactComplaintSample.user_id.in_(user_ids))
+        if as_of_date is not None:
+            survey_q = survey_q.filter(FactComplaintSample.record_date <= as_of_date)
         for user_id, scores in survey_q.all():
             if not scores:
                 continue
@@ -145,21 +170,23 @@ class InsightFeatureBuilder:
             for key, value in scores.items():
                 bucket["survey_scores"][key].append(float(value))
 
-    def _load_aggregates(self, user_ids: list[str] | None = None) -> dict[str, dict]:
+    def _load_aggregates(
+        self, user_ids: list[str] | None = None, *, as_of_date: date | None = None
+    ) -> dict[str, dict]:
         if user_ids is not None and not user_ids:
             return {}
         if user_ids is None:
-            agg = self._load_base_counts(False, None)
-            self._load_complaint_types(agg, False, None)
-            self._load_survey_scores(agg, False, None)
+            agg = self._load_base_counts(False, None, as_of_date)
+            self._load_complaint_types(agg, False, None, as_of_date)
+            self._load_survey_scores(agg, False, None, as_of_date)
             return self._finalize_aggregates(agg)
 
         agg: dict[str, dict] = {}
         for offset in range(0, len(user_ids), FEATURE_AGG_CHUNK):
             chunk = user_ids[offset : offset + FEATURE_AGG_CHUNK]
-            part = self._load_base_counts(True, chunk)
-            self._load_complaint_types(part, True, chunk)
-            self._load_survey_scores(part, True, chunk)
+            part = self._load_base_counts(True, chunk, as_of_date)
+            self._load_complaint_types(part, True, chunk, as_of_date)
+            self._load_survey_scores(part, True, chunk, as_of_date)
             agg.update(part)
         return self._finalize_aggregates(agg)
 

@@ -1,7 +1,7 @@
 ﻿from datetime import date, datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +25,7 @@ from app.schemas.insight import (
     InsightProfileSnapshotListResponse,
     InsightRegionRiskMetricsListResponse,
     InsightAnalysisLogListResponse,
+    InsightChurnLabelImportResult,
     InsightDecisionDashboard,
     InsightDecisionRecommendation,
     InsightDecisionSimulateRequest,
@@ -329,6 +330,25 @@ def insight_train_model(
     _: User = Depends(require_permission("91.seed-samples", name="Insight 模型训练")),
 ) -> InsightModelTrainResult:
     return InsightDecisionService(db).train_model()
+
+
+@router.post("/churn-labels/import", response_model=InsightChurnLabelImportResult)
+async def insight_import_churn_labels(
+    file: UploadFile = File(..., description="UTF-8 CSV：user_id,as_of_date,churn_90d 或 user_id,cancel_date"),
+    as_of_date: date | None = Query(default=None, description="仅 cancel_date 格式时必填"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("91.seed-samples", name="Insight 导入流失标签")),
+) -> InsightChurnLabelImportResult:
+    raw = await file.read()
+    return InsightDecisionService(db).import_churn_labels(raw, as_of_date=as_of_date)
+
+
+@router.delete("/churn-labels")
+def insight_clear_churn_labels(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("91.seed-samples", name="Insight 清空流失标签")),
+) -> dict[str, int]:
+    return InsightDecisionService(db).clear_churn_labels()
 
 
 @router.get("/simulation-weights", response_model=list[InsightSimulationWeightRead])

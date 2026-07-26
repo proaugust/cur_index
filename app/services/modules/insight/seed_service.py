@@ -19,6 +19,7 @@ from app.schemas.insight import (
     InsightSeedPresetInfo,
     InsightSeedUsersResult,
 )
+from app.services.modules.insight.churn_label_service import InsightChurnLabelService
 from app.services.modules.insight.constants import SAMPLE_BATCH_SIZE, SEED_PRESETS, USER_BATCH_SIZE
 from app.services.modules.insight.seed.complaint_generator import build_complaint_row, build_preview_row
 from app.services.modules.insight.seed.profile_generator import generate_profile_row, strip_seed_meta
@@ -69,12 +70,14 @@ class InsightSeedService:
         crud_insight.sync_complaint_seq(self.db)
         started = time.perf_counter()
         inserted = self._insert_samples(sample_count, pairs)
+        churn_labels = InsightChurnLabelService(self.db).seed_synthetic()
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         return InsightSeedSamplesResult(
             preset=preset,
             complaints_inserted=inserted,
             touchpoints_inserted=inserted,
             samples_inserted=inserted,
+            churn_labels_inserted=churn_labels,
             elapsed_ms=elapsed_ms,
         )
 
@@ -98,6 +101,7 @@ class InsightSeedService:
     def reset_samples(self) -> InsightSeedResetResult:
         cleared = crud_insight.clear_sample_data(self.db)
         cleared.update(crud_insight.clear_snapshot_data(self.db))
+        cleared.update(crud_insight.clear_churn_labels(self.db))
         return InsightSeedResetResult(cleared=cleared)
 
     def preview_complaints(self, count: int = 3) -> InsightSeedPreviewResult:

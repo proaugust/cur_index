@@ -24,11 +24,39 @@
             :closable="false"
             class="mgb20"
         />
+        <el-alert
+            v-else-if="dashboard?.label_source === 'real_churn'"
+            :title="t('pages.insight.action.metricsHintReal')"
+            type="success"
+            show-icon
+            :closable="false"
+            class="mgb20"
+        />
+        <el-alert
+            v-else-if="!dashboard?.churn_label_total"
+            :title="t('pages.insight.action.churnLabelEmpty')"
+            type="info"
+            show-icon
+            :closable="false"
+            class="mgb20"
+        />
 
         <div class="toolbar mgb20">
             <el-button type="primary" :loading="training" @click="handleTrain">{{ t('pages.insight.action.trainModel') }}</el-button>
+            <el-upload :show-file-list="false" :before-upload="handleImportLabels" accept=".csv,text/csv">
+                <el-button :loading="importing">{{ t('pages.insight.action.importLabels') }}</el-button>
+            </el-upload>
+            <el-button :disabled="!dashboard?.churn_label_total" @click="handleClearLabels">
+                {{ t('pages.insight.action.clearLabels') }}
+            </el-button>
             <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
             <el-tag v-if="dashboard?.has_trained_model" type="success" size="small">{{ t('pages.insight.action.trained') }}</el-tag>
+            <el-tag v-if="dashboard?.label_source" size="small" :type="dashboard.label_source === 'real_churn' ? 'success' : 'warning'">
+                {{ dashboard.label_source }}
+            </el-tag>
+            <span v-if="dashboard?.churn_label_total" class="metrics-meta">
+                {{ t('pages.insight.action.churnLabelTotal', { count: dashboard.churn_label_total }) }}
+            </span>
             <span v-if="dashboard?.val_rows" class="metrics-meta">
                 {{ t('pages.insight.action.holdoutRows', { train: dashboard.train_rows, val: dashboard.val_rows }) }}
             </span>
@@ -95,8 +123,10 @@ import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
+    deleteInsightChurnLabels,
     getInsightDecisionDashboard,
     getInsightDecisionRecommendations,
+    postInsightChurnLabelsImport,
     postInsightDecisionSimulate,
     postInsightTrainModel,
 } from '@/api';
@@ -104,6 +134,7 @@ import {
 const { t } = useI18n();
 const loadingRec = ref(false);
 const training = ref(false);
+const importing = ref(false);
 const simulating = ref(false);
 const dashboard = ref<Record<string, any> | null>(null);
 const recommendations = ref<Record<string, unknown>[]>([]);
@@ -138,6 +169,24 @@ async function handleTrain() {
     } finally {
         training.value = false;
     }
+}
+
+async function handleImportLabels(file: File) {
+    importing.value = true;
+    try {
+        const { data } = await postInsightChurnLabelsImport(file);
+        ElMessage.success(data.message || t('pages.insight.action.importDone'));
+        await loadDashboard();
+    } finally {
+        importing.value = false;
+    }
+    return false;
+}
+
+async function handleClearLabels() {
+    const { data } = await deleteInsightChurnLabels();
+    ElMessage.success(t('pages.insight.action.clearLabelsDone', { count: data.churn_labels ?? 0 }));
+    await loadDashboard();
 }
 
 async function handleSimulate() {

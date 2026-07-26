@@ -9,12 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.models.insight import CfgSimulationWeight, DimUserProfile, DimUserProfileSnapshot
 from app.schemas.insight import (
+    InsightChurnLabelImportResult,
     InsightDecisionDashboard,
     InsightDecisionRecommendation,
     InsightDecisionSimulateResult,
     InsightModelTrainResult,
     InsightSimulationWeightRead,
 )
+from app.services.modules.insight.churn_label_service import InsightChurnLabelService
+from app.services.modules.insight.constants import LABEL_SOURCE_REAL, LABEL_SOURCE_WEAK
 from app.services.modules.insight.ml.feature_builder import InsightFeatureBuilder
 from app.services.modules.insight.ml.lgbm_scorer import LgbmRiskScorer
 from app.services.modules.insight.ml.mock_scorer import mock_score, risk_level
@@ -56,6 +59,7 @@ class InsightDecisionService:
             snapshot_total=int(total_snapshots),
             high_risk_total=int(high_risk),
             simulation_weights=weights,
+            churn_label_total=InsightChurnLabelService(self.db).count(),
             **metrics,
         )
 
@@ -110,11 +114,7 @@ class InsightDecisionService:
     def train_model(self) -> InsightModelTrainResult:
         result = InsightModelTrainer(self.db).train()
         self.db.commit()
-        msg = "训练完成（弱标签 holdout，非真实流失准确率）"
-        if result.val_accuracy is not None:
-            msg = f"{msg}；Accuracy={result.val_accuracy:.2%}"
-            if result.val_auc is not None:
-                msg = f"{msg}，AUC={result.val_auc:.4f}"
+        msg = _train_message(result)
         return InsightModelTrainResult(
             model_version=result.model_version,
             message=msg,
@@ -124,6 +124,21 @@ class InsightDecisionService:
             val_rows=result.val_rows,
             label_source=result.label_source,
         )
+
+    def import_churn_labels(self, raw: bytes, *, as_of_date: date | None = None) -> InsightChurnLabelImportResult:
+        result = InsightChurnLabelService(self.db).import_csv(raw, as_of_date=as_of_date)
+        self.db.commit()
+        return InsightChurnLabelImportResult(
+            upserted=result["upserted"],
+            skipped=result["skipped"],
+            total=result["total"],
+            message=f"导入完成：写入 {result['upserted']}，跳过 {result['skipped']}，合计 {result['total']}",
+        )
+
+    def clear_churn_labels(self) -> dict[str, int]:
+        cleared = InsightChurnLabelService(self.db).clear()
+        self.db.commit()
+        return {"churn_labels": cleared}
 
     def _load_train_metrics(self) -> dict:
         if not self.registry.has_model():
@@ -161,6 +176,20 @@ class InsightDecisionService:
             dominant_type=feature.dominant_type,
             values=values,
         )
+
+
+def _train_message(result) -> str:
+    if result.label_source == LABEL_SOURCE_REAL:
+        msg = "训练完成（真实流失标签，时间切分验证）"
+    elif result.label_source == LABEL_SOURCE_WEAK:
+        msg = "训练完成（弱标签 holdout，非真实流失准确率）"
+    else:
+        msg = f"训练完成（label_source={result.label_source}）"
+    if result.val_accuracy is not None:
+        msg = f"{msg}；Accuracy={result.val_accuracy:.2%}"
+        if result.val_auc is not None:
+            msg = f"{msg}，AUC={result.val_auc:.4f}"
+    return msg
 
 
 def _top_shap(shap_values: dict | None) -> dict[str, float]:

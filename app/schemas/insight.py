@@ -25,6 +25,14 @@ class InsightSeedStatus(BaseModel):
     region_metrics: int = 0
     simulation_weights: int = 0
     analysis_logs: int = 0
+    churn_labels: int = 0
+
+
+class InsightChurnLabelImportResult(BaseModel):
+    upserted: int
+    skipped: int
+    total: int
+    message: str = "导入完成"
 
 
 class InsightSeedUsersResult(BaseModel):
@@ -38,6 +46,7 @@ class InsightSeedSamplesResult(BaseModel):
     complaints_inserted: int
     touchpoints_inserted: int
     samples_inserted: int
+    churn_labels_inserted: int = 0
     elapsed_ms: int
 
 
@@ -296,7 +305,6 @@ class InsightSimulationWeightRead(BaseModel):
 class InsightModelTrainResult(BaseModel):
     model_version: str
     message: str = "训练完成"
-    # 弱标签 holdout 指标（非真实流失准确率）
     val_auc: float | None = None
     val_accuracy: float | None = None
     train_rows: int = 0
@@ -316,6 +324,7 @@ class InsightDecisionDashboard(BaseModel):
     train_rows: int = 0
     val_rows: int = 0
     label_source: str | None = None
+    churn_label_total: int = 0
 
 
 class InsightDecisionRecommendation(BaseModel):

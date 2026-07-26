@@ -12,16 +12,15 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy.orm import Session
 
 from app.models.insight import CfgSimulationWeight, DimUserProfile
+from app.services.modules.insight.constants import LABEL_SOURCE_REAL
 from app.services.modules.insight.ml.feature_builder import InsightFeatureBuilder
-from app.services.modules.insight.ml.shap_utils import normalize_shap_dict
+from app.services.modules.insight.ml.label_loader import LabeledTrainRow, collect_train_rows
 from app.services.modules.insight.ml.model_registry import InsightModelArtifacts, InsightModelRegistry
-from app.services.modules.insight.ml.types import UserFeatureRow
-from app.services.modules.insight.ml.weak_label import weak_label
+from app.services.modules.insight.ml.shap_utils import normalize_shap_dict
 
 logger = logging.getLogger(__name__)
 _MIN_TRAIN_ROWS = 30
 _HOLDOUT_RATIO = 0.2
-_LABEL_SOURCE = "weak_label"
 
 
 @dataclass
@@ -31,33 +30,32 @@ class InsightTrainResult:
     val_accuracy: float | None
     train_rows: int
     val_rows: int
-    label_source: str = _LABEL_SOURCE
+    label_source: str
 
 
 class InsightModelTrainer:
     def __init__(self, db: Session):
         self.db = db
         self.registry = InsightModelRegistry()
-        self.feature_builder = InsightFeatureBuilder(db)
 
     def train(self, users: list[DimUserProfile] | None = None) -> InsightTrainResult:
         users = users or self.db.query(DimUserProfile).all()
         if not users:
             raise ValueError("无用户主数据，无法训练")
-        features = self.feature_builder.build_batch(users)
-        train_rows = self._collect_train_rows(users, features)
+        train_rows, label_source = collect_train_rows(self.db, users)
         if len(train_rows) < _MIN_TRAIN_ROWS:
             raise ValueError(f"有标签样本不足 {len(train_rows)} < {_MIN_TRAIN_ROWS}")
 
         names = InsightFeatureBuilder.feature_names()
-        x_all = np.array([features[row.user_id].values for row in train_rows], dtype=np.float32)
+        x_all = np.array([row.values for row in train_rows], dtype=np.float32)
         y_all = np.array([row.label for row in train_rows], dtype=np.int32)
-        metrics = self._holdout_metrics(x_all, y_all)
+        as_of = [row.as_of_date for row in train_rows]
+        metrics = self._eval_metrics(x_all, y_all, as_of, label_source)
 
         scaler = StandardScaler()
         x_scaled = scaler.fit_transform(x_all)
         booster = self._fit_lgbm(x_scaled, y_all)
-        kmeans, cluster_shap = self._fit_clusters(train_rows, features, names, scaler, booster)
+        kmeans, cluster_shap = self._fit_clusters(train_rows, names, scaler, booster)
         version = f"lgbm-v1.0-{date.today().isoformat()}"
         artifacts = InsightModelArtifacts(
             version=version,
@@ -69,13 +67,14 @@ class InsightModelTrainer:
             val_accuracy=metrics["val_accuracy"],
             train_rows=metrics["train_rows"],
             val_rows=metrics["val_rows"],
-            label_source=_LABEL_SOURCE,
+            label_source=label_source,
         )
         self.registry.save(booster, artifacts)
         self._sync_simulation_weights(booster, names)
         logger.info(
-            "Insight 训练完成 version=%s rows=%s val_auc=%s val_acc=%s",
+            "Insight 训练完成 version=%s source=%s rows=%s val_auc=%s val_acc=%s",
             version,
+            label_source,
             len(train_rows),
             metrics["val_auc"],
             metrics["val_accuracy"],
@@ -86,27 +85,46 @@ class InsightModelTrainer:
             val_accuracy=metrics["val_accuracy"],
             train_rows=metrics["train_rows"],
             val_rows=metrics["val_rows"],
+            label_source=label_source,
         )
 
-    def _collect_train_rows(self, users: list[DimUserProfile], features: dict[str, UserFeatureRow]):
-        rows = []
-        for user in users:
-            feature = features.get(user.user_id)
-            if not feature or not feature.has_sample:
-                continue
-            rows.append(type("Row", (), {"user_id": user.user_id, "label": weak_label(user, feature)})())
-        return rows
-
     @classmethod
-    def _holdout_metrics(cls, x_all: np.ndarray, y_all: np.ndarray) -> dict:
-        """弱标签 holdout：先在训练集拟合，再在验证集算 AUC/Accuracy。"""
+    def _eval_metrics(
+        cls,
+        x_all: np.ndarray,
+        y_all: np.ndarray,
+        as_of: list[date | None],
+        label_source: str,
+    ) -> dict:
         empty = {"val_auc": None, "val_accuracy": None, "train_rows": int(len(x_all)), "val_rows": 0}
         if len(x_all) < _MIN_TRAIN_ROWS or len(np.unique(y_all)) < 2:
             return empty
+        if label_source == LABEL_SOURCE_REAL and any(d is not None for d in as_of):
+            return cls._time_split_metrics(x_all, y_all, as_of)
+        return cls._random_holdout_metrics(x_all, y_all)
+
+    @classmethod
+    def _time_split_metrics(cls, x_all: np.ndarray, y_all: np.ndarray, as_of: list[date | None]) -> dict:
+        dates = sorted({d for d in as_of if d is not None})
+        if len(dates) < 2:
+            return cls._random_holdout_metrics(x_all, y_all)
+        cut = max(1, int(len(dates) * (1 - _HOLDOUT_RATIO)))
+        val_dates = set(dates[cut:])
+        mask = np.array([d in val_dates for d in as_of], dtype=bool)
+        if not mask.any() or mask.all() or len(np.unique(y_all[~mask])) < 2:
+            return cls._random_holdout_metrics(x_all, y_all)
+        return cls._score_split(x_all[~mask], y_all[~mask], x_all[mask], y_all[mask])
+
+    @classmethod
+    def _random_holdout_metrics(cls, x_all: np.ndarray, y_all: np.ndarray) -> dict:
         stratify = y_all if int(np.min(np.bincount(y_all))) >= 2 else None
         x_tr, x_va, y_tr, y_va = train_test_split(
             x_all, y_all, test_size=_HOLDOUT_RATIO, random_state=42, stratify=stratify
         )
+        return cls._score_split(x_tr, y_tr, x_va, y_va)
+
+    @classmethod
+    def _score_split(cls, x_tr, y_tr, x_va, y_va) -> dict:
         scaler = StandardScaler()
         booster = cls._fit_lgbm(scaler.fit_transform(x_tr), y_tr)
         probs = booster.predict(scaler.transform(x_va))
@@ -139,11 +157,10 @@ class InsightModelTrainer:
         }
         return lgb.train(params, train_set, num_boost_round=120)
 
-    def _fit_clusters(self, train_rows, features, names, scaler, booster):
-        sample_ids = [row.user_id for row in train_rows]
-        x = np.array([features[user_id].values for user_id in sample_ids], dtype=np.float32)
+    def _fit_clusters(self, train_rows: list[LabeledTrainRow], names, scaler, booster):
+        x = np.array([row.values for row in train_rows], dtype=np.float32)
         x_scaled = scaler.transform(x)
-        cluster_count = max(3, min(12, len(sample_ids) // 40))
+        cluster_count = max(3, min(12, len(train_rows) // 40))
         kmeans = KMeans(n_clusters=cluster_count, random_state=42, n_init=10)
         labels = kmeans.fit_predict(x_scaled)
         cluster_shap = self._mean_shap_by_cluster(booster, x_scaled, labels, names)

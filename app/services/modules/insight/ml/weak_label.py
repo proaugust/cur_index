@@ -1,4 +1,4 @@
-"""弱监督标签：造数环境无真实流失标签时的 proxy。"""
+"""弱监督标签：无 insight_churn_label 时的 proxy（非 CRM 90 天离网标签）。"""
 
 from app.models.insight import DimUserProfile
 from app.services.modules.insight.ml.types import UserFeatureRow

@@ -7,6 +7,7 @@ from app.models.insight import (
     CfgSimulationWeight,
     DimUserProfile,
     DimUserProfileSnapshot,
+    FactChurnLabel,
     FactComplaintSample,
     FactRegionRiskMetrics,
     InsightAnalysisLog,
@@ -65,6 +66,7 @@ def get_seed_status(db: Session) -> dict[str, int]:
         "region_metrics": count_table(db, FactRegionRiskMetrics),
         "simulation_weights": count_table(db, CfgSimulationWeight),
         "analysis_logs": count_table(db, InsightAnalysisLog),
+        "churn_labels": count_table(db, FactChurnLabel),
     }
 
 
@@ -85,6 +87,13 @@ def clear_sample_data(db: Session) -> dict[str, int]:
         "samples": sample_total,
     }
     db.execute(delete(FactComplaintSample))
+    db.commit()
+    return cleared
+
+
+def clear_churn_labels(db: Session) -> dict[str, int]:
+    cleared = {"churn_labels": count_table(db, FactChurnLabel)}
+    db.execute(delete(FactChurnLabel))
     db.commit()
     return cleared
 

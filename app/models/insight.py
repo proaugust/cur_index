@@ -98,6 +98,18 @@ class CfgSimulationWeight(Base):
     impact_coefficient: Mapped[Decimal] = mapped_column(Numeric(5, 2))
 
 
+class FactChurnLabel(Base):
+    """真实流失标签：观察日 as_of 后 horizon 天内是否离网（与弱标签解耦）。"""
+
+    __tablename__ = "insight_churn_label"
+
+    user_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    as_of_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    churn_90d: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    label_source: Mapped[str] = mapped_column(String(32), default="csv_import")
+    cancel_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+
 class InsightAnalysisLog(Base):
     __tablename__ = "insight_analysis_logs"
 

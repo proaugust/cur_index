@@ -134,6 +134,16 @@ export const postInsightDecisionSimulate = (data: Record<string, unknown>) =>
 export const postInsightTrainModel = () =>
     request.post('/insight/models/train');
 
+export const postInsightChurnLabelsImport = (file: File, asOfDate?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    const params = asOfDate ? { as_of_date: asOfDate } : undefined;
+    return request.post('/insight/churn-labels/import', form, { params });
+};
+
+export const deleteInsightChurnLabels = () =>
+    request.delete('/insight/churn-labels');
+
 export const getInsightComplaintCategories = () =>
     request.get('/insight/complaint-categories');
 
