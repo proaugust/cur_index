@@ -1,7 +1,7 @@
 """从主数据 + 样本事实构建模型特征矩阵。"""
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -15,8 +15,8 @@ from app.services.modules.insight.ml.feature_labels import (
 )
 from app.services.modules.insight.ml.types import UserFeatureRow
 
-# 分批 IN，避免待评估用户过多时退化为三次全表扫描
 FEATURE_AGG_CHUNK = 2000
+_WINDOW_DAYS = 30
 
 
 class InsightFeatureBuilder:
@@ -31,17 +31,7 @@ class InsightFeatureBuilder:
         rows: dict[str, UserFeatureRow] = {}
         ref_day = as_of_date or date.today()
         for user_id, user in user_map.items():
-            stat = agg.get(
-                user_id,
-                {
-                    "sample_cnt": 0,
-                    "complaint_cnt": 0,
-                    "avg_satisfaction": None,
-                    "dominant_type": None,
-                    "ctype_counts": {},
-                    "survey_scores": {},
-                },
-            )
+            stat = agg.get(user_id, _empty_stat())
             rows[user_id] = UserFeatureRow(
                 user_id=user_id,
                 has_sample=stat["sample_cnt"] > 0,
@@ -57,20 +47,32 @@ class InsightFeatureBuilder:
         ctype_counts = stat["ctype_counts"]
         survey_scores = stat["survey_scores"]
         avg_sat = stat["avg_satisfaction"] if stat["avg_satisfaction"] is not None else 3.0
+        loyalty = float(survey_scores.get("loyalty_retention", 3.0))
+        fee = float(user.fee_drift_rate or 0)
+        sat_gap = 3.0 - float(avg_sat)
+        complaint_cnt = float(stat["complaint_cnt"])
         values: list[float] = [
             float(user.age),
             float(user.monthly_fee or 0),
-            float(user.fee_drift_rate or 0),
+            fee,
             float(user.satisfaction_net or 3),
             float(user.satisfaction_srv or 3),
             float(VIP_ORDINAL.get(user.vip_level, 0)),
             round(tenure, 2),
             float(stat["sample_cnt"]),
-            float(stat["complaint_cnt"]),
+            complaint_cnt,
             float(avg_sat),
         ]
         values.extend(float(ctype_counts.get(name, 0)) for name in COMPLAINT_TYPE_KEYS)
         values.extend(float(survey_scores.get(key, 3.0)) for key in SURVEY_KEYS)
+        values.extend(
+            [
+                float(stat.get("complaint_cnt_30d", 0)),
+                round(sat_gap, 4),
+                round(complaint_cnt * sat_gap, 4),
+                round(fee * (3.0 - loyalty), 4),
+            ]
+        )
         return values
 
     def _load_base_counts(
@@ -89,17 +91,15 @@ class InsightFeatureBuilder:
             base_q = base_q.filter(FactComplaintSample.user_id.in_(user_ids))
         if as_of_date is not None:
             base_q = base_q.filter(FactComplaintSample.record_date <= as_of_date)
-        base_rows = base_q.group_by(FactComplaintSample.user_id).all()
-
         agg: dict[str, dict] = {}
-        for user_id, sample_cnt, complaint_cnt, avg_score in base_rows:
+        for user_id, sample_cnt, complaint_cnt, avg_score in base_q.group_by(
+            FactComplaintSample.user_id
+        ).all():
             agg[user_id] = {
+                **_empty_stat(),
                 "sample_cnt": int(sample_cnt),
                 "complaint_cnt": int(complaint_cnt or 0),
                 "avg_satisfaction": float(avg_score) if avg_score is not None else None,
-                "dominant_type": None,
-                "ctype_counts": defaultdict(int),
-                "survey_scores": defaultdict(list),
             }
         return agg
 
@@ -110,14 +110,11 @@ class InsightFeatureBuilder:
         user_ids: list[str] | None,
         as_of_date: date | None = None,
     ) -> None:
-        type_q = (
-            self.db.query(
-                FactComplaintSample.user_id,
-                FactComplaintSample.complaint_type,
-                func.count(FactComplaintSample.sample_id),
-            )
-            .filter(FactComplaintSample.complaint_type.isnot(None))
-        )
+        type_q = self.db.query(
+            FactComplaintSample.user_id,
+            FactComplaintSample.complaint_type,
+            func.count(FactComplaintSample.sample_id),
+        ).filter(FactComplaintSample.complaint_type.isnot(None))
         if use_in_clause and user_ids:
             type_q = type_q.filter(FactComplaintSample.user_id.in_(user_ids))
         if as_of_date is not None:
@@ -125,17 +122,7 @@ class InsightFeatureBuilder:
         for user_id, complaint_type, count in type_q.group_by(
             FactComplaintSample.user_id, FactComplaintSample.complaint_type
         ).all():
-            bucket = agg.setdefault(
-                user_id,
-                {
-                    "sample_cnt": 0,
-                    "complaint_cnt": 0,
-                    "avg_satisfaction": None,
-                    "dominant_type": None,
-                    "ctype_counts": defaultdict(int),
-                    "survey_scores": defaultdict(list),
-                },
-            )
+            bucket = agg.setdefault(user_id, _empty_stat())
             bucket["ctype_counts"][complaint_type] += int(count)
 
     def _load_survey_scores(
@@ -156,19 +143,32 @@ class InsightFeatureBuilder:
         for user_id, scores in survey_q.all():
             if not scores:
                 continue
-            bucket = agg.setdefault(
-                user_id,
-                {
-                    "sample_cnt": 0,
-                    "complaint_cnt": 0,
-                    "avg_satisfaction": None,
-                    "dominant_type": None,
-                    "ctype_counts": defaultdict(int),
-                    "survey_scores": defaultdict(list),
-                },
-            )
+            bucket = agg.setdefault(user_id, _empty_stat())
             for key, value in scores.items():
                 bucket["survey_scores"][key].append(float(value))
+
+    def _load_recent_complaints(
+        self,
+        agg: dict[str, dict],
+        use_in_clause: bool,
+        user_ids: list[str] | None,
+        as_of_date: date | None = None,
+    ) -> None:
+        ref = as_of_date or date.today()
+        start = ref - timedelta(days=_WINDOW_DAYS)
+        q = self.db.query(
+            FactComplaintSample.user_id,
+            func.count(FactComplaintSample.complaint_id),
+        ).filter(
+            FactComplaintSample.complaint_id.isnot(None),
+            FactComplaintSample.record_date > start,
+            FactComplaintSample.record_date <= ref,
+        )
+        if use_in_clause and user_ids:
+            q = q.filter(FactComplaintSample.user_id.in_(user_ids))
+        for user_id, cnt in q.group_by(FactComplaintSample.user_id).all():
+            bucket = agg.setdefault(user_id, _empty_stat())
+            bucket["complaint_cnt_30d"] = int(cnt or 0)
 
     def _load_aggregates(
         self, user_ids: list[str] | None = None, *, as_of_date: date | None = None
@@ -177,18 +177,21 @@ class InsightFeatureBuilder:
             return {}
         if user_ids is None:
             agg = self._load_base_counts(False, None, as_of_date)
-            self._load_complaint_types(agg, False, None, as_of_date)
-            self._load_survey_scores(agg, False, None, as_of_date)
+            self._fill_side_stats(agg, False, None, as_of_date)
             return self._finalize_aggregates(agg)
 
         agg: dict[str, dict] = {}
         for offset in range(0, len(user_ids), FEATURE_AGG_CHUNK):
             chunk = user_ids[offset : offset + FEATURE_AGG_CHUNK]
             part = self._load_base_counts(True, chunk, as_of_date)
-            self._load_complaint_types(part, True, chunk, as_of_date)
-            self._load_survey_scores(part, True, chunk, as_of_date)
+            self._fill_side_stats(part, True, chunk, as_of_date)
             agg.update(part)
         return self._finalize_aggregates(agg)
+
+    def _fill_side_stats(self, agg, use_in_clause, user_ids, as_of_date) -> None:
+        self._load_complaint_types(agg, use_in_clause, user_ids, as_of_date)
+        self._load_survey_scores(agg, use_in_clause, user_ids, as_of_date)
+        self._load_recent_complaints(agg, use_in_clause, user_ids, as_of_date)
 
     @staticmethod
     def _finalize_aggregates(agg: dict[str, dict]) -> dict[str, dict]:
@@ -206,3 +209,15 @@ class InsightFeatureBuilder:
     @staticmethod
     def feature_names() -> list[str]:
         return list(FEATURE_NAMES)
+
+
+def _empty_stat() -> dict:
+    return {
+        "sample_cnt": 0,
+        "complaint_cnt": 0,
+        "complaint_cnt_30d": 0,
+        "avg_satisfaction": None,
+        "dominant_type": None,
+        "ctype_counts": defaultdict(int),
+        "survey_scores": defaultdict(list),
+    }

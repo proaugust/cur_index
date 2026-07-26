@@ -29,6 +29,11 @@ class LgbmRiskScorer:
         assert self._artifacts is not None
         user_ids = list(features.keys())
         matrix = np.array([features[user_id].values for user_id in user_ids], dtype=np.float32)
+        expected = len(self._artifacts.feature_names)
+        if matrix.shape[1] != expected:
+            raise ValueError(
+                f"特征维数不匹配：当前 {matrix.shape[1]} vs 模型 {expected}，请重新训练 Insight 模型"
+            )
         scaled = self._artifacts.scaler.transform(matrix)
         probs = self._booster.predict(scaled)
         if probs.ndim > 1:

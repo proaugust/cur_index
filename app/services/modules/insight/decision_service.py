@@ -123,6 +123,7 @@ class InsightDecisionService:
             message=msg,
             val_auc=result.val_auc,
             val_accuracy=result.val_accuracy,
+            val_pr_auc=result.val_pr_auc,
             train_rows=result.train_rows,
             val_rows=result.val_rows,
             label_source=result.label_source,
@@ -150,6 +151,7 @@ class InsightDecisionService:
         return {
             "val_auc": art.val_auc,
             "val_accuracy": art.val_accuracy,
+            "val_pr_auc": getattr(art, "val_pr_auc", None),
             "train_rows": art.train_rows,
             "val_rows": art.val_rows,
             "label_source": art.label_source,
@@ -192,6 +194,8 @@ def _train_message(result) -> str:
         msg = f"{msg}；Accuracy={result.val_accuracy:.2%}"
         if result.val_auc is not None:
             msg = f"{msg}，AUC={result.val_auc:.4f}"
+        if getattr(result, "val_pr_auc", None) is not None:
+            msg = f"{msg}，PR-AUC={result.val_pr_auc:.4f}"
     return msg
 
 

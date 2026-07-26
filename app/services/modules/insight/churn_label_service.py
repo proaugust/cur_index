@@ -6,6 +6,7 @@ import logging
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, FactComplaintSample, FactChurnLabel
@@ -16,6 +17,7 @@ from app.services.modules.insight.constants import (
     LABEL_SOURCE_SEED,
 )
 from app.services.modules.insight.ml.feature_builder import InsightFeatureBuilder
+from app.services.modules.insight.ml.types import UserFeatureRow
 from app.services.modules.insight.seed.churn_label_generator import (
     default_as_of_dates,
     sample_churn_label,
@@ -51,13 +53,20 @@ class InsightChurnLabelService:
             (uid, as_of)
             for uid, as_of in self.db.query(FactChurnLabel.user_id, FactChurnLabel.as_of_date).all()
         }
-        builder = InsightFeatureBuilder(self.db)
+        # 观察日锚定样本最大日期；特征不做 as_of 截断，避免小样本被滤光
+        max_rd = self.db.query(func.max(FactComplaintSample.record_date)).scalar() or date.today()
+        features = InsightFeatureBuilder(self.db).build_batch(users)
         total = 0
-        for as_of in default_as_of_dates():
-            mappings = self._build_seed_mappings(users, as_of, occupied, builder)
+        for as_of in default_as_of_dates(today=max_rd):
+            mappings = self._build_seed_mappings(users, as_of, occupied, features)
             total += self._flush_label_batches(mappings)
             occupied.update((row["user_id"], row["as_of_date"]) for row in mappings)
-        logger.info("合成流失标签写入完成 rows=%s users=%s", total, len(users))
+        logger.info(
+            "合成流失标签写入完成 rows=%s users=%s max_record_date=%s",
+            total,
+            len(users),
+            max_rd,
+        )
         return total
 
     def _build_seed_mappings(
@@ -65,9 +74,8 @@ class InsightChurnLabelService:
         users: list[DimUserProfile],
         as_of: date,
         occupied: set[tuple[str, date]],
-        builder: InsightFeatureBuilder,
+        features: dict[str, UserFeatureRow],
     ) -> list[dict]:
-        features = builder.build_batch(users, as_of_date=as_of)
         mappings: list[dict] = []
         for user in users:
             if user.join_date > as_of or (user.user_id, as_of) in occupied:

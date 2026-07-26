@@ -307,6 +307,7 @@ class InsightModelTrainResult(BaseModel):
     message: str = "训练完成"
     val_auc: float | None = None
     val_accuracy: float | None = None
+    val_pr_auc: float | None = None
     train_rows: int = 0
     val_rows: int = 0
     label_source: str = "weak_label"
@@ -321,6 +322,7 @@ class InsightDecisionDashboard(BaseModel):
     simulation_weights: list[InsightSimulationWeightRead] = Field(default_factory=list)
     val_auc: float | None = None
     val_accuracy: float | None = None
+    val_pr_auc: float | None = None
     train_rows: int = 0
     val_rows: int = 0
     label_source: str | None = None

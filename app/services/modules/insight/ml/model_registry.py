@@ -17,9 +17,10 @@ class InsightModelArtifacts:
     scaler: object
     kmeans: object | None
     cluster_shap: dict[int, dict[str, float]]
-    # 弱标签 holdout 指标（旧 artifacts 无此字段时保持默认）
+    # holdout 指标（旧 artifacts 无此字段时保持默认）
     val_auc: float | None = None
     val_accuracy: float | None = None
+    val_pr_auc: float | None = None
     train_rows: int = 0
     val_rows: int = 0
     label_source: str = "weak_label"  # real_churn | weak_label

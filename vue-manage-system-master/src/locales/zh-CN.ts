@@ -743,6 +743,7 @@ export default {
                 coef: '影响系数',
                 valAccuracy: '验证集准确率',
                 valAuc: '验证集 AUC',
+                valPrAuc: '验证集 PR-AUC',
                 metricsHint: '准确率基于弱标签 holdout（投诉/满意度等 proxy），不是真实流失标签，仅供演示参考。',
                 metricsHintReal: '指标基于真实流失标签（观察日后 90 天内离网）与时间切分验证，可作为业务准确率参考。',
                 churnLabelEmpty: '尚未导入真实流失标签 CSV。导入后重新训练即可得到真实标签准确率。',

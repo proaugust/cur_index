@@ -29,11 +29,20 @@ PROFILE_NUMERIC = (
 
 SAMPLE_NUMERIC = ("sample_cnt", "complaint_cnt", "avg_satisfaction")
 
+# 对齐合成标签 DGP：近窗投诉 + 满意度缺口 + 交互项
+DERIVED_NUMERIC = (
+    "complaint_cnt_30d",
+    "sat_gap",
+    "ix_complaint_sat_gap",
+    "ix_fee_loyalty_gap",
+)
+
 FEATURE_NAMES: list[str] = [
     *PROFILE_NUMERIC,
     *SAMPLE_NUMERIC,
     *(f"ctype_{name}" for name in COMPLAINT_TYPE_KEYS),
     *(f"survey_{key}" for key in SURVEY_KEYS),
+    *DERIVED_NUMERIC,
 ]
 
 FEATURE_LABELS: dict[str, str] = {
@@ -47,6 +56,10 @@ FEATURE_LABELS: dict[str, str] = {
     "sample_cnt": "问卷样本数",
     "complaint_cnt": "投诉次数",
     "avg_satisfaction": "满意度均分",
+    "complaint_cnt_30d": "近30天投诉",
+    "sat_gap": "满意度缺口",
+    "ix_complaint_sat_gap": "投诉×满意度缺口",
+    "ix_fee_loyalty_gap": "账单变动×忠诚缺口",
     **{f"ctype_{name}": f"投诉·{name}" for name in COMPLAINT_TYPE_KEYS},
     **{f"survey_{key}": label for key, label, _ in SURVEY_QUESTION_BANK},
 }

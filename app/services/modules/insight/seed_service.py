@@ -71,6 +71,11 @@ class InsightSeedService:
         started = time.perf_counter()
         inserted = self._insert_samples(sample_count, pairs)
         churn_labels = InsightChurnLabelService(self.db).seed_synthetic()
+        if inserted > 0 and churn_labels <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"样本已写入 {inserted} 条，但合成流失标签为 0，请重试注入或检查样本日期",
+            )
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         return InsightSeedSamplesResult(
             preset=preset,

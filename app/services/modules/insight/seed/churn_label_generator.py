@@ -10,8 +10,8 @@ from app.services.modules.insight.ml.feature_labels import FEATURE_NAMES
 from app.services.modules.insight.ml.types import UserFeatureRow
 
 _RANDOM = random.Random(20260726)
-# 多个观察日，便于训练走时间切分验证
-_AS_OF_OFFSETS_DAYS = (300, 240, 180, 120, 60)
+# 相对「样本最大 record_date」回退；含 0 保证至少一档能命中样本
+_AS_OF_OFFSETS_DAYS = (0, 30, 60, 90, 120)
 
 
 def default_as_of_dates(today: date | None = None) -> list[date]:
@@ -34,7 +34,7 @@ def synthetic_churn_prob(user: DimUserProfile, feature: UserFeatureRow, rng: ran
         + 0.55 * (3.0 - sat)
         + 0.35 * (3.0 - loyalty)
         + 0.25 * (3.0 - (net + srv) / 2.0)
-        + rng.gauss(0.0, 1.1)
+        + rng.gauss(0.0, 0.55)
     )
     prob = 1.0 / (1.0 + math.exp(-logit))
     return min(0.92, max(0.04, prob))

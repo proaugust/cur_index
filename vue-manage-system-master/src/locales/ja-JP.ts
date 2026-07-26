@@ -743,6 +743,7 @@ export default {
                 coef: '係数',
                 valAccuracy: '検証Accuracy',
                 valAuc: '検証AUC',
+                valPrAuc: '検証PR-AUC',
                 metricsHint: 'Accuracyは弱ラベルholdout（苦情/満足度などのproxy）に基づき、実離脱ラベルではありません。デモ参考値です。',
                 metricsHintReal: '指標は実離脱ラベル（観測日後90日以内の解約）と時系列分割に基づき、業務Accuracyの参考になります。',
                 churnLabelEmpty: '実離脱ラベルCSVが未取込です。取込後に再学習すると実ラベルAccuracyが出ます。',
