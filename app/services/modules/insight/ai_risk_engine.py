@@ -13,6 +13,7 @@ from app.services.modules.insight.ml.kmeans_clusterer import apply_kmeans_tags
 from app.services.modules.insight.ml.lgbm_scorer import LgbmRiskScorer
 from app.services.modules.insight.ml.mock_scorer import mock_score, mock_shap, risk_level
 from app.services.modules.insight.ml.model_registry import InsightModelRegistry
+from app.services.modules.insight.constants import SHAP_TOP_N_CAP
 from app.services.modules.insight.ml.shap_explainer import explain_batch
 from app.services.modules.insight.ml.trainer import InsightModelTrainer
 from app.services.modules.insight.ml.types import RiskPrediction, UserFeatureRow
@@ -34,30 +35,8 @@ class InsightAiRiskEngine:
     def model_version(self) -> str:
         return self.registry.resolve_version()
 
-    def run(
-        self,
-        db: Session,
-        users: list[DimUserProfile],
-        *,
-        dampen: Decimal = Decimal("0"),
-        shap_policy: ShapPolicy = "all_sample",
-    ) -> list[RiskPrediction]:
-        features = InsightFeatureBuilder(db).build_batch(users)
-        self._ensure_model(db, users)
-        if self.registry.has_model():
-            predictions = self._run_lgbm(users, features, dampen=dampen, shap_policy=shap_policy)
-        else:
-            predictions = self._run_mock(users, features, dampen=dampen, shap_policy=shap_policy)
-        _downgrade_unexplained_high(predictions)
-        logger.info(
-            "AI 风险引擎完成 users=%s model=%s shap_policy=%s",
-            len(predictions),
-            self.model_version,
-            shap_policy,
-        )
-        return predictions
-
-    def _ensure_model(self, db: Session, users: list[DimUserProfile]) -> None:
+    def ensure_model(self, db: Session, users: list[DimUserProfile] | None = None) -> None:
+        """批处理外层先调一次，避免每批重复触发自动训练。"""
         if self.registry.has_model() or not settings.insight_auto_train:
             return
         try:
@@ -67,6 +46,37 @@ class InsightAiRiskEngine:
             db.rollback()
             logger.warning("自动训练失败，将使用 mock 引擎: %s", exc)
 
+    def run(
+        self,
+        db: Session,
+        users: list[DimUserProfile],
+        *,
+        dampen: Decimal = Decimal("0"),
+        shap_policy: ShapPolicy = "high_only",
+        shap_top_n: int | None = SHAP_TOP_N_CAP,
+        ensure_model: bool = True,
+    ) -> list[RiskPrediction]:
+        if ensure_model:
+            self.ensure_model(db, users)
+        features = InsightFeatureBuilder(db).build_batch(users)
+        if self.registry.has_model():
+            predictions = self._run_lgbm(
+                users, features, dampen=dampen, shap_policy=shap_policy, shap_top_n=shap_top_n
+            )
+        else:
+            predictions = self._run_mock(
+                users, features, dampen=dampen, shap_policy=shap_policy, shap_top_n=shap_top_n
+            )
+        _downgrade_unexplained_high(predictions)
+        logger.info(
+            "AI 风险引擎完成 users=%s model=%s shap_policy=%s shap_top_n=%s",
+            len(predictions),
+            self.model_version,
+            shap_policy,
+            shap_top_n,
+        )
+        return predictions
+
     def _run_lgbm(
         self,
         users: list[DimUserProfile],
@@ -74,13 +84,20 @@ class InsightAiRiskEngine:
         *,
         dampen: Decimal,
         shap_policy: ShapPolicy,
+        shap_top_n: int | None,
     ) -> list[RiskPrediction]:
         scorer = LgbmRiskScorer(self.registry)
         scores = scorer.predict_batch(features, dampen=float(dampen))
         sample_ids = [user_id for user_id, row in features.items() if row.has_sample]
         score_float = {user_id: float(score) for user_id, score in scores.items()}
-        shap_ids = _select_shap_ids(sample_ids, scores, shap_policy)
-        logger.info("SHAP 归因 %s/%s (policy=%s)", len(shap_ids), len(sample_ids), shap_policy)
+        shap_ids = _select_shap_ids(sample_ids, scores, shap_policy, shap_top_n)
+        logger.info(
+            "SHAP 归因 %s/%s (policy=%s cap=%s)",
+            len(shap_ids),
+            len(sample_ids),
+            shap_policy,
+            shap_top_n,
+        )
         shap_map = explain_batch(scorer, features, shap_ids, score_float)
         predictions = [
             self._build_row(user, features[user.user_id], scores[user.user_id], shap_map.get(user.user_id))
@@ -96,14 +113,27 @@ class InsightAiRiskEngine:
         *,
         dampen: Decimal,
         shap_policy: ShapPolicy,
+        shap_top_n: int | None,
     ) -> list[RiskPrediction]:
-        predictions = []
-        for user in users:
-            feature = features[user.user_id]
-            score = mock_score(user, feature, dampen=dampen)
-            need_shap = shap_policy == "all_sample" or risk_level(score) == "high"
-            shap = mock_shap(user, feature, score) if need_shap else {}
-            predictions.append(self._build_row(user, feature, score, shap))
+        scored = [
+            (user, features[user.user_id], mock_score(user, features[user.user_id], dampen=dampen))
+            for user in users
+        ]
+        candidates = [
+            (user.user_id, score)
+            for user, _, score in scored
+            if shap_policy == "all_sample" or risk_level(score) == "high"
+        ]
+        allow = {uid for uid, _ in _cap_by_score(candidates, shap_top_n)}
+        predictions = [
+            self._build_row(
+                user,
+                feature,
+                score,
+                mock_shap(user, feature, score) if user.user_id in allow else {},
+            )
+            for user, feature, score in scored
+        ]
         self._apply_rule_tags(predictions, features)
         return predictions
 
@@ -165,10 +195,22 @@ def _select_shap_ids(
     sample_ids: list[str],
     scores: dict[str, Decimal],
     shap_policy: ShapPolicy,
+    shap_top_n: int | None,
 ) -> list[str]:
     if shap_policy == "all_sample":
-        return sample_ids
-    return [uid for uid in sample_ids if risk_level(scores[uid]) == "high"]
+        candidates = [(uid, scores[uid]) for uid in sample_ids]
+    else:
+        candidates = [(uid, scores[uid]) for uid in sample_ids if risk_level(scores[uid]) == "high"]
+    return [uid for uid, _ in _cap_by_score(candidates, shap_top_n)]
+
+
+def _cap_by_score(
+    candidates: list[tuple[str, Decimal]],
+    shap_top_n: int | None,
+) -> list[tuple[str, Decimal]]:
+    if shap_top_n is None or len(candidates) <= shap_top_n:
+        return candidates
+    return sorted(candidates, key=lambda item: item[1], reverse=True)[:shap_top_n]
 
 
 def _activity_trend(feature: UserFeatureRow) -> str:

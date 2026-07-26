@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy.orm import Session
 
 from app.models.insight import CfgSimulationWeight, DimUserProfile
-from app.services.modules.insight.constants import LABEL_SOURCE_REAL
+from app.services.modules.insight.constants import LABEL_SOURCE_REAL, TRAIN_SHAP_SAMPLE_CAP
 from app.services.modules.insight.ml.feature_builder import InsightFeatureBuilder
 from app.services.modules.insight.ml.label_loader import LabeledTrainRow, collect_train_rows
 from app.services.modules.insight.ml.model_registry import InsightModelArtifacts, InsightModelRegistry
@@ -217,16 +217,20 @@ class InsightModelTrainer:
     def _mean_shap_by_cluster(booster, x_scaled, labels, names: list[str]) -> dict[int, dict[str, float]]:
         import shap
 
+        x_sub, labels_sub = _stratified_shap_sample(x_scaled, labels, TRAIN_SHAP_SAMPLE_CAP)
+        logger.info("簇 SHAP 抽样 %s/%s", len(x_sub), len(x_scaled))
         explainer = shap.TreeExplainer(booster)
-        shap_matrix = explainer.shap_values(x_scaled)
+        shap_matrix = explainer.shap_values(x_sub)
         if isinstance(shap_matrix, list):
             shap_matrix = shap_matrix[1]
         cluster_shap: dict[int, dict[str, float]] = {}
-        probs = booster.predict(x_scaled)
+        probs = booster.predict(x_sub)
         for cluster_id in sorted(set(labels.tolist())):
-            mask = labels == cluster_id
+            mask = labels_sub == cluster_id
+            if not mask.any():
+                continue
             mean_row = shap_matrix[mask].mean(axis=0)
-            mean_prob = float(np.median(probs[mask])) if mask.any() else 0.5
+            mean_prob = float(np.median(probs[mask]))
             cluster_shap[int(cluster_id)] = normalize_shap_dict(names, mean_row.tolist(), mean_prob)
         return cluster_shap
 
@@ -247,6 +251,30 @@ class InsightModelTrainer:
                 )
             )
         self.db.flush()
+
+
+def _stratified_shap_sample(x_scaled, labels, cap: int):
+    """按簇分层抽样，保证各簇都有 SHAP 均值样本。"""
+    n = len(x_scaled)
+    if n <= cap:
+        return x_scaled, labels
+    rng = np.random.RandomState(42)
+    clusters = sorted(set(labels.tolist()))
+    per = max(1, cap // max(1, len(clusters)))
+    picked: list[np.ndarray] = []
+    for cid in clusters:
+        idx = np.flatnonzero(labels == cid)
+        take = min(len(idx), per)
+        picked.append(rng.choice(idx, size=take, replace=False))
+    sel = np.unique(np.concatenate(picked))
+    if len(sel) < cap:
+        rest = np.setdiff1d(np.arange(n), sel, assume_unique=False)
+        if len(rest):
+            extra = rng.choice(rest, size=min(cap - len(sel), len(rest)), replace=False)
+            sel = np.concatenate([sel, extra])
+    elif len(sel) > cap:
+        sel = rng.choice(sel, size=cap, replace=False)
+    return x_scaled[sel], labels[sel]
 
 
 def _sim_coef(name: str) -> float:

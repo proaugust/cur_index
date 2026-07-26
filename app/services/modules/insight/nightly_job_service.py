@@ -19,12 +19,18 @@ from app.schemas.insight import (
 )
 from app.services.modules.insight.analysis_log_writer import begin_analysis_log, finish_analysis_log
 from app.services.modules.insight.ai_risk_engine import InsightAiRiskEngine
+from app.services.modules.insight.constants import RISK_ENGINE_BATCH_SIZE, SHAP_TOP_N_CAP
 from app.services.modules.insight.region_aggregator import InsightRegionAggregator
 from app.services.modules.insight.snapshot_writer import InsightSnapshotWriter
 
 logger = logging.getLogger(__name__)
 
 InsightRunMode = Literal["incremental", "full"]
+
+
+def _chunks(items: list, size: int):
+    for offset in range(0, len(items), size):
+        yield items[offset : offset + size]
 
 
 class InsightNightlyJobService:
@@ -43,15 +49,15 @@ class InsightNightlyJobService:
     ) -> InsightNightlyJobAccepted:
         del with_prev_day
         target_date = snapshot_date or date.today()
-        users = self._load_users(target_date, mode=mode)
-        if not users and mode == "full":
+        pending = self._count_users(target_date, mode=mode)
+        if pending == 0 and mode == "full":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无用户主数据，请先注入客户")
-        log_id = begin_analysis_log(self.db, snapshot_date=target_date, mode=mode, pending_users=len(users))
+        log_id = begin_analysis_log(self.db, snapshot_date=target_date, mode=mode, pending_users=pending)
         return InsightNightlyJobAccepted(
             analysis_log_id=log_id,
             snapshot_date=target_date,
             mode=mode,
-            pending_users=len(users),
+            pending_users=pending,
         )
 
     def run_nightly(
@@ -63,8 +69,8 @@ class InsightNightlyJobService:
         existing_log_id: int | None = None,
     ) -> InsightNightlyRunResult:
         target_date = snapshot_date or date.today()
-        users = self._load_users(target_date, mode=mode)
-        if not users and mode == "full":
+        user_ids = self._load_user_ids(target_date, mode=mode)
+        if not user_ids and mode == "full":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无用户主数据，请先注入客户")
 
         started = time.perf_counter()
@@ -76,7 +82,7 @@ class InsightNightlyJobService:
         elapsed_ms = 0
         replace_day = mode == "full"
         log_id = existing_log_id or begin_analysis_log(
-            self.db, snapshot_date=target_date, mode=mode, pending_users=len(users)
+            self.db, snapshot_date=target_date, mode=mode, pending_users=len(user_ids)
         )
         outcome_status = "failed"
         outcome_error: str | None = None
@@ -85,10 +91,10 @@ class InsightNightlyJobService:
         try:
             if with_prev_day:
                 prev_date = target_date - timedelta(days=1)
-                prev_users = users if mode == "full" else self._load_users(prev_date, mode=mode)
-                if prev_users:
+                prev_ids = user_ids if mode == "full" else self._load_user_ids(prev_date, mode=mode)
+                if prev_ids:
                     prev_snapshots, prev_regions, prev_steps = self._run_pipeline(
-                        prev_users,
+                        prev_ids,
                         prev_date,
                         dampen=Decimal("0.12"),
                         replace_day=replace_day,
@@ -96,9 +102,9 @@ class InsightNightlyJobService:
                     )
                     steps.extend(prev_steps)
 
-            if users:
+            if user_ids:
                 snapshots, regions, today_steps = self._run_pipeline(
-                    users, target_date, replace_day=replace_day, mode=mode
+                    user_ids, target_date, replace_day=replace_day, mode=mode
                 )
                 steps.extend(today_steps)
             else:
@@ -174,58 +180,97 @@ class InsightNightlyJobService:
             prev_region_metrics_upserted=result.prev_region_metrics_upserted,
         )
 
-    def _load_users(self, snapshot_date: date, *, mode: InsightRunMode) -> list[DimUserProfile]:
+    def _users_query(self, snapshot_date: date, *, mode: InsightRunMode):
         if mode == "full":
-            return self.db.query(DimUserProfile).all()
+            return self.db.query(DimUserProfile.user_id)
         scored_today = (
             self.db.query(DimUserProfileSnapshot.user_id)
             .filter(DimUserProfileSnapshot.snapshot_date == snapshot_date)
             .subquery()
         )
         return (
-            self.db.query(DimUserProfile)
+            self.db.query(DimUserProfile.user_id)
             .outerjoin(scored_today, DimUserProfile.user_id == scored_today.c.user_id)
             .filter(or_(DimUserProfile.risk_score.is_(None), scored_today.c.user_id.is_(None)))
-            .all()
         )
+
+    def _count_users(self, snapshot_date: date, *, mode: InsightRunMode) -> int:
+        return int(self._users_query(snapshot_date, mode=mode).count())
+
+    def _load_user_ids(self, snapshot_date: date, *, mode: InsightRunMode) -> list[str]:
+        return [row[0] for row in self._users_query(snapshot_date, mode=mode).all()]
+
+    def _load_profiles(self, user_ids: list[str]) -> list[DimUserProfile]:
+        if not user_ids:
+            return []
+        return self.db.query(DimUserProfile).filter(DimUserProfile.user_id.in_(user_ids)).all()
 
     def _run_pipeline(
         self,
-        users: list[DimUserProfile],
+        user_ids: list[str],
         target_date: date,
         *,
         dampen: Decimal = Decimal("0"),
         replace_day: bool = True,
         mode: InsightRunMode = "full",
     ) -> tuple[int, int, list[InsightPipelineStepResult]]:
+        del mode  # 夜间统一 high_only + Top-N，避免 HF 上 all_sample 爆内存
         steps: list[InsightPipelineStepResult] = []
-        ai_started = time.perf_counter()
-        # 增量只对高风险做 SHAP，全量保留有样本全量归因
-        shap_policy = "high_only" if mode == "incremental" else "all_sample"
-        predictions = self.ai_engine.run(self.db, users, dampen=dampen, shap_policy=shap_policy)
+        self.ai_engine.ensure_model(self.db)
+        ai_ms = snap_ms = 0
+        snapshots = scored = 0
+        day_cleared = False
+        affected: set[tuple[str, str]] = set()
+
+        for id_chunk in _chunks(user_ids, RISK_ENGINE_BATCH_SIZE):
+            chunk = self._load_profiles(id_chunk)
+            if not chunk:
+                continue
+            ai_started = time.perf_counter()
+            predictions = self.ai_engine.run(
+                self.db,
+                chunk,
+                dampen=dampen,
+                shap_policy="high_only",
+                shap_top_n=SHAP_TOP_N_CAP,
+                ensure_model=False,
+            )
+            ai_ms += int((time.perf_counter() - ai_started) * 1000)
+            scored += len(predictions)
+            affected.update((row["region_l1"], row["region_l2"]) for row in predictions)
+            self.db.expunge_all()
+
+            snap_started = time.perf_counter()
+            # 全量首批清当日；后续批按 user_id 覆盖写入
+            clear_day = replace_day and not day_cleared
+            snapshots += self.snapshot_writer.write(target_date, predictions, replace_day=clear_day)
+            day_cleared = day_cleared or clear_day
+            snap_ms += int((time.perf_counter() - snap_started) * 1000)
+            del predictions, chunk
+
         steps.append(
             InsightPipelineStepResult(
                 step="ai_risk_engine",
                 label="AI 风险计算",
-                output_count=len(predictions),
-                elapsed_ms=int((time.perf_counter() - ai_started) * 1000),
+                output_count=scored,
+                elapsed_ms=ai_ms,
             )
         )
-        self.db.expunge_all()
-
-        snap_started = time.perf_counter()
-        snapshots = self.snapshot_writer.write(target_date, predictions, replace_day=replace_day)
         steps.append(
             InsightPipelineStepResult(
                 step="snapshot_writer",
                 label="快照落库",
                 output_count=snapshots,
-                elapsed_ms=int((time.perf_counter() - snap_started) * 1000),
+                elapsed_ms=snap_ms,
             )
         )
 
         agg_started = time.perf_counter()
-        regions = self.region_aggregator.aggregate(target_date, predictions, replace_day=replace_day)
+        if replace_day:
+            regions = self.region_aggregator.aggregate_from_snapshots(target_date, replace_day=True)
+        else:
+            pseudo = [{"region_l1": a, "region_l2": b} for a, b in affected]
+            regions = self.region_aggregator.aggregate(target_date, pseudo, replace_day=False)
         steps.append(
             InsightPipelineStepResult(
                 step="region_aggregator",

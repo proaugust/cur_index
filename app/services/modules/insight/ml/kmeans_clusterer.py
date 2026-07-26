@@ -40,12 +40,15 @@ def apply_kmeans_tags(
 
     for row in predictions:
         uid = row["user_id"]
-        if features[uid].has_sample:
-            continue
         cluster_id = user_cluster_map[uid]
-        mode_tag = cluster_mode.get(cluster_id)
-        if mode_tag:
-            row["tags"] = [*row["tags"], f"沉默客户·{mode_tag}"]
         cluster_shap = artifacts.cluster_shap.get(cluster_id)
-        if cluster_shap:
+        if not features[uid].has_sample:
+            mode_tag = cluster_mode.get(cluster_id)
+            if mode_tag:
+                row["tags"] = [*row["tags"], f"沉默客户·{mode_tag}"]
+            if cluster_shap:
+                row["shap_values"] = dict(cluster_shap)
+            continue
+        # TreeExplainer 被 Top-N 裁掉时，用簇均值补归因，避免高风险被降级
+        if not row.get("shap_values") and cluster_shap:
             row["shap_values"] = dict(cluster_shap)

@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,6 +41,15 @@ class FactComplaintSample(Base):
     """问卷 + 投诉原始样本事实表。"""
 
     __tablename__ = "insight_complaint_sample"
+    __table_args__ = (
+        Index("ix_insight_sample_user_record", "user_id", "record_date"),
+        Index(
+            "ix_insight_sample_record_user_complaint",
+            "record_date",
+            "user_id",
+            postgresql_where=text("complaint_id IS NOT NULL"),
+        ),
+    )
 
     sample_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(32), index=True)
@@ -60,6 +69,15 @@ class DimUserProfileSnapshot(Base):
     """用户风险标签日快照。"""
 
     __tablename__ = "insight_user_profile_snapshot"
+    __table_args__ = (
+        Index("ix_insight_snapshot_user_date", "user_id", "snapshot_date"),
+        Index(
+            "ix_insight_snapshot_date_risk_score",
+            "snapshot_date",
+            "churn_risk_level",
+            "risk_score",
+        ),
+    )
 
     snapshot_date: Mapped[date] = mapped_column(Date, primary_key=True)
     user_id: Mapped[str] = mapped_column(String(32), primary_key=True)
@@ -112,6 +130,9 @@ class FactChurnLabel(Base):
 
 class InsightAnalysisLog(Base):
     __tablename__ = "insight_analysis_logs"
+    __table_args__ = (
+        Index("ix_insight_analysis_logs_question_created", "question", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     question: Mapped[str] = mapped_column(Text)

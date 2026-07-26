@@ -37,6 +37,27 @@ class InsightRegionAggregator:
         logger.info("区域聚合完成 date=%s regions=%s replace_day=%s", snapshot_date, len(rows), replace_day)
         return len(rows)
 
+    def aggregate_from_snapshots(self, snapshot_date: date, *, replace_day: bool = True) -> int:
+        """批写快照后按库内当日快照重算区域指标，避免内存攒全量 predictions。"""
+        snaps = (
+            self.db.query(
+                DimUserProfileSnapshot.region_l1,
+                DimUserProfileSnapshot.region_l2,
+                DimUserProfileSnapshot.churn_risk_level,
+            )
+            .filter(DimUserProfileSnapshot.snapshot_date == snapshot_date)
+            .all()
+        )
+        predictions = [
+            {
+                "region_l1": row.region_l1,
+                "region_l2": row.region_l2,
+                "churn_risk_level": row.churn_risk_level,
+            }
+            for row in snaps
+        ]
+        return self.aggregate(snapshot_date, predictions, replace_day=replace_day)
+
     def _rebuild_affected_regions(
         self,
         snapshot_date: date,
