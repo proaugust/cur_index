@@ -2,6 +2,14 @@ export const setProperty = (prop: string, val: any, dom = document.documentEleme
     dom.style.setProperty(prop, val);
 };
 
+/** ISO / 后端时间 → YYYY-MM-DD HH:mm:ss */
+export const formatDateTime = (value?: string | null): string => {
+    if (value == null || value === '') return '-';
+    const raw = String(value).trim();
+    const m = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+    return m ? `${m[1]} ${m[2]}` : raw;
+};
+
 export const mix = (color1: string, color2: string, weight: number = 0.5): string => {
     let color = '#';
     for (let i = 0; i <= 2; i++) {

@@ -15,6 +15,7 @@ USER_BATCH_SIZE = 5_000
 SAMPLE_BATCH_SIZE = 1_000
 # HF/托管 PG 常有 statement_timeout；快照含 JSONB，单批宜小且每批独立 commit
 SNAPSHOT_WRITE_BATCH_SIZE = 100
+CHURN_LABEL_WRITE_BATCH_SIZE = 100
 COMPLAINT_VECTOR_DIM = 768
 
 # 真实流失标签：观察日 as_of 后 N 天内销户/携转为正样本；y 不得由特征规则生成

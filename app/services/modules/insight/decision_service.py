@@ -112,7 +112,10 @@ class InsightDecisionService:
         )
 
     def train_model(self) -> InsightModelTrainResult:
-        result = InsightModelTrainer(self.db).train()
+        try:
+            result = InsightModelTrainer(self.db).train()
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         self.db.commit()
         msg = _train_message(result)
         return InsightModelTrainResult(

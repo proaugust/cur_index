@@ -1,4 +1,4 @@
-﻿export default {
+export default {
     common: {
         clear: 'クリア',
         query: '検索',
@@ -728,6 +728,7 @@
                 no: 'いいえ',
                 trainModel: 'LightGBM モデル学習',
                 trainDone: '学習完了：{version}',
+                trainFailed: 'モデル学習に失敗しました',
                 recommendTitle: '高リスク挽留提案',
                 suggestedAction: '推奨アクション',
                 simulateTitle: 'WHAT-IF リスク仿真',

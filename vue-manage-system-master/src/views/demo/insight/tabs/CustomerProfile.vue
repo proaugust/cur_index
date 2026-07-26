@@ -165,6 +165,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { getInsightUserProfile, getInsightUsers } from '@/api';
+import { formatDateTime } from '@/utils';
 
 const props = defineProps<{ initialUserId?: string }>();
 const { t } = useI18n();
@@ -208,7 +209,7 @@ const shapEmptyText = computed(() => {
 const flowRows = computed(() => {
     const samples = profile.value?.recent_samples || profile.value?.recent_touchpoints || [];
     return samples.map((row: Record<string, any>) => ({
-        time: row.sample_time || row.record_date || '-',
+        time: formatDateTime(row.sample_time || row.record_date || ''),
         kind: row.complaint_id ? t('pages.insight.profile.flowComplaint') : t('pages.insight.profile.flowSurvey'),
         category: [row.complaint_type, row.sub_category].filter(Boolean).join(' / ') || '-',
         score: row.satisfaction_score ?? '-',

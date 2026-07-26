@@ -1,4 +1,4 @@
-﻿export default {
+export default {
     common: {
         clear: '清空',
         query: '查询',
@@ -728,6 +728,7 @@
                 no: '否',
                 trainModel: '训练 LightGBM 模型',
                 trainDone: '训练完成：{version}',
+                trainFailed: '模型训练失败',
                 recommendTitle: '高风险挽留建议',
                 suggestedAction: '建议动作',
                 simulateTitle: 'WHAT-IF 风险仿真',

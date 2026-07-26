@@ -2,6 +2,7 @@
 
 import csv
 import io
+import logging
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.insight import DimUserProfile, FactComplaintSample, FactChurnLabel
 from app.services.modules.insight.constants import (
     CHURN_HORIZON_DAYS,
+    CHURN_LABEL_WRITE_BATCH_SIZE,
     LABEL_SOURCE_CSV,
     LABEL_SOURCE_SEED,
 )
@@ -18,6 +20,8 @@ from app.services.modules.insight.seed.churn_label_generator import (
     default_as_of_dates,
     sample_churn_label,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class InsightChurnLabelService:
@@ -42,34 +46,58 @@ class InsightChurnLabelService:
         if not users:
             return 0
         self.db.query(FactChurnLabel).filter(FactChurnLabel.label_source == LABEL_SOURCE_SEED).delete()
+        self.db.commit()
         occupied = {
             (uid, as_of)
             for uid, as_of in self.db.query(FactChurnLabel.user_id, FactChurnLabel.as_of_date).all()
         }
         builder = InsightFeatureBuilder(self.db)
-        mappings: list[dict] = []
+        total = 0
         for as_of in default_as_of_dates():
-            features = builder.build_batch(users, as_of_date=as_of)
-            for user in users:
-                if user.join_date > as_of or (user.user_id, as_of) in occupied:
-                    continue
-                feature = features.get(user.user_id)
-                if not feature or not feature.has_sample:
-                    continue
-                churn, cancel = sample_churn_label(user, feature, as_of)
-                mappings.append(
-                    {
-                        "user_id": user.user_id,
-                        "as_of_date": as_of,
-                        "churn_90d": churn,
-                        "label_source": LABEL_SOURCE_SEED,
-                        "cancel_date": cancel,
-                    }
-                )
-        if mappings:
-            self.db.bulk_insert_mappings(FactChurnLabel, mappings)
-        self.db.commit()
-        return len(mappings)
+            mappings = self._build_seed_mappings(users, as_of, occupied, builder)
+            total += self._flush_label_batches(mappings)
+            occupied.update((row["user_id"], row["as_of_date"]) for row in mappings)
+        logger.info("合成流失标签写入完成 rows=%s users=%s", total, len(users))
+        return total
+
+    def _build_seed_mappings(
+        self,
+        users: list[DimUserProfile],
+        as_of: date,
+        occupied: set[tuple[str, date]],
+        builder: InsightFeatureBuilder,
+    ) -> list[dict]:
+        features = builder.build_batch(users, as_of_date=as_of)
+        mappings: list[dict] = []
+        for user in users:
+            if user.join_date > as_of or (user.user_id, as_of) in occupied:
+                continue
+            feature = features.get(user.user_id)
+            if not feature or not feature.has_sample:
+                continue
+            churn, cancel = sample_churn_label(user, feature, as_of)
+            mappings.append(
+                {
+                    "user_id": user.user_id,
+                    "as_of_date": as_of,
+                    "churn_90d": churn,
+                    "label_source": LABEL_SOURCE_SEED,
+                    "cancel_date": cancel,
+                }
+            )
+        return mappings
+
+    def _flush_label_batches(self, mappings: list[dict]) -> int:
+        if not mappings:
+            return 0
+        batch = CHURN_LABEL_WRITE_BATCH_SIZE
+        written = 0
+        for offset in range(0, len(mappings), batch):
+            chunk = mappings[offset : offset + batch]
+            self.db.bulk_insert_mappings(FactChurnLabel, chunk)
+            self.db.commit()
+            written += len(chunk)
+        return written
 
     def import_csv(self, raw: bytes, *, as_of_date: date | None = None) -> dict:
         text = raw.decode("utf-8-sig")

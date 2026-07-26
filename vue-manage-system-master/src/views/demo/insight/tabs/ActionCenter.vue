@@ -166,6 +166,9 @@ async function handleTrain() {
         const { data } = await postInsightTrainModel();
         ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
         await loadAll();
+    } catch (error: unknown) {
+        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        ElMessage.error(typeof detail === 'string' ? detail : '模型训练失败');
     } finally {
         training.value = false;
     }

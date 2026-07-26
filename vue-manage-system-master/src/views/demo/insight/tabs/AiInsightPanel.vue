@@ -39,7 +39,9 @@
         <el-card shadow="never">
             <template #header>{{ t('pages.insight.ai.logTitle') }}</template>
             <el-table :data="logs" v-loading="loading" border stripe>
-                <el-table-column prop="created_at" :label="t('pages.insight.ai.logTime')" width="180" />
+                <el-table-column :label="t('pages.insight.ai.logTime')" width="180">
+                    <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+                </el-table-column>
                 <el-table-column prop="answer" :label="t('pages.insight.ai.logSummary')" min-width="260" show-overflow-tooltip />
                 <el-table-column prop="latency_ms" :label="t('pages.insight.ai.elapsedMs')" width="100" />
                 <el-table-column prop="status" :label="t('pages.insight.ai.logStatus')" width="100" />
@@ -62,6 +64,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { getInsightJobLogs, postInsightNightlyRun, postInsightTrainModel } from '@/api';
+import { formatDateTime } from '@/utils';
 
 interface NightlyAccepted {
     analysis_log_id: number;
@@ -112,6 +115,9 @@ async function handleTrain() {
     try {
         const { data } = await postInsightTrainModel();
         ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
+    } catch (error: unknown) {
+        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        ElMessage.error(typeof detail === 'string' ? detail : '模型训练失败');
     } finally {
         training.value = false;
     }

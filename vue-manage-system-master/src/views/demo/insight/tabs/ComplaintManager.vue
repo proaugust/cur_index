@@ -26,7 +26,9 @@
             <el-table-column prop="complaint_id" label="流水号" width="150" />
             <el-table-column prop="user_id" label="用户ID" width="110" />
             <el-table-column prop="region" label="区域" width="140" show-overflow-tooltip />
-            <el-table-column prop="sample_time" label="时间" width="170" show-overflow-tooltip />
+            <el-table-column label="时间" width="170" show-overflow-tooltip>
+                <template #default="{ row }">{{ formatDateTime(row.sample_time) }}</template>
+            </el-table-column>
             <el-table-column prop="complaint_type" label="大类" width="100" />
             <el-table-column prop="sub_category" label="小类" width="120" />
             <el-table-column prop="raw_text" label="投诉正文" min-width="260" show-overflow-tooltip />
@@ -78,6 +80,7 @@ import {
     getInsightComplaints,
     updateInsightComplaint,
 } from '@/api';
+import { formatDateTime } from '@/utils';
 
 interface ComplaintRow {
     complaint_id: string;
@@ -179,7 +182,11 @@ function openCreate() {
 
 function openEdit(row: ComplaintRow) {
     editingId.value = row.complaint_id;
-    Object.assign(form, row, { category_key: `${row.complaint_type}:${row.sub_category}` });
+    const sampleTime = formatDateTime(row.sample_time);
+    Object.assign(form, row, {
+        category_key: `${row.complaint_type}:${row.sub_category}`,
+        sample_time: sampleTime === '-' ? '' : sampleTime,
+    });
     visible.value = true;
 }
 

@@ -44,7 +44,10 @@ class InsightModelTrainer:
             raise ValueError("无用户主数据，无法训练")
         train_rows, label_source = collect_train_rows(self.db, users)
         if len(train_rows) < _MIN_TRAIN_ROWS:
-            raise ValueError(f"有标签样本不足 {len(train_rows)} < {_MIN_TRAIN_ROWS}")
+            raise ValueError(
+                f"有标签样本不足 {len(train_rows)} < {_MIN_TRAIN_ROWS}。"
+                "请重新注入样本（生成合成流失标签）或导入 CSV 标签后重试"
+            )
 
         names = InsightFeatureBuilder.feature_names()
         x_all = np.array([row.values for row in train_rows], dtype=np.float32)

@@ -38,7 +38,9 @@
 
             <el-table :data="items" v-loading="loading" stripe :empty-text="t('pages.errorLogs.empty')">
                 <el-table-column prop="id" label="ID" width="70" />
-                <el-table-column prop="created_at" :label="t('pages.errorLogs.time')" width="175" />
+                <el-table-column :label="t('pages.errorLogs.time')" width="175">
+                    <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+                </el-table-column>
                 <el-table-column prop="level" :label="t('pages.errorLogs.level')" width="90" />
                 <el-table-column prop="source" :label="t('pages.errorLogs.source')" width="150" show-overflow-tooltip />
                 <el-table-column prop="error_type" :label="t('pages.errorLogs.errorType')" width="140" show-overflow-tooltip />
@@ -88,6 +90,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { fetchAppErrorLogs, patchAppErrorLogStatus } from '@/api';
+import { formatDateTime } from '@/utils';
 
 interface ErrorRow {
     id: number;
