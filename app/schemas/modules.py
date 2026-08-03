@@ -44,6 +44,13 @@ class DocumentChunkRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DocumentChunksPage(BaseModel):
+    items: list[DocumentChunkRead]
+    total: int
+    page: int
+    page_size: int
+
+
 class DocumentChunkCreate(BaseModel):
     source_file: str = Field(min_length=1, description="来源文件名")
     content: str = Field(min_length=1, description="切块正文，入库时自动计算向量")

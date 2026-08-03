@@ -10,13 +10,31 @@
                 <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.highRisk')" :value="dashboard?.high_risk_total || 0" /></el-card>
             </el-col>
             <el-col :xs="12" :sm="6">
-                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.valAccuracy')" :value="formatPct(dashboard?.val_accuracy)" /></el-card>
+                <el-card shadow="hover">
+                    <el-statistic
+                        :title="t('pages.insight.action.valAccuracy')"
+                        :value="dashboard?.val_accuracy ?? 0"
+                        :formatter="() => formatPct(dashboard?.val_accuracy)"
+                    />
+                </el-card>
             </el-col>
             <el-col :xs="12" :sm="6">
-                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.valAuc')" :value="formatMetric(dashboard?.val_auc)" /></el-card>
+                <el-card shadow="hover">
+                    <el-statistic
+                        :title="t('pages.insight.action.valAuc')"
+                        :value="dashboard?.val_auc ?? 0"
+                        :formatter="() => formatMetric(dashboard?.val_auc)"
+                    />
+                </el-card>
             </el-col>
             <el-col :xs="12" :sm="6">
-                <el-card shadow="hover"><el-statistic :title="t('pages.insight.action.valPrAuc')" :value="formatMetric(dashboard?.val_pr_auc)" /></el-card>
+                <el-card shadow="hover">
+                    <el-statistic
+                        :title="t('pages.insight.action.valPrAuc')"
+                        :value="dashboard?.val_pr_auc ?? 0"
+                        :formatter="() => formatMetric(dashboard?.val_pr_auc)"
+                    />
+                </el-card>
             </el-col>
         </el-row>
         <el-alert

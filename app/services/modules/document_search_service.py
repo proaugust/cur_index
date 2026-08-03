@@ -27,7 +27,7 @@ class DocumentSearchService:
     def _list_recent_chunks(
         self, limit: int = 5, source_file: str | None = None
     ) -> list[schemas.DocumentChunkSearchResult]:
-        chunks = crud.get_document_chunks(self.db, source_file=source_file, limit=limit)
+        chunks, _ = crud.get_document_chunks(self.db, source_file=source_file, page=1, page_size=limit)
         return [
             schemas.DocumentChunkSearchResult(
                 id=chunk.id,

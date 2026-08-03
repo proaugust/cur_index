@@ -56,14 +56,16 @@ async def import_document(
     )
 
 
-@router.get("/listByFile", response_model=list[schemas.DocumentChunkRead])
+@router.get("/listByFile", response_model=schemas.DocumentChunksPage)
 def listByFile(
     source_file: str | None = Query(default=None, description="按文件名"),
-    limit: int = Query(default=20, ge=1, le=200),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.listByFile", name="按文件名查")),
-) -> list[schemas.DocumentChunkRead]:
-    return crud.get_document_chunks(db, source_file=source_file, limit=limit)
+) -> schemas.DocumentChunksPage:
+    rows, total = crud.get_document_chunks(db, source_file=source_file, page=page, page_size=page_size)
+    return schemas.DocumentChunksPage(items=rows, total=total, page=page, page_size=page_size)
 
 
 @router.get(

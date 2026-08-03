@@ -27,11 +27,12 @@
             <div class="header-user-con">
                 <el-dropdown class="lang-switch" trigger="click" @command="setLocale">
                     <span class="lang-link">
-                        {{ localeStore.locale === 'zh-CN' ? t('header.langZh') : t('header.langJa') }}
+                        {{ localeLabel }}
                         <el-icon class="el-icon--right"><arrow-down /></el-icon>
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
+                            <el-dropdown-item command="en-US">English</el-dropdown-item>
                             <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
                             <el-dropdown-item command="ja-JP">日本語</el-dropdown-item>
                         </el-dropdown-menu>
@@ -94,6 +95,11 @@ const { t } = useI18n();
 const { intros, setIntro } = useFeatureIntros('app');
 const introHint = computed(() => intros.value.header?.trim() || t('header.editHint'));
 const localeStore = useLocaleStore();
+const localeLabel = computed(() => {
+    if (localeStore.locale === 'en-US') return t('header.langEn');
+    if (localeStore.locale === 'ja-JP') return t('header.langJa');
+    return t('header.langZh');
+});
 
 const username: string | null = localStorage.getItem('vuems_name');
 const message: number = 2;

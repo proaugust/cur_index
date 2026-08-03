@@ -55,7 +55,6 @@ class DocumentImportService:
             )
 
         created = crud.bulk_create_document_chunks(self.db, rows)
-
         return schemas.DocumentImportResult(source_file=source_file, sections=len(parse_sections(text)), chunks=len(created))
 
     def import_file(self, file_path: str, replace_existing: bool = True) -> schemas.DocumentImportResult:

@@ -40,7 +40,9 @@ class CorpusSearchService:
         return schemas.CorpusFileListResult(corpus_name=corpus.name, table_name=corpus.table_name, files=files)
 
     def _list_recent(self, table_name: str, limit: int, source_file: str | None):
-        rows = corpus_crud.list_chunks(self.db, table_name, source_file=source_file, limit=limit)
+        rows, _ = corpus_crud.list_chunks(
+            self.db, table_name, source_file=source_file, page=1, page_size=limit
+        )
         return [schemas.DocumentChunkSearchResult(**row_to_dict(row), similarity=0.0) for row in rows]
 
     def search(

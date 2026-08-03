@@ -12,7 +12,9 @@ export const useLocaleStore = defineStore('locale', {
             persistLocale(locale);
         },
         toggleLocale() {
-            this.setLocale(this.locale === 'zh-CN' ? 'ja-JP' : 'zh-CN');
+            const order: AppLocale[] = ['en-US', 'zh-CN', 'ja-JP'];
+            const next = order[(order.indexOf(this.locale) + 1) % order.length];
+            this.setLocale(next);
         },
     },
 });

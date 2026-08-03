@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n';
 import { ElConfigProvider } from 'element-plus';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import ja from 'element-plus/es/locale/lang/ja';
+import en from 'element-plus/es/locale/lang/en';
 import { fetchMe } from '@/api';
 import { usePermissStore } from './store/permiss';
 import { useThemeStore } from './store/theme';
@@ -19,7 +20,11 @@ const theme = useThemeStore();
 const permiss = usePermissStore();
 theme.initTheme();
 
-const elementLocale = computed(() => (locale.value === 'ja-JP' ? ja : zhCn));
+const elementLocale = computed(() => {
+    if (locale.value === 'ja-JP') return ja;
+    if (locale.value === 'en-US') return en;
+    return zhCn;
+});
 
 onMounted(async () => {
     const token = localStorage.getItem('access_token');

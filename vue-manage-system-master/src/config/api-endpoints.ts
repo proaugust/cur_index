@@ -12,12 +12,19 @@ export interface ApiParam {
     required?: boolean;
 }
 
+/** 长文本列悬停：宽约 800，高度随内容（可滚动） */
+export const longTextOverflowTooltip = {
+    popperClass: 'api-debug-long-tooltip',
+    placement: 'top' as const,
+    enterable: true,
+};
+
 export interface ApiResultTableColumn {
     prop: string;
     label: string;
     width?: number;
     minWidth?: number;
-    showOverflowTooltip?: boolean;
+    showOverflowTooltip?: boolean | typeof longTextOverflowTooltip;
 }
 
 export interface ApiResultRowActions {
@@ -40,6 +47,8 @@ export interface ApiResultTableView {
     highlightFields?: { key: string; label: string }[];
     columns: ApiResultTableColumn[];
     pageSize?: number;
+    /** true：按接口 page/page_size 服务端翻页，total 取自响应 */
+    serverPaging?: boolean;
     /** 选中行后可编辑 / 删除 / 新增 */
     rowActions?: ApiResultRowActions;
 }
@@ -260,7 +269,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         name: '按文件名查',
         method: 'GET',
         path: '/documents/listByFile',
-        description: '按文件名查询文档切块',
+        description: '按文件名查询文档切块（服务端翻页）',
         queryParams: [
             {
                 name: 'source_file',
@@ -268,11 +277,14 @@ export const documentEndpoints: ApiEndpoint[] = [
                 type: 'string',
                 placeholder: '留空查全部；或填导入时的文件名，如休假规则',
             },
-            { name: 'limit', label: '条数', type: 'number', default: 20, min: 1, max: 200 },
+            { name: 'page', label: '页码', type: 'number', default: 1, min: 1 },
+            { name: 'page_size', label: '每页条数', type: 'number', default: 10, min: 1, max: 100 },
         ],
         resultView: {
             mode: 'table',
+            dataPath: 'items',
             pageSize: 10,
+            serverPaging: true,
             columns: [
                 { prop: 'id', label: 'ID', width: 70 },
                 { prop: 'source_file', label: '文件', minWidth: 120, showOverflowTooltip: true },
@@ -280,7 +292,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'section_path', label: '路径', minWidth: 100, showOverflowTooltip: true },
                 { prop: 'chunk_index', label: '块序', width: 70 },
                 { prop: 'char_count', label: '字数', width: 70 },
-                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },
@@ -314,7 +326,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'section_title', label: '章节', minWidth: 100, showOverflowTooltip: true },
                 { prop: 'chunk_index', label: '块序', width: 70 },
                 { prop: 'similarity', label: '相似度', width: 90 },
-                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },
@@ -352,7 +364,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'id', label: 'ID', width: 70 },
                 { prop: 'source_label', label: '来源', minWidth: 140, showOverflowTooltip: true },
                 { prop: 'similarity', label: '相似度', width: 90 },
-                { prop: 'content', label: '原文', minWidth: 240, showOverflowTooltip: true },
+                { prop: 'content', label: '原文', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },

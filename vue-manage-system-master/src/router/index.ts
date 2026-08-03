@@ -142,7 +142,7 @@ const routes: RouteRecordRaw[] = [
                 name: 'modules-zha-jinhua',
                 meta: {
                     titleKey: 'route.demoZhaJinhua',
-                    title: '炸金花',
+                    title: '赌博agent 游戏',
                     permiss: '89',
                 },
                 component: () => import(/* webpackChunkName: "modules-zha-jinhua" */ '../views/demo/zha-jinhua.vue'),

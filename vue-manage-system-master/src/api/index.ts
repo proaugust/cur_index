@@ -182,8 +182,11 @@ export const searchDocumentsAndLlm = (
 /** @deprecated 使用 searchDocumentsAndLlm */
 export const searchDocumentsPolished = searchDocumentsAndLlm;
 
-export const listDocumentChunksByFile = (params?: { source_file?: string; limit?: number }) =>
-    request.get('/documents/listByFile', { params });
+export const listDocumentChunksByFile = (params?: {
+    source_file?: string;
+    page?: number;
+    page_size?: number;
+}) => request.get('/documents/listByFile', { params });
 
 /** @deprecated 使用 listDocumentChunksByFile */
 export const listDocumentChunks = listDocumentChunksByFile;

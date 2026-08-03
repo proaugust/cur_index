@@ -74,11 +74,20 @@ def get_distinct_source_files(db: Session) -> list[str]:
     return [row[0] for row in rows]
 
 
-def get_document_chunks(db: Session, source_file: str | None = None, limit: int = 20) -> list[models.DocumentChunk]:
+def get_document_chunks(
+    db: Session,
+    source_file: str | None = None,
+    *,
+    page: int = 1,
+    page_size: int = 10,
+) -> tuple[list[models.DocumentChunk], int]:
     query = db.query(models.DocumentChunk)
     if source_file:
         query = query.filter(models.DocumentChunk.source_file == source_file)
-    return query.order_by(models.DocumentChunk.id).limit(limit).all()
+    query = query.order_by(models.DocumentChunk.id)
+    total = int(query.count())
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return rows, total
 
 
 def get_document_chunk_by_id(db: Session, chunk_id: int) -> models.DocumentChunk | None:

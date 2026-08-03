@@ -216,13 +216,14 @@
                         </el-table>
 
                         <el-pagination
-                            v-if="tableState[ep.id].rows.length > (ep.resultView.pageSize ?? 10)"
+                            v-if="showPagination(ep)"
                             class="result-pagination"
                             background
                             layout="total, prev, pager, next"
-                            :total="tableState[ep.id].rows.length"
-                            :page-size="ep.resultView.pageSize ?? 10"
-                            v-model:current-page="tableState[ep.id].page"
+                            :total="tableTotal(ep)"
+                            :page-size="tablePageSize(ep)"
+                            :current-page="tableState[ep.id].page"
+                            @current-change="(p: number) => onTablePageChange(ep, p)"
                         />
 
                         <div v-if="ep.resultView.rowActions" class="row-actions-bar">
@@ -375,6 +376,8 @@ interface TableState {
     rows: Record<string, unknown>[];
     highlights: Record<string, string>;
     page: number;
+    total: number;
+    serverPaging: boolean;
 }
 
 interface ContentState {
@@ -452,7 +455,7 @@ const initEndpointState = (ep: ApiEndpoint) => {
 
     formState[ep.id] = state;
     responses[ep.id] = '';
-    tableState[ep.id] = { rows: [], highlights: {}, page: 1 };
+    tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
     contentState[ep.id] = { content: '' };
     loading[ep.id] = false;
     selectedRow[ep.id] = null;
@@ -561,7 +564,7 @@ const applyContentView = (ep: ApiEndpoint, data: unknown): string => {
 
 const applyResultView = (ep: ApiEndpoint, data: unknown) => {
     if (!ep.resultView || ep.resultView.mode !== 'table') {
-        tableState[ep.id] = { rows: [], highlights: {}, page: 1 };
+        tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
         return;
     }
 
@@ -580,15 +583,60 @@ const applyResultView = (ep: ApiEndpoint, data: unknown) => {
         ? rawRows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
         : [];
 
-    tableState[ep.id] = { rows, highlights, page: 1 };
+    const serverPaging = !!ep.resultView.serverPaging;
+    let page = 1;
+    let total = rows.length;
+    if (serverPaging && data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>;
+        page = Number(obj.page ?? formState[ep.id]?.query?.page ?? 1) || 1;
+        total = Number(obj.total ?? rows.length) || 0;
+        if (formState[ep.id]?.query && 'page' in formState[ep.id].query) {
+            formState[ep.id].query.page = page;
+        }
+    }
+
+    tableState[ep.id] = { rows, highlights, page, total, serverPaging };
+};
+
+const tablePageSize = (ep: ApiEndpoint) => {
+    if (ep.resultView?.mode === 'table' && ep.resultView.serverPaging) {
+        const raw = formState[ep.id]?.query?.page_size;
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) return n;
+    }
+    return ep.resultView?.mode === 'table' ? (ep.resultView.pageSize ?? 10) : 10;
+};
+
+const tableTotal = (ep: ApiEndpoint) => {
+    const state = tableState[ep.id];
+    if (!state) return 0;
+    return state.serverPaging ? state.total : state.rows.length;
+};
+
+const showPagination = (ep: ApiEndpoint) => {
+    const state = tableState[ep.id];
+    if (!state || !ep.resultView || ep.resultView.mode !== 'table') return false;
+    return tableTotal(ep) > tablePageSize(ep);
 };
 
 const pagedRows = (ep: ApiEndpoint) => {
     const state = tableState[ep.id];
     if (!state || !ep.resultView) return [];
-    const pageSize = ep.resultView.pageSize ?? 10;
+    if (state.serverPaging) return state.rows;
+    const pageSize = tablePageSize(ep);
     const start = (state.page - 1) * pageSize;
     return state.rows.slice(start, start + pageSize);
+};
+
+const onTablePageChange = (ep: ApiEndpoint, page: number) => {
+    const state = tableState[ep.id];
+    if (!state) return;
+    state.page = page;
+    if (!state.serverPaging) return;
+    if (formState[ep.id]?.query) {
+        formState[ep.id].query.page = page;
+    }
+    void sendRequest(ep);
 };
 
 const buildBody = (ep: ApiEndpoint) => {
@@ -898,7 +946,7 @@ const sendRequest = async (ep: ApiEndpoint) => {
         const status = axiosErr.response?.status;
         const detail = axiosErr.response?.data ?? { message: axiosErr.message || '请求失败' };
         responses[ep.id] = formatJson(detail);
-        tableState[ep.id] = { rows: [], highlights: {}, page: 1 };
+        tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
         contentState[ep.id] = { content: '' };
         statusInfo[ep.id] = {
             ok: false,
@@ -1084,5 +1132,20 @@ const sendRequest = async (ep: ApiEndpoint) => {
 
 :deep(.el-tabs__content) {
     padding: 16px 4px 4px;
+}
+</style>
+
+<!-- tooltip 挂到 body，需非 scoped -->
+<style>
+.api-debug-long-tooltip {
+    width: min(800px, 90vw) !important;
+    max-width: min(800px, 90vw) !important;
+    height: auto;
+    max-height: 70vh;
+    overflow: auto;
+    white-space: pre-wrap !important;
+    word-break: break-word;
+    line-height: 1.55;
+    font-size: 13px;
 }
 </style>

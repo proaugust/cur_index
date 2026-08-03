@@ -105,12 +105,22 @@ def list_source_files(db: Session, table_name: str) -> list[str]:
     return [row[0] for row in rows]
 
 
-def list_chunks(db: Session, table_name: str, source_file: str | None = None, limit: int = 20) -> list:
+def list_chunks(
+    db: Session,
+    table_name: str,
+    source_file: str | None = None,
+    *,
+    page: int = 1,
+    page_size: int = 10,
+) -> tuple[list, int]:
     model = get_chunk_model(table_name)
     query = db.query(model)
     if source_file:
         query = query.filter(model.source_file == source_file)
-    return query.order_by(model.id).limit(limit).all()
+    query = query.order_by(model.id)
+    total = int(query.count())
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return rows, total
 
 
 def count_chunks(db: Session, table_name: str) -> int:
