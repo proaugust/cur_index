@@ -158,3 +158,21 @@ class MenuUpdate(BaseModel):
     parent_code: str | None = None
     route_path: str | None = None
     icon: str | None = None
+
+
+class LoginLogItem(BaseModel):
+    id: int
+    user_id: int | None = None
+    username: str
+    ip: str
+    user_agent: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LoginLogListResponse(BaseModel):
+    items: list[LoginLogItem]
+    total: int
+    page: int
+    page_size: int

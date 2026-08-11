@@ -1,4 +1,4 @@
-"""业务知识库向量检索（按资料名路由到物理切块表）。"""
+"""业务知识库向量检索（document_business_chunks，按 corpus_name 过滤）。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.crud import document_corpora as corpus_crud
-from app.services.modules.chunk_table_ops import row_to_dict
+from app.services.modules.chunk_lang import detect_lang
+from app.services.modules.chunk_table_ops import BUSINESS_CHUNK_TABLE, ensure_chunk_table, row_to_dict
 from app.services.modules.corpus_retrieve import retrieve
 from app.services.shared.llm import chat_completion
 
@@ -23,25 +24,44 @@ class CorpusSearchService:
         self.db = db
 
     def _require_corpus(self, corpus_name: str):
-        from app.services.modules.chunk_table_ops import ensure_chunk_table
-
+        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
         corpus = corpus_crud.get_corpus_by_name(self.db, corpus_name)
         if corpus is None:
             raise HTTPException(status_code=404, detail=f"资料库不存在: {corpus_name}")
-        ensure_chunk_table(self.db, corpus.table_name)
+        if corpus.table_name != BUSINESS_CHUNK_TABLE:
+            corpus.table_name = BUSINESS_CHUNK_TABLE
+            self.db.commit()
+            self.db.refresh(corpus)
         return corpus
 
     def list_files(self, corpus_name: str) -> schemas.CorpusFileListResult:
         corpus = self._require_corpus(corpus_name)
         files = [
             schemas.CorpusFileItem(source_file=name)
-            for name in corpus_crud.list_source_files(self.db, corpus.table_name)
+            for name in corpus_crud.list_source_files(self.db, corpus.name)
         ]
-        return schemas.CorpusFileListResult(corpus_name=corpus.name, table_name=corpus.table_name, files=files)
+        return schemas.CorpusFileListResult(
+            corpus_name=corpus.name, table_name=BUSINESS_CHUNK_TABLE, files=files
+        )
 
-    def _list_recent(self, table_name: str, limit: int, source_file: str | None):
+    def list_by_file(
+        self,
+        corpus_name: str,
+        source_file: str | None = None,
+        *,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> schemas.DocumentChunksPage:
+        corpus = self._require_corpus(corpus_name)
+        rows, total = corpus_crud.list_chunks(
+            self.db, corpus.name, source_file=source_file, page=page, page_size=page_size
+        )
+        items = [schemas.DocumentChunkRead.model_validate(row) for row in rows]
+        return schemas.DocumentChunksPage(items=items, total=total, page=page, page_size=page_size)
+
+    def _list_recent(self, corpus_name: str, limit: int, source_file: str | None):
         rows, _ = corpus_crud.list_chunks(
-            self.db, table_name, source_file=source_file, page=1, page_size=limit
+            self.db, corpus_name, source_file=source_file, page=1, page_size=limit
         )
         return [schemas.DocumentChunkSearchResult(**row_to_dict(row), similarity=0.0) for row in rows]
 
@@ -64,18 +84,20 @@ class CorpusSearchService:
             )
         corpus = self._require_corpus(corpus_name)
         if not query or not query.strip():
-            return self._list_recent(corpus.table_name, limit, source_file)
+            return self._list_recent(corpus.name, limit, source_file)
 
+        resolved_lang = detect_lang(query)
         try:
             items = retrieve(
                 self.db,
-                corpus.table_name,
                 query.strip(),
+                corpus_name=corpus.name,
                 limit=limit,
                 min_similarity=min_similarity,
                 source_file=source_file,
                 retrieve_mode=mode,
                 expand_parent=expand_parent,
+                lang=resolved_lang,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -113,6 +135,7 @@ class CorpusSearchService:
                     char_count=c.char_count,
                     similarity=c.similarity,
                     embedding_preview=c.embedding_preview,
+                    lang=c.lang,
                 )
                 for i, c in enumerate(sources, start=1)
             ]
@@ -146,6 +169,7 @@ class CorpusSearchService:
                     char_count=chunk.char_count,
                     similarity=chunk.similarity,
                     embedding_preview=chunk.embedding_preview,
+                    lang=chunk.lang,
                 )
             )
         user_prompt = f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n" + "\n\n".join(blocks)

@@ -1,4 +1,4 @@
-"""业务知识库导入：资料名 → 物理表，支持单文件 / zip / 本机文件夹。"""
+"""业务知识库导入：写入 document_business_chunks，支持单文件 / zip / 本机文件夹。"""
 
 from __future__ import annotations
 
@@ -9,14 +9,15 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.crud import document_corpora as corpus_crud
+from app.services.modules.chunk_lang import DEFAULT_CHUNK_LANG, detect_lang
 from app.services.modules.chunk_table_ops import (
     HNSW_BULK_THRESHOLD,
+    chunk_embed_text,
     create_hnsw_index,
     drop_hnsw_index,
     refresh_search_vectors,
 )
 from app.services.modules.corpus_import_io import read_folder_texts, read_zip_texts
-from app.services.modules.corpus_retrieve import chunk_embed_text
 from app.services.shared.embedding import embed_texts
 from app.services.shared.structure_chunker import (
     DEFAULT_MAX_CHUNK,
@@ -57,7 +58,9 @@ class CorpusImportService:
             chunk_overlap=chunk_overlap,
         ), len(parse_markdown_sections(text))
 
-    def _validate_import(self, corpus_name: str, chunk_strategy: str, min_chunk_len: int, max_chunk_len: int) -> None:
+    def _validate_import(
+        self, corpus_name: str, chunk_strategy: str, min_chunk_len: int, max_chunk_len: int
+    ) -> None:
         if not corpus_name.strip():
             raise HTTPException(status_code=400, detail="资料名不能为空")
         if max_chunk_len < min_chunk_len:
@@ -67,20 +70,24 @@ class CorpusImportService:
 
     def _persist_rows(
         self,
-        table_name: str,
+        corpus_name: str,
         rows: list[dict],
         *,
         replace_sources: list[str] | None,
     ) -> int:
         if replace_sources:
-            corpus_crud.delete_chunks_by_sources(self.db, table_name, replace_sources, commit=False)
+            corpus_crud.delete_chunks_by_sources(
+                self.db, corpus_name, replace_sources, commit=False
+            )
         large = len(rows) >= HNSW_BULK_THRESHOLD
         if large:
-            drop_hnsw_index(self.db, table_name)
-        created = corpus_crud.bulk_insert_chunks(self.db, table_name, rows, commit=False)
+            drop_hnsw_index(self.db)
+        created = corpus_crud.bulk_insert_chunks(self.db, rows, commit=False)
         if large:
-            create_hnsw_index(self.db, table_name)
-        refresh_search_vectors(self.db, table_name, source_files=replace_sources)
+            create_hnsw_index(self.db)
+        refresh_search_vectors(
+            self.db, source_files=replace_sources, corpus_name=corpus_name
+        )
         self.db.commit()
         return created
 
@@ -90,6 +97,8 @@ class CorpusImportService:
         prepared: list[tuple[str, int, list]],
         *,
         replace_existing: bool,
+        file_langs: dict[str, str] | None = None,
+        default_lang: str = DEFAULT_CHUNK_LANG,
     ) -> schemas.CorpusImportResult:
         contents = [
             chunk_embed_text(
@@ -104,16 +113,20 @@ class CorpusImportService:
         rows: list[dict] = []
         details: list[schemas.DocumentImportResult] = []
         idx = 0
+        langs = file_langs or {}
         for source_file, section_count, chunks in prepared:
+            file_lang = langs.get(source_file) or default_lang
             for chunk in chunks:
                 rows.append(
                     {
+                        "corpus_name": corpus.name,
                         "source_file": source_file,
                         "section_title": chunk.section_title,
                         "section_path": chunk.section_path,
                         "chunk_index": chunk.chunk_index,
                         "content": chunk.content,
                         "char_count": len(chunk.content),
+                        "lang": file_lang,
                         "embedding": vectors[idx],
                     }
                 )
@@ -124,7 +137,7 @@ class CorpusImportService:
                 )
             )
         sources = [s for s, _, _ in prepared] if replace_existing else None
-        created = self._persist_rows(corpus.table_name, rows, replace_sources=sources)
+        created = self._persist_rows(corpus.name, rows, replace_sources=sources)
         return schemas.CorpusImportResult(
             corpus_name=corpus.name,
             table_name=corpus.table_name,
@@ -173,8 +186,12 @@ class CorpusImportService:
         chunk_overlap: int = DEFAULT_OVERLAP,
     ) -> schemas.DocumentImportResult:
         self._validate_import(corpus_name, chunk_strategy, min_chunk_len, max_chunk_len)
+        resolved_lang = detect_lang(text)
         corpus = corpus_crud.get_or_create_corpus(
-            self.db, corpus_name.strip(), default_chunk_strategy=chunk_strategy
+            self.db,
+            corpus_name.strip(),
+            default_chunk_strategy=chunk_strategy,
+            lang=resolved_lang,
         )
         chunks, section_count = self._chunk_text(
             text,
@@ -189,6 +206,8 @@ class CorpusImportService:
             corpus,
             [(source_file, section_count, chunks)],
             replace_existing=replace_existing,
+            file_langs={source_file: resolved_lang},
+            default_lang=resolved_lang,
         )
         return result.details[0]
 
@@ -205,8 +224,17 @@ class CorpusImportService:
         on_progress: ProgressCb | None,
     ) -> schemas.CorpusImportResult:
         self._validate_import(corpus_name, chunk_strategy, min_chunk_len, max_chunk_len)
+        file_langs = {name: detect_lang(body) for name, body in items}
+        # 资料库默认语言：取出现最多的语种
+        counts: dict[str, int] = {}
+        for lg in file_langs.values():
+            counts[lg] = counts.get(lg, 0) + 1
+        default_lang = max(counts, key=counts.get) if counts else DEFAULT_CHUNK_LANG
         corpus = corpus_crud.get_or_create_corpus(
-            self.db, corpus_name.strip(), default_chunk_strategy=chunk_strategy
+            self.db,
+            corpus_name.strip(),
+            default_chunk_strategy=chunk_strategy,
+            lang=default_lang,
         )
         prepared = self._prepare_chunked(
             items,
@@ -216,7 +244,13 @@ class CorpusImportService:
             chunk_overlap=chunk_overlap,
             on_progress=on_progress,
         )
-        return self._embed_and_persist(corpus, prepared, replace_existing=replace_existing)
+        return self._embed_and_persist(
+            corpus,
+            prepared,
+            replace_existing=replace_existing,
+            file_langs=file_langs,
+            default_lang=default_lang,
+        )
 
     def import_upload_or_folder(
         self,

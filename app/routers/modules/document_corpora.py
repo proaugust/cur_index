@@ -1,4 +1,4 @@
-"""业务知识库 API：物理分表导入 / 列文件 / 检索 / 清空切块。"""
+"""业务知识库 API：document_business_chunks 导入 / 列文件 / 检索 / 清空 / 删库 / 切块 CRUD。"""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -8,8 +8,10 @@ from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.crud import document_corpora as corpus_crud
 from app.models import User
+from app.services.modules.chunk_lang import resolve_lang
 from app.services.modules.corpus_import_jobs import create_import_job, get_import_job, run_import_job
 from app.services.modules.corpus_search_service import CorpusSearchService
+from app.services.shared.embedding import embed_text
 from app.services.shared.structure_chunker import DEFAULT_MAX_CHUNK, DEFAULT_MIN_CHUNK, DEFAULT_OVERLAP
 
 router = APIRouter(prefix="/documents/corpora", tags=["documents-corpora"])
@@ -17,6 +19,13 @@ router = APIRouter(prefix="/documents/corpora", tags=["documents-corpora"])
 
 def _search_service(db: Session = Depends(get_db)) -> CorpusSearchService:
     return CorpusSearchService(db)
+
+
+def _require_corpus(db: Session, corpus_name: str):
+    corpus = corpus_crud.get_corpus_by_name(db, corpus_name)
+    if corpus is None:
+        raise HTTPException(status_code=404, detail=f"资料库不存在: {corpus_name}")
+    return corpus
 
 
 @router.get("", response_model=list[schemas.DocumentCorpusRead], summary="列出业务知识库")
@@ -49,7 +58,7 @@ def get_corpus_import_job(
 )
 async def import_corpus(
     background_tasks: BackgroundTasks,
-    corpus_name: str = Form(..., description="资料名（相同则入同一物理表）"),
+    corpus_name: str = Form(..., description="资料名（相同则写入同一 document_business_chunks 分区）"),
     file: UploadFile | None = File(
         default=None,
         description="单文件 .md/.txt 或 .zip（与 folder_path 三选一）",
@@ -107,22 +116,128 @@ def list_corpus_files(
     return service.list_files(corpus_name)
 
 
+@router.get(
+    "/listByFile",
+    response_model=schemas.DocumentChunksPage,
+    summary="资料库按文件名查切块",
+)
+def list_corpus_by_file(
+    corpus_name: str = Query(..., description="资料名"),
+    source_file: str | None = Query(
+        default=None, description="按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
+    ),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    service: CorpusSearchService = Depends(_search_service),
+    _: User = Depends(require_permission("82.corpora-listByFile", name="资料库按文件名查")),
+) -> schemas.DocumentChunksPage:
+    return service.list_by_file(
+        corpus_name, source_file=source_file, page=page, page_size=page_size
+    )
+
+
 @router.delete("", response_model=schemas.CorpusClearResult, summary="清空资料库切块数据")
 def clear_corpus(
     corpus_name: str = Query(..., description="资料名"),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.corpora-clear", name="资料库清空")),
 ) -> schemas.CorpusClearResult:
-    """只删切块数据，保留 document_corpora 注册与物理表结构。"""
-    corpus = corpus_crud.get_corpus_by_name(db, corpus_name)
-    if corpus is None:
-        raise HTTPException(status_code=404, detail=f"资料库不存在: {corpus_name}")
-    deleted = corpus_crud.clear_all_chunks(db, corpus.table_name)
+    """只删该资料名切块，保留 document_corpora 注册与共享表 document_business_chunks。"""
+    from app.services.modules.chunk_table_ops import BUSINESS_CHUNK_TABLE
+
+    corpus = _require_corpus(db, corpus_name)
+    deleted = corpus_crud.clear_all_chunks(db, corpus.name)
     return schemas.CorpusClearResult(
         corpus_name=corpus.name,
-        table_name=corpus.table_name,
+        table_name=BUSINESS_CHUNK_TABLE,
         deleted_chunks=deleted,
     )
+
+
+@router.delete("/drop", response_model=schemas.CorpusDeleteResult, summary="删除资料库（注册+切块）")
+def drop_corpus(
+    corpus_name: str = Query(..., description="资料名"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("82.corpora-delete", name="资料库删除")),
+) -> schemas.CorpusDeleteResult:
+    corpus = _require_corpus(db, corpus_name)
+    name = corpus.name
+    table_name, deleted = corpus_crud.delete_corpus(db, corpus)
+    return schemas.CorpusDeleteResult(
+        corpus_name=name,
+        table_name=table_name,
+        deleted_chunks=deleted,
+    )
+
+
+@router.post("/chunks", response_model=schemas.DocumentChunkRead, summary="资料库新增切块")
+def create_corpus_chunk(
+    payload: schemas.CorpusChunkCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("82.corpora-chunks-create", name="资料库新增切块")),
+) -> schemas.DocumentChunkRead:
+    corpus = _require_corpus(db, payload.corpus_name)
+    lang = resolve_lang(payload.lang, payload.content)
+    embedding = embed_text(payload.content)
+    row = corpus_crud.create_chunk(
+        db,
+        corpus.name,
+        source_file=payload.source_file,
+        content=payload.content,
+        section_title=payload.section_title,
+        section_path=payload.section_path,
+        chunk_index=payload.chunk_index,
+        embedding=embedding,
+        lang=lang,
+    )
+    return row
+
+
+@router.put("/chunks/{chunk_id}", response_model=schemas.DocumentChunkRead, summary="资料库更新切块")
+def update_corpus_chunk(
+    chunk_id: int,
+    payload: schemas.DocumentChunkUpdate,
+    corpus_name: str = Query(..., description="资料名"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("82.corpora-chunks-update", name="资料库更新切块")),
+) -> schemas.DocumentChunkRead:
+    corpus = _require_corpus(db, corpus_name)
+    row = corpus_crud.get_chunk_by_id(db, corpus.name, chunk_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="切块不存在")
+    if payload.content is None and payload.section_title is None and payload.section_path is None:
+        raise HTTPException(status_code=400, detail="至少提供一个待更新字段")
+    embedding = None
+    char_count = None
+    lang = None
+    if payload.content is not None:
+        char_count = len(payload.content)
+        embedding = embed_text(payload.content)
+        lang = resolve_lang(None, payload.content)
+    return corpus_crud.update_chunk(
+        db,
+        row,
+        content=payload.content,
+        section_title=payload.section_title,
+        section_path=payload.section_path,
+        char_count=char_count,
+        embedding=embedding,
+        lang=lang,
+    )
+
+
+@router.delete("/chunks/{chunk_id}", summary="资料库删除切块")
+def delete_corpus_chunk(
+    chunk_id: int,
+    corpus_name: str = Query(..., description="资料名"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("82.corpora-chunks-delete", name="资料库删除切块")),
+) -> dict[str, int | str]:
+    corpus = _require_corpus(db, corpus_name)
+    if corpus_crud.get_chunk_by_id(db, corpus.name, chunk_id) is None:
+        raise HTTPException(status_code=404, detail="切块不存在")
+    corpus_crud.delete_chunk_by_id(db, corpus.name, chunk_id)
+    return {"id": chunk_id, "message": "已删除"}
 
 
 @router.get(
@@ -135,7 +250,9 @@ def search_corpus(
     q: str | None = Query(default=None, description="查询文本"),
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.55, ge=0.0, le=1.0),
-    source_file: str | None = Query(default=None, description="可选：限定文件"),
+    source_file: str | None = Query(
+        default=None, description="可选：按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
+    ),
     retrieve_mode: str = Query(
         default="hybrid",
         description="vector | hybrid | hybrid_rerank（hybrid=向量+全文+C1融合）",

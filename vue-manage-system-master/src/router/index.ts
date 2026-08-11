@@ -193,6 +193,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "system-menu" */ '../views/system/menu.vue'),
             },
             {
+                path: '/system-login-logs',
+                name: 'system-login-logs',
+                meta: {
+                    titleKey: 'route.systemLoginLogs',
+                    title: '登录记录',
+                    permiss: '14',
+                },
+                component: () => import(/* webpackChunkName: "system-login-logs" */ '../views/system/login-logs.vue'),
+            },
+            {
                 path: '/table',
                 name: 'basetable',
                 meta: {

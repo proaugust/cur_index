@@ -2,21 +2,14 @@
 
 from app import models, schemas
 from app.crud import modules as crud
+from app.services.modules.chunk_lang import DEFAULT_CHUNK_LANG, detect_lang
+from app.services.modules.chunk_table_ops import embedding_preview, source_file_like_pattern
 from app.services.shared.embedding import embed_query
 from app.services.shared.llm import chat_completion
 
 _SYSTEM_PROMPT = (
     "你是专业的文档问答助手。用户会提供一个问题和若干条检索到的文档片段。"
     "你的任务是把**所有相关片段的信息综合起来**，写成一份完整、易读的回答，而不是简单复述某一条片段。\n"
-    # "要求：\n"
-    # "1. 先用 1～2 句话给出直接结论（回答用户问题）；\n"
-    # "2. 再用分点列表展开细节，合并多条片段中的信息，去重并理顺逻辑；\n"
-    # "3. 重要事实后标注来源，格式为〔片段N〕，N 对应用户提供的片段编号；\n"
-    # "4. 仅使用片段中已有的信息，不要编造；片段之间有矛盾时如实指出；\n"
-    # "5. 若片段不足以完整回答，先写已知部分，最后说明还缺少什么信息。\n"
-    # "使用 Markdown 格式输出（可用 **加粗**、列表等），让回答看起来充实、有条理。"
-    # "You are an AI assistant. Answer based on the provided context. Answer based on the provided context only,"
-    # " do not use other informations. If you cannot answer, say 'I need more context.'",
 )
 
 
@@ -25,34 +18,54 @@ class DocumentSearchService:
         self.db = db
 
     def _list_recent_chunks(
-        self, limit: int = 5, source_file: str | None = None
+        self,
+        limit: int = 5,
+        source_file: str | None = None,
+        lang: str | None = None,
     ) -> list[schemas.DocumentChunkSearchResult]:
-        chunks, _ = crud.get_document_chunks(self.db, source_file=source_file, page=1, page_size=limit)
-        return [
-            schemas.DocumentChunkSearchResult(
-                id=chunk.id,
-                source_file=chunk.source_file,
-                section_title=chunk.section_title,
-                section_path=chunk.section_path,
-                chunk_index=chunk.chunk_index,
-                content=chunk.content,
-                char_count=chunk.char_count,
-                similarity=0.0,
+        chunks, _ = crud.get_document_chunks(self.db, source_file=source_file, page=1, page_size=max(limit * 3, limit))
+        results: list[schemas.DocumentChunkSearchResult] = []
+        for chunk in chunks:
+            chunk_lang = getattr(chunk, "lang", None) or DEFAULT_CHUNK_LANG
+            if lang and chunk_lang != lang:
+                continue
+            results.append(
+                schemas.DocumentChunkSearchResult(
+                    id=chunk.id,
+                    source_file=chunk.source_file,
+                    section_title=chunk.section_title,
+                    section_path=chunk.section_path,
+                    chunk_index=chunk.chunk_index,
+                    content=chunk.content,
+                    char_count=chunk.char_count,
+                    lang=chunk_lang,
+                    embedding_preview=embedding_preview(chunk.embedding),
+                    similarity=0.0,
+                )
             )
-            for chunk in chunks
-        ]
+            if len(results) >= limit:
+                break
+        return results
 
     def search(
-        self, query: str | None, limit: int = 5, source_file: str | None = None, min_similarity: float = 0.55
+        self,
+        query: str | None,
+        limit: int = 5,
+        source_file: str | None = None,
+        min_similarity: float = 0.55,
     ) -> list[schemas.DocumentChunkSearchResult]:
+        resolved = detect_lang(query) if query and query.strip() else None
         if not query or not query.strip():
             return self._list_recent_chunks(limit=limit, source_file=source_file)
 
         query_vector = embed_query(query.strip())
         distance_expr = models.DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
         q = self.db.query(models.DocumentChunk, distance_expr).filter(models.DocumentChunk.embedding.isnot(None))
-        if source_file:
-            q = q.filter(models.DocumentChunk.source_file == source_file)
+        if resolved:
+            q = q.filter(models.DocumentChunk.lang == resolved)
+        file_pattern = source_file_like_pattern(source_file)
+        if file_pattern:
+            q = q.filter(models.DocumentChunk.source_file.ilike(file_pattern))
         rows = q.order_by(distance_expr).limit(limit).all()
 
         results: list[schemas.DocumentChunkSearchResult] = []
@@ -69,13 +82,18 @@ class DocumentSearchService:
                     chunk_index=chunk.chunk_index,
                     content=chunk.content,
                     char_count=chunk.char_count,
+                    lang=getattr(chunk, "lang", None) or DEFAULT_CHUNK_LANG,
+                    embedding_preview=embedding_preview(chunk.embedding),
                     similarity=similarity,
                 )
             )
         return results
 
     def search_polished(
-        self, query: str | None, limit: int = 5, min_similarity: float = 0.55
+        self,
+        query: str | None,
+        limit: int = 5,
+        min_similarity: float = 0.55,
     ) -> schemas.DocumentSearchPolishedResult:
         if not query or not query.strip():
             sources = self._list_recent_chunks(limit=limit)
@@ -91,6 +109,8 @@ class DocumentSearchService:
                     content=chunk.content,
                     char_count=chunk.char_count,
                     similarity=chunk.similarity,
+                    embedding_preview=chunk.embedding_preview,
+                    lang=chunk.lang,
                 )
                 for index, chunk in enumerate(sources, start=1)
             ]
@@ -125,6 +145,8 @@ class DocumentSearchService:
                     content=chunk.content,
                     char_count=chunk.char_count,
                     similarity=chunk.similarity,
+                    embedding_preview=chunk.embedding_preview,
+                    lang=chunk.lang,
                 )
             )
 

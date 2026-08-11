@@ -33,6 +33,8 @@ export interface ApiResultRowActions {
     updatePath: string;
     deletePath: string;
     createPath: string;
+    /** 从当前接口表单 query 取值，作为 CUD 的 query 参数（如 corpus_name） */
+    carryQueryParams?: string[];
     /** 编辑弹窗字段（值从选中行预填） */
     editableFields: ApiParam[];
     /** 新增弹窗字段 */
@@ -45,6 +47,9 @@ export interface ApiResultTableView {
     dataPath?: string;
     /** 表格上方展示的文本字段 */
     highlightFields?: { key: string; label: string }[];
+    /** 从表格列抽出、在结果区单独展示的正文字段（如 content） */
+    contentField?: string;
+    contentLabel?: string;
     columns: ApiResultTableColumn[];
     pageSize?: number;
     /** true：按接口 page/page_size 服务端翻页，total 取自响应 */
@@ -224,14 +229,14 @@ const documentChunkRowActions: ApiResultRowActions = {
     ],
 };
 
-/** 通用文档库（单表 documents）：导入 / 按文件查 / 检索 / 检索+LLM */
+/** 通用文档库（固定表 document_chunks）：导入 / 按文件查 / 检索 / 检索+LLM */
 export const documentEndpoints: ApiEndpoint[] = [
     {
         id: 'import',
         name: '导入文档',
         method: 'POST',
         path: '/documents/import',
-        description: '上传 UTF-8 文本文档并切块入库',
+        description: '上传 UTF-8 文本文档并切块写入 document_chunks',
         formParams: [
             { name: 'file', label: '文档文件', type: 'file', required: true },
             { name: 'replace_existing', label: '覆盖同名文件', type: 'boolean', default: true },
@@ -286,13 +291,15 @@ export const documentEndpoints: ApiEndpoint[] = [
             pageSize: 10,
             serverPaging: true,
             columns: [
-                { prop: 'id', label: 'ID', width: 70 },
-                { prop: 'source_file', label: '文件', minWidth: 120, showOverflowTooltip: true },
-                { prop: 'section_title', label: '章节', minWidth: 100, showOverflowTooltip: true },
-                { prop: 'section_path', label: '路径', minWidth: 100, showOverflowTooltip: true },
-                { prop: 'chunk_index', label: '块序', width: 70 },
-                { prop: 'char_count', label: '字数', width: 70 },
-                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
+                { prop: 'section_path', label: '路径', width: 90, showOverflowTooltip: true },
+                { prop: 'chunk_index', label: '块序', width: 56 },
+                { prop: 'char_count', label: '字数', width: 56 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },
@@ -320,13 +327,17 @@ export const documentEndpoints: ApiEndpoint[] = [
         resultView: {
             mode: 'table',
             pageSize: 5,
+            contentField: 'content',
+            contentLabel: '内容',
             columns: [
-                { prop: 'id', label: 'ID', width: 70 },
-                { prop: 'source_file', label: '文件', minWidth: 120, showOverflowTooltip: true },
-                { prop: 'section_title', label: '章节', minWidth: 100, showOverflowTooltip: true },
-                { prop: 'chunk_index', label: '块序', width: 70 },
-                { prop: 'similarity', label: '相似度', width: 90 },
-                { prop: 'content', label: '内容', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
+                { prop: 'chunk_index', label: '块序', width: 56 },
+                { prop: 'similarity', label: '相似度', width: 72 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },
@@ -355,30 +366,61 @@ export const documentEndpoints: ApiEndpoint[] = [
             mode: 'table',
             dataPath: 'original_sources',
             pageSize: 5,
+            contentField: 'content',
+            contentLabel: '原文',
             highlightFields: [
                 { key: 'query', label: '查询' },
                 { key: 'polished_answer', label: '润色回答' },
             ],
             columns: [
-                { prop: 'snippet_index', label: '片段', width: 70 },
-                { prop: 'id', label: 'ID', width: 70 },
-                { prop: 'source_label', label: '来源', minWidth: 140, showOverflowTooltip: true },
-                { prop: 'similarity', label: '相似度', width: 90 },
-                { prop: 'content', label: '原文', minWidth: 240, showOverflowTooltip: longTextOverflowTooltip },
+                { prop: 'snippet_index', label: '片段', width: 56 },
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_label', label: '来源', width: 110, showOverflowTooltip: true },
+                { prop: 'similarity', label: '相似度', width: 72 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '原文', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
         },
     },
+    {
+        id: 'clear',
+        name: '清空文档库',
+        method: 'DELETE',
+        path: '/documents',
+        description: '清空通用文档库 document_chunks 全部切块',
+    },
 ];
 
-/** 业务知识库（物理分表）：导入 / 列表 / 文件 / 清空；检索见 CorporaBrowsePanel */
+const corpusChunkRowActions: ApiResultRowActions = {
+    updatePath: '/documents/corpora/chunks/{id}',
+    deletePath: '/documents/corpora/chunks/{id}',
+    createPath: '/documents/corpora/chunks',
+    carryQueryParams: ['corpus_name'],
+    editableFields: [
+        { name: 'content', label: '正文', type: 'string', required: true },
+        { name: 'section_title', label: '章节标题', type: 'string' },
+        { name: 'section_path', label: '章节路径', type: 'string' },
+    ],
+    createFields: [
+        { name: 'corpus_name', label: '资料名', type: 'string', required: true },
+        { name: 'source_file', label: '文件名', type: 'string', required: true },
+        { name: 'content', label: '正文', type: 'string', required: true },
+        { name: 'section_title', label: '章节标题', type: 'string' },
+        { name: 'section_path', label: '章节路径', type: 'string' },
+        { name: 'chunk_index', label: '块序', type: 'string', placeholder: '留空自动递增' },
+    ],
+};
+
+/** 业务知识库（固定表 document_business_chunks）：导入 / 列表 / 查询 / 删库；检索亦可在同 Tab BrowsePanel */
 export const corporaEndpoints: ApiEndpoint[] = [
     {
         id: 'corpora-import',
         name: '资料库导入',
         method: 'POST',
         path: '/documents/corpora/import',
-        description: '异步导入：立即返回 job_id，后台切分向量化；可上传 .md/.txt、.zip，或填本机文件夹路径',
+        description: '异步导入到 document_business_chunks：立即返回 job_id；可上传 .md/.txt、.zip，或填本机文件夹路径',
         asyncJob: {
             statusPath: '/documents/corpora/import/jobs/{job_id}',
             pollIntervalMs: 1500,
@@ -440,16 +482,61 @@ export const corporaEndpoints: ApiEndpoint[] = [
         name: '资料库列表',
         method: 'GET',
         path: '/documents/corpora',
-        description: '列出已注册业务知识库及物理表名',
+        description: '列出已注册业务知识库（切块均在 document_business_chunks）',
         resultView: {
             mode: 'table',
             pageSize: 20,
             columns: [
-                { prop: 'id', label: 'ID', width: 70 },
-                { prop: 'name', label: '资料名', minWidth: 120, showOverflowTooltip: true },
-                { prop: 'table_name', label: '物理表', minWidth: 160, showOverflowTooltip: true },
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'name', label: '资料名', width: 120, showOverflowTooltip: true },
+                { prop: 'table_name', label: '物理表', minWidth: 200, showOverflowTooltip: true },
+                { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'default_chunk_strategy', label: '默认切分', width: 100 },
             ],
+        },
+    },
+    {
+        id: 'corpora-listByFile',
+        name: '按文件名查',
+        method: 'GET',
+        path: '/documents/corpora/listByFile',
+        description: '按资料名 + 可选文件名过滤切块（服务端翻页）',
+        queryParams: [
+            {
+                name: 'corpus_name',
+                label: '资料名',
+                type: 'string',
+                required: true,
+                placeholder: '与导入时一致',
+            },
+            {
+                name: 'source_file',
+                label: '文件名',
+                type: 'string',
+                placeholder: '留空查全部；或填导入时的文件名',
+            },
+            { name: 'page', label: '页码', type: 'number', default: 1, min: 1 },
+            { name: 'page_size', label: '每页条数', type: 'number', default: 10, min: 1, max: 100 },
+        ],
+        resultView: {
+            mode: 'table',
+            dataPath: 'items',
+            pageSize: 10,
+            serverPaging: true,
+            contentField: 'content',
+            contentLabel: '内容',
+            columns: [
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
+                { prop: 'section_path', label: '路径', width: 90, showOverflowTooltip: true },
+                { prop: 'chunk_index', label: '块序', width: 56 },
+                { prop: 'char_count', label: '字数', width: 56 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
+            ],
+            rowActions: corpusChunkRowActions,
         },
     },
     {
@@ -473,11 +560,108 @@ export const corporaEndpoints: ApiEndpoint[] = [
         },
     },
     {
-        id: 'corpora-clear',
-        name: '资料库清空',
+        id: 'corpora-search',
+        name: '资料库检索',
+        method: 'GET',
+        path: '/documents/corpora/search',
+        description: '业务资料库 document_business_chunks 向量/混合检索',
+        queryParams: [
+            { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '与导入时一致' },
+            { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：依赖注入怎么用？' },
+            { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
+            {
+                name: 'min_similarity',
+                label: '最低相似度',
+                type: 'number',
+                default: 0.55,
+                min: 0,
+                max: 1,
+                step: 0.1,
+            },
+            { name: 'source_file', label: '文件名', type: 'string', placeholder: '可选过滤' },
+            {
+                name: 'retrieve_mode',
+                label: '检索模式',
+                type: 'string',
+                default: 'hybrid',
+                placeholder: 'vector | hybrid | hybrid_rerank',
+            },
+            { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: false },
+        ],
+        resultView: {
+            mode: 'table',
+            pageSize: 5,
+            contentField: 'content',
+            contentLabel: '内容',
+            columns: [
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
+                { prop: 'chunk_index', label: '块序', width: 56 },
+                { prop: 'similarity', label: '相似度', width: 72 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
+            ],
+            rowActions: corpusChunkRowActions,
+        },
+    },
+    {
+        id: 'corpora-search-llm',
+        name: '资料库检索+LLM',
+        method: 'GET',
+        path: '/documents/corpora/search_and_llm',
+        description: '业务资料库 document_business_chunks 检索 + 大模型润色',
+        queryParams: [
+            { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '与导入时一致' },
+            { name: 'q', label: '查询文本', type: 'string' },
+            { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
+            {
+                name: 'min_similarity',
+                label: '最低相似度',
+                type: 'number',
+                default: 0.55,
+                min: 0,
+                max: 1,
+                step: 0.1,
+            },
+            {
+                name: 'retrieve_mode',
+                label: '检索模式',
+                type: 'string',
+                default: 'hybrid',
+                placeholder: 'vector | hybrid | hybrid_rerank',
+            },
+            { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: true },
+        ],
+        resultView: {
+            mode: 'table',
+            dataPath: 'original_sources',
+            pageSize: 5,
+            contentField: 'content',
+            contentLabel: '原文',
+            highlightFields: [
+                { key: 'query', label: '查询' },
+                { key: 'polished_answer', label: '润色回答' },
+            ],
+            columns: [
+                { prop: 'snippet_index', label: '片段', width: 56 },
+                { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'source_label', label: '来源', width: 110, showOverflowTooltip: true },
+                { prop: 'similarity', label: '相似度', width: 72 },
+                { prop: 'lang', label: '语言', width: 56 },
+                { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'content', label: '原文', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
+            ],
+            rowActions: corpusChunkRowActions,
+        },
+    },
+    {
+        id: 'corpora-delete',
+        name: '资料库删除',
         method: 'DELETE',
-        path: '/documents/corpora',
-        description: '清空指定资料库全部切块数据；保留注册与物理表结构',
+        path: '/documents/corpora/drop',
+        description: '删除资料库注册记录，并清空 document_business_chunks 中该资料名切块（不 DROP 共享表）',
         queryParams: [
             { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '与导入时一致' },
         ],
@@ -489,14 +673,18 @@ const DOCUMENT_EP_I18N_KEY: Record<string, string> = {
     listByFile: 'listByFile',
     search: 'search',
     'search-and-llm': 'searchAndLlm',
+    clear: 'clear',
 };
 
 const CORPORA_EP_I18N_KEY: Record<string, string> = {
     'corpora-import': 'corporaImport',
     'corpora-import-job': 'corporaImportJob',
     'corpora-list': 'corporaList',
+    'corpora-listByFile': 'corporaListByFile',
     'corpora-files': 'corporaFiles',
-    'corpora-clear': 'corporaClear',
+    'corpora-search': 'corporaSearch',
+    'corpora-search-llm': 'corporaSearchLlm',
+    'corpora-delete': 'corporaDelete',
 };
 
 const DOCUMENT_QUERY_EXAMPLE_IDS: Record<string, string[]> = {

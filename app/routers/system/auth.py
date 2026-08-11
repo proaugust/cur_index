@@ -1,17 +1,34 @@
-﻿from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models import User
 from app.schemas.rbac import ChangePasswordRequest, LoginRequest, LoginResponse, MeResponse
 from app.services.system import rbac_service
+from app.services.system.login_log_service import record_login_log
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()[:64]
+    if request.client and request.client.host:
+        return request.client.host[:64]
+    return ""
+
+
 @router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
-    return rbac_service.login(db, payload)
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)) -> LoginResponse:
+    result = rbac_service.login(db, payload)
+    record_login_log(
+        user_id=result.user.id,
+        username=result.user.username,
+        ip=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    return result
 
 
 @router.get("/me", response_model=MeResponse)

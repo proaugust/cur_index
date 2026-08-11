@@ -195,6 +195,30 @@
                             </div>
                         </template>
 
+                        <div
+                            v-if="ep.resultView.contentField"
+                            class="result-content-list"
+                        >
+                            <div class="param-section-title">
+                                {{ ep.resultView.contentLabel ?? t('apiDebug.contentLabel') }}
+                            </div>
+                            <div
+                                v-for="(row, idx) in pagedRows(ep)"
+                                :key="`content-${ep.id}-${row.id ?? idx}`"
+                                class="highlight-block result-content-item"
+                            >
+                                <div class="highlight-label">
+                                    <span v-if="row.similarity != null">相似度 {{ row.similarity }}</span>
+                                    <span v-if="row.source_file || row.source_label">
+                                        · {{ row.source_file || row.source_label }}
+                                    </span>
+                                    <span v-if="row.section_title"> · {{ row.section_title }}</span>
+                                    <span v-if="row.id != null"> · #{{ row.id }}</span>
+                                </div>
+                                <div class="highlight-content">{{ row[ep.resultView.contentField] }}</div>
+                            </div>
+                        </div>
+
                         <el-table
                             :data="pagedRows(ep)"
                             border
@@ -526,6 +550,19 @@ const buildQueryParams = (ep: ApiEndpoint) => {
     return params;
 };
 
+/** 行级 CUD 时从当前接口表单 query 带上指定参数（如 corpus_name） */
+const buildCarryQuery = (ep: ApiEndpoint, names?: string[]) => {
+    const params: Record<string, string> = {};
+    if (!names?.length) return params;
+    const query = formState[ep.id]?.query ?? {};
+    for (const name of names) {
+        const raw = query[name];
+        if (raw === '' || raw === null || raw === undefined) continue;
+        params[name] = String(raw);
+    }
+    return params;
+};
+
 const buildPath = (ep: ApiEndpoint) => {
     let path = ep.path;
     ep.pathParams?.forEach((p) => {
@@ -747,6 +784,12 @@ const openCreateDialog = (ep: ApiEndpoint) => {
     if (row?.source_file) {
         dialogForm.source_file = String(row.source_file);
     }
+    const carried = buildCarryQuery(ep, actions.carryQueryParams);
+    Object.entries(carried).forEach(([k, v]) => {
+        if (k in dialogForm || actions.createFields.some((f) => f.name === k)) {
+            dialogForm[k] = v;
+        }
+    });
     dialogVisible.value = true;
 };
 
@@ -758,6 +801,7 @@ const submitDialog = async () => {
     dialogSubmitting.value = true;
     rowActionLoading[ep.id] = true;
     try {
+        const carry = buildCarryQuery(ep, actions.carryQueryParams);
         if (dialogMode.value === 'edit') {
             const row = selectedRow[ep.id];
             const idField = actions.idField ?? 'id';
@@ -766,15 +810,26 @@ const submitDialog = async () => {
                 ElMessage.warning(t('apiDebug.selectChunkFirst'));
                 return;
             }
+            if (actions.carryQueryParams?.includes('corpus_name') && !carry.corpus_name) {
+                ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
+                return;
+            }
             const body = buildFieldsBody(actions.editableFields, dialogForm);
             const path = replacePathId(actions.updatePath, chunkId as number | string);
-            await request.put(path, body);
+            await request.put(path, body, { params: carry });
             ElMessage.success(t('apiDebug.updated'));
         } else {
             const body = buildFieldsBody(actions.createFields, dialogForm);
             if (!body.source_file || !body.content) {
                 ElMessage.warning(t('apiDebug.fileContentRequired'));
                 return;
+            }
+            if (actions.carryQueryParams?.includes('corpus_name') && !body.corpus_name && !carry.corpus_name) {
+                ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
+                return;
+            }
+            if (!body.corpus_name && carry.corpus_name) {
+                body.corpus_name = carry.corpus_name;
             }
             if (body.chunk_index !== undefined) {
                 body.chunk_index = Number(body.chunk_index);
@@ -817,8 +872,13 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
 
     rowActionLoading[ep.id] = true;
     try {
+        const carry = buildCarryQuery(ep, actions.carryQueryParams);
+        if (actions.carryQueryParams?.includes('corpus_name') && !carry.corpus_name) {
+            ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
+            return;
+        }
         const path = replacePathId(actions.deletePath, chunkId as number | string);
-        await request.delete(path);
+        await request.delete(path, { params: carry });
         selectedRow[ep.id] = null;
         ElMessage.success(t('apiDebug.deleted'));
         await sendRequest(ep);
@@ -874,7 +934,76 @@ const pollAsyncJob = async (
     throw new Error('job_timeout');
 };
 
+const formatErrorDetail = (data: unknown): string => {
+    if (typeof data === 'string' && data.trim()) return data;
+    if (data && typeof data === 'object') {
+        if ('detail' in data) {
+            const detail = (data as { detail: unknown }).detail;
+            if (typeof detail === 'string' && detail.trim()) return detail;
+            if (Array.isArray(detail)) {
+                const parts = detail.map((item) => {
+                    if (typeof item === 'string') return item;
+                    if (item && typeof item === 'object' && 'msg' in item) {
+                        return String((item as { msg: unknown }).msg);
+                    }
+                    return '';
+                }).filter(Boolean);
+                if (parts.length) return parts.join('；');
+            }
+            if (detail != null) return String(detail);
+        }
+        if ('message' in data && (data as { message: unknown }).message != null) {
+            return String((data as { message: unknown }).message);
+        }
+    }
+    return t('apiDebug.networkError');
+};
+
+const isBlank = (v: FormValue) => v === null || v === undefined || v === '';
+
+const validateRequest = (ep: ApiEndpoint): string | null => {
+    for (const p of ep.pathParams ?? []) {
+        if (p.required && isBlank(formState[ep.id].path[p.name])) {
+            return `请填写${p.label}`;
+        }
+    }
+    for (const p of ep.queryParams ?? []) {
+        if (p.required && isBlank(formState[ep.id].query[p.name])) {
+            return `请填写${p.label}`;
+        }
+    }
+    for (const p of ep.bodyParams ?? []) {
+        if (p.required && isBlank(formState[ep.id].body[p.name])) {
+            return `请填写${p.label}`;
+        }
+    }
+    if (ep.id === 'corpora-import') {
+        const file = formState[ep.id].form.file;
+        const folder = String(formState[ep.id].form.folder_path ?? '').trim();
+        if (!(file instanceof File) && !folder) {
+            return '请上传文档/.zip，或填写本机文件夹路径';
+        }
+    }
+    for (const p of ep.formParams ?? []) {
+        if (!p.required) continue;
+        const raw = formState[ep.id].form[p.name];
+        if (p.type === 'file') {
+            if (!(raw instanceof File)) return `请选择${p.label}`;
+        } else if (isBlank(raw)) {
+            return `请填写${p.label}`;
+        }
+    }
+    return null;
+};
+
 const sendRequest = async (ep: ApiEndpoint) => {
+    const invalid = validateRequest(ep);
+    if (invalid) {
+        ElMessage.warning(invalid);
+        statusInfo[ep.id] = { ok: false, text: invalid };
+        return;
+    }
+
     loading[ep.id] = true;
     statusInfo[ep.id] = { ok: true, text: t('apiDebug.requesting') };
 
@@ -945,13 +1074,15 @@ const sendRequest = async (ep: ApiEndpoint) => {
         const axiosErr = err as AxiosError;
         const status = axiosErr.response?.status;
         const detail = axiosErr.response?.data ?? { message: axiosErr.message || '请求失败' };
+        const errMsg = formatErrorDetail(detail);
         responses[ep.id] = formatJson(detail);
         tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
         contentState[ep.id] = { content: '' };
         statusInfo[ep.id] = {
             ok: false,
-            text: status ? `HTTP ${status}` : t('apiDebug.networkError'),
+            text: status ? `HTTP ${status} · ${errMsg}` : errMsg,
         };
+        ElMessage.error(errMsg);
     } finally {
         loading[ep.id] = false;
     }
@@ -1083,12 +1214,29 @@ const sendRequest = async (ep: ApiEndpoint) => {
     color: #303133;
 }
 
+.result-content-list {
+    margin-bottom: 12px;
+}
+
+.result-content-item {
+    margin-bottom: 10px;
+}
+
 .content-result-block {
     margin-bottom: 12px;
 }
 
 .result-table {
     width: 100%;
+}
+
+.result-table :deep(.el-table__header),
+.result-table :deep(.el-table__body) {
+    table-layout: fixed;
+}
+
+.result-table :deep(.el-table__cell) {
+    text-align: left;
 }
 
 .result-pagination {

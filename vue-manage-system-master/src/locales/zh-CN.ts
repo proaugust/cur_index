@@ -42,6 +42,7 @@ export default {
         systemUser: '用户管理',
         systemRole: '角色管理',
         systemMenu: '菜单管理',
+        systemLoginLogs: '登录记录',
         systemLlmUsage: 'LLM 用量',
         systemErrorLogs: '错误日志',
         business: '功能展示',
@@ -79,6 +80,7 @@ export default {
         systemUser: '用户管理',
         systemRole: '角色管理',
         systemMenu: '菜单管理',
+        systemLoginLogs: '登录记录',
         systemLlmUsage: 'LLM 用量',
         systemErrorLogs: '错误日志',
         theme: '主题设置',
@@ -227,12 +229,18 @@ export default {
             title: 'RAG 检索',
             documentSection: '通用文档库',
             corporaSection: '业务资料库',
+            hybridSection: '混合查询',
             tabs: {
                 import: '导入文档',
                 corporaImport: '资料库导入',
                 corporaList: '资料库列表',
+                corporaListByFile: '按文件名查',
                 corporaFiles: '资料库文件',
                 corporaClear: '资料库清空',
+                corporaSearch: '资料库检索',
+                corporaSearchLlm: '资料库检索+LLM',
+                corporaDelete: '资料库删除',
+                clear: '清空文档库',
                 corporaImportJob: '资料库导入任务',
                 listByFile: '按文件名查',
                 search: '向量检索',
@@ -240,7 +248,7 @@ export default {
             },
             corporaBrowse: {
                 title: '资料库浏览',
-                description: '向量检索 / 检索+LLM；向量列仅展示前几维摘要（512 维）',
+                description: '混合检索 / 检索+LLM；清空与删库请用上方调试面板。',
                 mode: '模式',
                 modeSearch: '向量检索',
                 modeLlm: '检索+LLM',
@@ -281,6 +289,7 @@ export default {
                 char_count: '字数',
                 content: '内容',
                 embedding_preview: '向量',
+                lang: '语言',
                 name: '资料名',
                 table_name: '物理表',
                 default_chunk_strategy: '默认切分',
@@ -295,6 +304,7 @@ export default {
                 table_name: '物理表',
             },
             chunkFields: {
+                corpus_name: { label: '资料名' },
                 content: { label: '正文' },
                 section_title: { label: '章节标题' },
                 section_path: { label: '章节路径' },
@@ -344,6 +354,15 @@ export default {
                 corporaList: {
                     description: '列出已注册业务知识库及物理表名',
                 },
+                corporaListByFile: {
+                    description: '按资料名 + 可选文件名过滤切块（服务端翻页）',
+                    query: {
+                        corpus_name: { label: '资料名', placeholder: '与导入时一致' },
+                        source_file: { label: '文件名', placeholder: '留空查全部；或填导入时的文件名' },
+                        page: { label: '页码' },
+                        page_size: { label: '每页条数' },
+                    },
+                },
                 corporaFiles: {
                     description: '查询某资料库下已导入的文件名',
                     query: {
@@ -359,6 +378,38 @@ export default {
                         },
                         page: { label: '页码' },
                         page_size: { label: '每页条数' },
+                    },
+                },
+                clear: {
+                    description: '清空通用文档库全部切块数据',
+                },
+                corporaSearch: {
+                    description: '业务资料库向量/混合检索',
+                    query: {
+                        corpus_name: { label: '资料名', placeholder: '与导入时一致' },
+                        q: { label: '查询文本', placeholder: '例如：依赖注入怎么用？' },
+                        limit: { label: '条数' },
+                        min_similarity: { label: '最低相似度' },
+                        source_file: { label: '文件名', placeholder: '可选过滤' },
+                        retrieve_mode: { label: '检索模式', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: '扩 Parent' },
+                    },
+                },
+                corporaSearchLlm: {
+                    description: '业务资料库检索 + 大模型润色',
+                    query: {
+                        corpus_name: { label: '资料名', placeholder: '与导入时一致' },
+                        q: { label: '查询文本' },
+                        limit: { label: '条数' },
+                        min_similarity: { label: '最低相似度' },
+                        retrieve_mode: { label: '检索模式', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: '扩 Parent' },
+                    },
+                },
+                corporaDelete: {
+                    description: '删除资料库注册记录并 DROP 物理切块表',
+                    query: {
+                        corpus_name: { label: '资料名', placeholder: '与导入时一致' },
                     },
                 },
                 search: {
@@ -928,6 +979,19 @@ export default {
             loadStatsFailed: '加载统计失败',
             loadRecentFailed: '加载明细失败',
             reset: '重置',
+        },
+        loginLogs: {
+            title: '登录记录',
+            username: '用户名',
+            ip: 'IP',
+            time: '登录时间',
+            userAgent: 'User-Agent',
+            range: '时间范围',
+            days7: '近 7 天',
+            days30: '近 30 天',
+            days90: '近 90 天',
+            empty: '暂无登录记录',
+            loadFailed: '加载登录记录失败',
         },
         errorLogs: {
             title: '应用错误日志',

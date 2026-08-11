@@ -42,6 +42,7 @@ export default {
         systemUser: 'ユーザー管理',
         systemRole: 'ロール管理',
         systemMenu: 'メニュー管理',
+        systemLoginLogs: 'ログイン履歴',
         systemLlmUsage: 'LLM 利用量',
         systemErrorLogs: 'エラーログ',
         business: '業務デモ',
@@ -79,6 +80,7 @@ export default {
         systemUser: 'ユーザー管理',
         systemRole: 'ロール管理',
         systemMenu: 'メニュー管理',
+        systemLoginLogs: 'ログイン履歴',
         systemLlmUsage: 'LLM 利用量',
         systemErrorLogs: 'エラーログ',
         theme: 'テーマ設定',
@@ -227,12 +229,18 @@ export default {
             title: 'RAG 検索',
             documentSection: '共通ドキュメント',
             corporaSection: '業務コーパス',
+            hybridSection: 'ハイブリッド検索',
             tabs: {
                 import: 'ドキュメント取込',
                 corporaImport: '資料庫インポート',
                 corporaList: '資料庫一覧',
+                corporaListByFile: 'ファイル名検索',
                 corporaFiles: '資料庫ファイル',
                 corporaClear: '資料庫クリア',
+                corporaSearch: '資料庫検索',
+                corporaSearchLlm: '資料庫検索+LLM',
+                corporaDelete: '資料庫削除',
+                clear: 'ドキュメント庫クリア',
                 corporaImportJob: '資料庫インポートタスク',
                 listByFile: 'ファイル名検索',
                 search: 'ベクトル検索',
@@ -240,7 +248,7 @@ export default {
             },
             corporaBrowse: {
                 title: '資料庫ブラウズ',
-                description: 'ベクトル検索 / 検索+LLM。ベクトル列は先頭数次元のみ（512次元）',
+                description: 'ハイブリッド検索 / 検索+LLM。クリア/削除は上部デバッグパネルを使用。',
                 mode: 'モード',
                 modeSearch: 'ベクトル検索',
                 modeLlm: '検索+LLM',
@@ -281,6 +289,7 @@ export default {
                 char_count: '文字数',
                 content: '内容',
                 embedding_preview: 'ベクトル',
+                lang: '言語',
                 name: '資料名',
                 table_name: '物理表',
                 default_chunk_strategy: 'デフォルト分割',
@@ -295,6 +304,7 @@ export default {
                 table_name: '物理表',
             },
             chunkFields: {
+                corpus_name: { label: '資料名' },
                 content: { label: '本文' },
                 section_title: { label: '章タイトル' },
                 section_path: { label: '章パス' },
@@ -344,6 +354,15 @@ export default {
                 corporaList: {
                     description: '業務ナレッジベース一覧',
                 },
+                corporaListByFile: {
+                    description: '資料名と任意のファイル名でチャンクを絞り込み（サーバー側ページング）',
+                    query: {
+                        corpus_name: { label: '資料名', placeholder: 'インポート時と同じ名称' },
+                        source_file: { label: 'ファイル名', placeholder: '空なら全部；または取込時のファイル名' },
+                        page: { label: 'ページ' },
+                        page_size: { label: '件数/ページ' },
+                    },
+                },
                 corporaFiles: {
                     description: '資料庫内のファイル名一覧',
                     query: {
@@ -359,6 +378,38 @@ export default {
                         },
                         page: { label: 'ページ' },
                         page_size: { label: 'ページサイズ' },
+                    },
+                },
+                clear: {
+                    description: '共通ドキュメント庫の全チャンクをクリア',
+                },
+                corporaSearch: {
+                    description: '業務資料庫のベクトル/ハイブリッド検索',
+                    query: {
+                        corpus_name: { label: '資料名', placeholder: 'インポート時と同じ' },
+                        q: { label: 'クエリ', placeholder: '例：DI の使い方' },
+                        limit: { label: '件数' },
+                        min_similarity: { label: '最低類似度' },
+                        source_file: { label: 'ファイル名', placeholder: '任意フィルタ' },
+                        retrieve_mode: { label: '検索モード', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Parent 拡張' },
+                    },
+                },
+                corporaSearchLlm: {
+                    description: '資料庫検索 + LLM 整形',
+                    query: {
+                        corpus_name: { label: '資料名', placeholder: 'インポート時と同じ' },
+                        q: { label: 'クエリ' },
+                        limit: { label: '件数' },
+                        min_similarity: { label: '最低類似度' },
+                        retrieve_mode: { label: '検索モード', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Parent 拡張' },
+                    },
+                },
+                corporaDelete: {
+                    description: '資料庫登録を削除し物理チャンク表を DROP',
+                    query: {
+                        corpus_name: { label: '資料名', placeholder: 'インポート時と同じ' },
                     },
                 },
                 search: {
@@ -928,6 +979,19 @@ export default {
             loadStatsFailed: '統計の読み込みに失敗しました',
             loadRecentFailed: '明細の読み込みに失敗しました',
             reset: 'リセット',
+        },
+        loginLogs: {
+            title: 'ログイン履歴',
+            username: 'ユーザー名',
+            ip: 'IP',
+            time: 'ログイン時刻',
+            userAgent: 'User-Agent',
+            range: '期間',
+            days7: '直近 7 日',
+            days30: '直近 30 日',
+            days90: '直近 90 日',
+            empty: 'ログイン履歴がありません',
+            loadFailed: 'ログイン履歴の読み込みに失敗しました',
         },
         errorLogs: {
             title: 'アプリエラーログ',

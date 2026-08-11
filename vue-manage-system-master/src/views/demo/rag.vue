@@ -21,17 +21,19 @@
                 />
             </el-tab-pane>
             <el-tab-pane :label="t('pages.rag.corporaSection')" name="corpora" lazy>
-                <CorporaBrowsePanel
-                    intro-page-key="rag"
-                    :intros="intros"
-                    @intro-saved="setIntro"
-                />
                 <LazyApiDebugPanel
                     endpoint-key="corpora"
                     intro-page-key="rag"
                     :intros="intros"
                     @intro-saved="setIntro"
                 />
+                <div class="corpora-hybrid">
+                    <CorporaBrowsePanel
+                        intro-page-key="rag"
+                        :intros="intros"
+                        @intro-saved="setIntro"
+                    />
+                </div>
             </el-tab-pane>
         </el-tabs>
     </div>
@@ -65,5 +67,9 @@ const activeTab = ref('document');
 
 .mgb20 {
     margin-bottom: 16px;
+}
+
+.corpora-hybrid {
+    margin-top: 16px;
 }
 </style>

@@ -42,6 +42,7 @@ export default {
         systemUser: 'User Management',
         systemRole: 'Role Management',
         systemMenu: 'Menu Management',
+        systemLoginLogs: 'Login History',
         systemLlmUsage: 'LLM Usage',
         systemErrorLogs: 'Error Logs',
         business: 'Feature Demos',
@@ -79,6 +80,7 @@ export default {
         systemUser: 'User Management',
         systemRole: 'Role Management',
         systemMenu: 'Menu Management',
+        systemLoginLogs: 'Login History',
         systemLlmUsage: 'LLM Usage',
         systemErrorLogs: 'Error Logs',
         theme: 'Theme Settings',
@@ -223,12 +225,18 @@ export default {
             title: 'RAG Search',
             documentSection: 'General Document Library',
             corporaSection: 'Business Corpus Library',
+            hybridSection: 'Hybrid Search',
             tabs: {
                 import: 'Import Documents',
                 corporaImport: 'Import Corpus',
                 corporaList: 'Corpus List',
+                corporaListByFile: 'Search by Filename',
                 corporaFiles: 'Corpus Files',
                 corporaClear: 'Clear Corpus',
+                corporaSearch: 'Corpus Search',
+                corporaSearchLlm: 'Corpus Search + LLM',
+                corporaDelete: 'Delete Corpus',
+                clear: 'Clear Documents',
                 corporaImportJob: 'Corpus Import Jobs',
                 listByFile: 'Search by Filename',
                 search: 'Vector Search',
@@ -236,7 +244,7 @@ export default {
             },
             corporaBrowse: {
                 title: 'Browse Corpus',
-                description: 'Vector Search / Search + LLM; the vector column only shows a summary of the first few dimensions (512 dims)',
+                description: 'Hybrid search / search+LLM; use the debug panel above for clear/delete.',
                 mode: 'Mode',
                 modeSearch: 'Vector Search',
                 modeLlm: 'Search + LLM',
@@ -279,6 +287,7 @@ export default {
                 char_count: 'Characters',
                 content: 'Content',
                 embedding_preview: 'Vector',
+                lang: 'Language',
                 name: 'Corpus Name',
                 table_name: 'Physical Table',
                 default_chunk_strategy: 'Default Split',
@@ -293,6 +302,9 @@ export default {
                 table_name: 'Physical Table',
             },
             chunkFields: {
+                corpus_name: {
+                    label: 'Corpus name',
+                },
                 content: {
                     label: 'Body',
                 },
@@ -380,6 +392,15 @@ export default {
                 corporaList: {
                     description: 'List registered business knowledge bases and their physical table names',
                 },
+                corporaListByFile: {
+                    description: 'Filter chunks by corpus name and optional filename (server-side paging)',
+                    query: {
+                        corpus_name: { label: 'Corpus Name', placeholder: 'Must match the import name' },
+                        source_file: { label: 'Filename', placeholder: 'Leave blank for all; or enter imported filename' },
+                        page: { label: 'Page' },
+                        page_size: { label: 'Page Size' },
+                    },
+                },
                 corporaFiles: {
                     description: 'Query imported filenames in a corpus',
                     query: {
@@ -402,6 +423,38 @@ export default {
                         page_size: {
                             label: 'Page Size',
                         },
+                    },
+                },
+                clear: {
+                    description: 'Clear all chunks in the general document library',
+                },
+                corporaSearch: {
+                    description: 'Vector / hybrid search in a business corpus',
+                    query: {
+                        corpus_name: { label: 'Corpus name', placeholder: 'Same as import' },
+                        q: { label: 'Query', placeholder: 'e.g. How does DI work?' },
+                        limit: { label: 'Limit' },
+                        min_similarity: { label: 'Min similarity' },
+                        source_file: { label: 'Source file', placeholder: 'Optional filter' },
+                        retrieve_mode: { label: 'Retrieve mode', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Expand parent' },
+                    },
+                },
+                corporaSearchLlm: {
+                    description: 'Corpus search + LLM polish',
+                    query: {
+                        corpus_name: { label: 'Corpus name', placeholder: 'Same as import' },
+                        q: { label: 'Query' },
+                        limit: { label: 'Limit' },
+                        min_similarity: { label: 'Min similarity' },
+                        retrieve_mode: { label: 'Retrieve mode', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Expand parent' },
+                    },
+                },
+                corporaDelete: {
+                    description: 'Remove corpus registry and DROP physical chunk table',
+                    query: {
+                        corpus_name: { label: 'Corpus name', placeholder: 'Same as import' },
                     },
                 },
                 search: {
@@ -978,6 +1031,19 @@ export default {
             loadStatsFailed: 'Failed to load statistics',
             loadRecentFailed: 'Failed to load details',
             reset: 'Reset',
+        },
+        loginLogs: {
+            title: 'Login History',
+            username: 'Username',
+            ip: 'IP',
+            time: 'Login Time',
+            userAgent: 'User-Agent',
+            range: 'Date Range',
+            days7: 'Last 7 days',
+            days30: 'Last 30 days',
+            days90: 'Last 90 days',
+            empty: 'No login records',
+            loadFailed: 'Failed to load login history',
         },
         errorLogs: {
             title: 'Application Error Logs',

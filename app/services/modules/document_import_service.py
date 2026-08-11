@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.crud import modules as crud
+from app.services.modules.chunk_lang import detect_lang
 from app.services.shared.embedding import embed_texts
 from app.services.shared.text_chunker import CHUNK_LEN, CHUNK_OVERLAP, SMALL_PIECE_LEN, chunk_document, parse_sections
 
@@ -26,6 +27,7 @@ class DocumentImportService:
             raise HTTPException(status_code=400, detail="min_chunk_len 不能小于 5")
         if max_chunk_len < min_chunk_len:
             raise HTTPException(status_code=400, detail="max_chunk_len 不能小于 min_chunk_len")
+        resolved_lang = detect_lang(text)
 
         chunks = chunk_document(
             text,
@@ -50,6 +52,7 @@ class DocumentImportService:
                     "chunk_index": chunk.chunk_index,
                     "content": chunk.content,
                     "char_count": len(chunk.content),
+                    "lang": resolved_lang,
                     "embedding": vector,
                 }
             )

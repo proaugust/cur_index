@@ -31,6 +31,12 @@ export const menuData: Menus[] = [
                 index: '/system-menu',
                 titleKey: 'menu.systemMenu',
             },
+            {
+                id: '14',
+                pid: '1',
+                index: '/system-login-logs',
+                titleKey: 'menu.systemLoginLogs',
+            },
         ],
     },
     {

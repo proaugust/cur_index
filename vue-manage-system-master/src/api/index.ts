@@ -207,7 +207,18 @@ export const updateDocumentChunk = (
 export const deleteDocumentChunk = (chunkId: number) =>
     request.delete(`/documents/chunks/${chunkId}`);
 
-/** 业务知识库：检索 / 检索+LLM / 清空切块 */
+/** 通用文档库 document_chunks：清空全部切块 */
+export const clearDocuments = () => request.delete('/documents');
+
+/** 业务知识库 document_business_chunks：按文件名查切块 */
+export const listCorpusChunksByFile = (params: {
+    corpus_name: string;
+    source_file?: string;
+    page?: number;
+    page_size?: number;
+}) => request.get('/documents/corpora/listByFile', { params });
+
+/** 业务知识库 document_business_chunks：检索 / 检索+LLM / 清空切块 / 删库 */
 export const searchCorpus = (params: {
     corpus_name: string;
     q?: string;
@@ -229,6 +240,28 @@ export const searchCorpusAndLlm = (params: {
 
 export const clearCorpus = (params: { corpus_name: string }) =>
     request.delete('/documents/corpora', { params });
+
+export const deleteCorpus = (params: { corpus_name: string }) =>
+    request.delete('/documents/corpora/drop', { params });
+
+export const createCorpusChunk = (data: {
+    corpus_name: string;
+    source_file: string;
+    content: string;
+    section_title?: string;
+    section_path?: string;
+    chunk_index?: number;
+    lang?: string;
+}) => request.post('/documents/corpora/chunks', data);
+
+export const updateCorpusChunk = (
+    chunkId: number,
+    corpus_name: string,
+    data: { content?: string; section_title?: string; section_path?: string },
+) => request.put(`/documents/corpora/chunks/${chunkId}`, data, { params: { corpus_name } });
+
+export const deleteCorpusChunk = (chunkId: number, corpus_name: string) =>
+    request.delete(`/documents/corpora/chunks/${chunkId}`, { params: { corpus_name } });
 
 // --- meeting ---
 export const organizeMeeting = (data: { text: string; style?: 'concise' | 'formal'; temperature?: number }) =>
@@ -488,6 +521,16 @@ export const fetchAppErrorLogs = (params?: AppErrorLogQuery) =>
 
 export const patchAppErrorLogStatus = (errorId: number, status: 'open' | 'resolved') =>
     request.patch(`/error-logs/${errorId}/status`, { status });
+
+export interface LoginLogQuery {
+    page?: number;
+    page_size?: number;
+    username?: string;
+    days?: number | null;
+}
+
+export const fetchLoginLogs = (params?: LoginLogQuery) =>
+    request.get('/login-logs', { params });
 
 export const fetchEpochStats = () =>
     request.get('/epoch/stats');

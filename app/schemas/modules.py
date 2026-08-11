@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, model_validator
 
 
 def _as_utc_aware(value: datetime) -> datetime:
@@ -9,6 +9,18 @@ def _as_utc_aware(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _chunk_embedding_preview(data: Any) -> str | None:
+    from app.services.modules.chunk_table_ops import embedding_preview
+
+    if hasattr(data, "embedding"):
+        return embedding_preview(getattr(data, "embedding", None))
+    if isinstance(data, dict):
+        if data.get("embedding_preview"):
+            return data.get("embedding_preview")
+        return embedding_preview(data.get("embedding"))
+    return None
 
 
 class ItemBase(BaseModel):
@@ -31,6 +43,10 @@ class DocumentImportResult(BaseModel):
     chunks: int
 
 
+class DocumentClearResult(BaseModel):
+    deleted_chunks: int
+
+
 class DocumentChunkRead(BaseModel):
     id: int
     source_file: str
@@ -39,9 +55,35 @@ class DocumentChunkRead(BaseModel):
     chunk_index: int
     content: str
     char_count: int
-    embedding_preview: str | None = Field(default=None, description="向量摘要，如 [0.01, …] ×512")
+    lang: str = Field(default="zh", description="语言：zh / ja / en")
+    embedding_preview: str | None = Field(default=None, description="向量摘要，如 [0.01, …] ×768")
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_embedding_preview(cls, data: Any) -> Any:
+        preview = _chunk_embedding_preview(data)
+        if hasattr(data, "id"):
+            return {
+                "id": data.id,
+                "source_file": data.source_file,
+                "section_title": data.section_title,
+                "section_path": data.section_path,
+                "chunk_index": data.chunk_index,
+                "content": data.content,
+                "char_count": data.char_count,
+                "lang": getattr(data, "lang", None) or "zh",
+                "embedding_preview": preview,
+                "similarity": getattr(data, "similarity", None),
+            }
+        if isinstance(data, dict):
+            out = {k: v for k, v in data.items() if k != "embedding"}
+            if preview is not None:
+                out["embedding_preview"] = preview
+            out.setdefault("lang", out.get("lang") or "zh")
+            return out
+        return data
 
 
 class DocumentChunksPage(BaseModel):
@@ -57,6 +99,7 @@ class DocumentChunkCreate(BaseModel):
     section_title: str = Field(default="", description="章节标题")
     section_path: str = Field(default="", description="章节路径")
     chunk_index: int | None = Field(default=None, ge=0, description="块序号；留空则在该文件下自动取 max+1")
+    lang: str | None = Field(default=None, description="可选；留空则按正文自动判断 zh/ja/en")
 
 
 class DocumentChunkUpdate(BaseModel):
@@ -71,7 +114,7 @@ class DocumentChunkSearchResult(DocumentChunkRead):
 
 class DocumentSearchPolishedSource(BaseModel):
     snippet_index: int = Field(description="片段编号，与 polished_answer 中〔片段N〕对应")
-    id: int = Field(description="document_chunks 表主键")
+    id: int = Field(description="切块表主键（通用 document_chunks / 业务 document_business_chunks）")
     source_file: str = Field(description="原始文件名")
     source_label: str = Field(description="来源展示名：文件名 + 章节")
     section_title: str
@@ -81,6 +124,7 @@ class DocumentSearchPolishedSource(BaseModel):
     char_count: int
     similarity: float = Field(description="与查询的向量相似度，越高越相关")
     embedding_preview: str | None = Field(default=None, description="向量摘要")
+    lang: str = Field(default="zh", description="语言：zh / ja / en")
 
     model_config = {"from_attributes": True}
 

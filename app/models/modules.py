@@ -16,6 +16,8 @@ class Item(Base):
 
 
 class DocumentChunk(Base):
+    """通用资料库切块（固定表 document_chunks）。"""
+
     __tablename__ = "document_chunks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -25,19 +27,38 @@ class DocumentChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     char_count: Mapped[int] = mapped_column(Integer)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(512), nullable=True)
+    lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
+
+
+class DocumentBusinessChunk(Base):
+    """业务资料库切块（固定表 document_business_chunks，按 corpus_name 隔离）。"""
+
+    __tablename__ = "document_business_chunks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    corpus_name: Mapped[str] = mapped_column(String(200), index=True)
+    source_file: Mapped[str] = mapped_column(String(500), index=True)
+    section_title: Mapped[str] = mapped_column(String(500), default="")
+    section_path: Mapped[str] = mapped_column(String(500), default="")
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    char_count: Mapped[int] = mapped_column(Integer)
+    lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
 
 
 class DocumentCorpus(Base):
-    """业务知识库注册表：资料名 → 物理切块表 document_{slug}_chunk。"""
+    """业务知识库注册表：资料名 → 固定切块表 document_business_chunks。"""
 
     __tablename__ = "document_corpora"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     table_slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    table_name: Mapped[str] = mapped_column(String(80), unique=True)
+    table_name: Mapped[str] = mapped_column(String(80), default="document_business_chunks")
     default_chunk_strategy: Mapped[str] = mapped_column(String(32), default="structure")
+    lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"))
 
 

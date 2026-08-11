@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app import schemas
@@ -13,7 +13,7 @@ from app.services.shared.embedding import embed_text
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 _SEARCH_DESC = (
-    "将查询文本经 BGE 模型转为 512 维向量，在 PostgreSQL 中用 pgvector 余弦距离检索 top-k。"
+    "将查询文本经 BGE 模型转为 768 维向量，在 PostgreSQL 中用 pgvector 余弦距离检索 top-k。"
     "入库与查询须使用同一 embedding 模型；更换模型后需重新导入文档。"
 )
 _LLM_DESC = (
@@ -58,7 +58,9 @@ async def import_document(
 
 @router.get("/listByFile", response_model=schemas.DocumentChunksPage)
 def listByFile(
-    source_file: str | None = Query(default=None, description="按文件名"),
+    source_file: str | None = Query(
+        default=None, description="按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
+    ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -66,6 +68,15 @@ def listByFile(
 ) -> schemas.DocumentChunksPage:
     rows, total = crud.get_document_chunks(db, source_file=source_file, page=page, page_size=page_size)
     return schemas.DocumentChunksPage(items=rows, total=total, page=page, page_size=page_size)
+
+
+@router.delete("", response_model=schemas.DocumentClearResult, summary="清空通用文档库切块")
+def clear_documents(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("82.clear", name="清空文档库")),
+) -> schemas.DocumentClearResult:
+    deleted = crud.clear_all_document_chunks(db)
+    return schemas.DocumentClearResult(deleted_chunks=deleted)
 
 
 @router.get(
@@ -106,6 +117,9 @@ def create_document_chunk(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.chunks-create", name="新增切块")),
 ) -> schemas.DocumentChunkRead:
+    from app.services.modules.chunk_lang import resolve_lang
+
+    lang = resolve_lang(payload.lang, payload.content)
     embedding = embed_text(payload.content)
     return crud.create_document_chunk(
         db,
@@ -115,6 +129,7 @@ def create_document_chunk(
         section_path=payload.section_path,
         chunk_index=payload.chunk_index,
         embedding=embedding,
+        lang=lang,
     )
 
 

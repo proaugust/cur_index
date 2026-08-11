@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.services.modules.chunk_table_ops import source_file_like_pattern
 
 
 @dataclass(frozen=True)
@@ -82,8 +83,9 @@ def get_document_chunks(
     page_size: int = 10,
 ) -> tuple[list[models.DocumentChunk], int]:
     query = db.query(models.DocumentChunk)
-    if source_file:
-        query = query.filter(models.DocumentChunk.source_file == source_file)
+    file_pattern = source_file_like_pattern(source_file)
+    if file_pattern:
+        query = query.filter(models.DocumentChunk.source_file.ilike(file_pattern))
     query = query.order_by(models.DocumentChunk.id)
     total = int(query.count())
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
@@ -108,6 +110,7 @@ def create_document_chunk(
     section_path: str = "",
     chunk_index: int | None = None,
     embedding: list[float] | None = None,
+    lang: str = "zh",
 ) -> models.DocumentChunk:
     if chunk_index is None:
         chunk_index = get_next_chunk_index(db, source_file)
@@ -118,6 +121,7 @@ def create_document_chunk(
         chunk_index=chunk_index,
         content=content,
         char_count=len(content),
+        lang=lang,
         embedding=embedding,
     )
     db.add(chunk)
@@ -155,6 +159,13 @@ def delete_document_chunk_by_id(db: Session, chunk_id: int) -> bool:
     deleted = db.query(models.DocumentChunk).filter(models.DocumentChunk.id == chunk_id).delete(synchronize_session=False)
     db.commit()
     return deleted > 0
+
+
+def clear_all_document_chunks(db: Session) -> int:
+    """清空通用文档库全部切块。"""
+    deleted = db.query(models.DocumentChunk).delete(synchronize_session=False)
+    db.commit()
+    return int(deleted)
 
 
 def clear_complaint_categories(db: Session) -> None:

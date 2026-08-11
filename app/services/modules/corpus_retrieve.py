@@ -9,17 +9,25 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.services.modules.chunk_table_ops import get_chunk_model, row_to_dict
+from app.services.modules.chunk_lang import (
+    ChunkLang,
+    DEFAULT_CHUNK_LANG,
+    normalize_lang,
+    prepare_query_text,
+    ts_config,
+)
+from app.services.modules.chunk_table_ops import (
+    BUSINESS_CHUNK_TABLE,
+    get_chunk_model,
+    row_to_dict,
+    source_file_like_pattern,
+)
 from app.services.shared.embedding import embed_query
 
-_CJK = re.compile(r"([\u4e00-\u9fff])")
 _RETRIEVE_MODES = frozenset({"vector", "hybrid", "hybrid_rerank"})
 _DEFAULT_RECALL_K = 30
 _PARENT_MAX_CHARS = 1500
-_W_VECTOR = 0.55
-_W_FTS = 0.35
-_W_TITLE = 0.07
-_W_PATH = 0.03
+_W_VECTOR, _W_FTS, _W_TITLE, _W_PATH = 0.55, 0.35, 0.07, 0.03
 
 
 @dataclass
@@ -31,17 +39,6 @@ class RetrievedHit:
     from_vector: bool = False
     from_fts: bool = False
     expanded_content: str | None = None
-
-
-def space_cjk(text_value: str) -> str:
-    if not text_value:
-        return ""
-    return _CJK.sub(r"\1 ", text_value).strip()
-
-
-def chunk_embed_text(*, section_path: str, section_title: str, content: str) -> str:
-    prefix = (section_path or section_title or "").strip()
-    return f"[{prefix}] {content}" if prefix else content
 
 
 def _normalize_scores(values: list[float]) -> list[float]:
@@ -71,18 +68,25 @@ def _title_path_bonus(query: str, title: str, path: str) -> tuple[float, float]:
 
 def recall_vector(
     db: Session,
-    table_name: str,
     query: str,
     *,
+    corpus_name: str,
     recall_k: int,
     source_file: str | None,
+    lang: ChunkLang,
 ) -> list[RetrievedHit]:
-    model = get_chunk_model(table_name)
+    model = get_chunk_model(BUSINESS_CHUNK_TABLE)
     query_vector = embed_query(query.strip())
     distance_expr = model.embedding.cosine_distance(query_vector).label("distance")
-    q = db.query(model, distance_expr).filter(model.embedding.isnot(None))
-    if source_file:
-        q = q.filter(model.source_file == source_file)
+    q = (
+        db.query(model, distance_expr)
+        .filter(model.corpus_name == corpus_name)
+        .filter(model.embedding.isnot(None))
+        .filter(model.lang == lang)
+    )
+    file_pattern = source_file_like_pattern(source_file)
+    if file_pattern:
+        q = q.filter(model.source_file.ilike(file_pattern))
     rows = q.order_by(distance_expr).limit(recall_k).all()
     return [
         RetrievedHit(row=chunk, vector_sim=round(1 - distance, 4), from_vector=True)
@@ -92,26 +96,36 @@ def recall_vector(
 
 def recall_fts(
     db: Session,
-    table_name: str,
     query: str,
     *,
+    corpus_name: str,
     recall_k: int,
     source_file: str | None,
+    lang: ChunkLang,
 ) -> list[RetrievedHit]:
-    spaced = space_cjk(query.strip())
-    if not spaced:
+    prepared = prepare_query_text(query, lang)
+    if not prepared:
         return []
-    params: dict[str, Any] = {"q": spaced, "limit": recall_k}
+    cfg = ts_config(lang)
+    params: dict[str, Any] = {
+        "q": prepared,
+        "limit": recall_k,
+        "lang": lang,
+        "corpus_name": corpus_name,
+    }
     source_clause = ""
-    if source_file:
-        source_clause = "AND source_file = :source_file"
-        params["source_file"] = source_file
+    file_pattern = source_file_like_pattern(source_file)
+    if file_pattern:
+        source_clause = "AND source_file ILIKE :source_file_pattern"
+        params["source_file_pattern"] = file_pattern
     sql = text(
         f"""
         SELECT id, ts_rank_cd(search_vector, query) AS rank
-        FROM {table_name}, plainto_tsquery('simple', :q) AS query
+        FROM {BUSINESS_CHUNK_TABLE}, plainto_tsquery('{cfg}', :q) AS query
         WHERE search_vector IS NOT NULL
           AND search_vector @@ query
+          AND lang = :lang
+          AND corpus_name = :corpus_name
           {source_clause}
         ORDER BY rank DESC
         LIMIT :limit
@@ -120,7 +134,7 @@ def recall_fts(
     ranked = db.execute(sql, params).fetchall()
     if not ranked:
         return []
-    model = get_chunk_model(table_name)
+    model = get_chunk_model(BUSINESS_CHUNK_TABLE)
     ids = [int(r[0]) for r in ranked]
     rank_map = {int(r[0]): float(r[1] or 0.0) for r in ranked}
     by_id = {c.id: c for c in db.query(model).filter(model.id.in_(ids)).all()}
@@ -174,15 +188,15 @@ def display_similarity(hit: RetrievedHit, *, use_fusion: bool) -> float:
 
 def expand_parents(
     db: Session,
-    table_name: str,
     hits: list[RetrievedHit],
     *,
+    corpus_name: str,
     max_chars: int = _PARENT_MAX_CHARS,
 ) -> list[RetrievedHit]:
     """按 section_path 拼同节上下文到 expanded_content；同节只保留一条。"""
     if not hits:
         return []
-    model = get_chunk_model(table_name)
+    model = get_chunk_model(BUSINESS_CHUNK_TABLE)
     seen: set[tuple[str, str]] = set()
     out: list[RetrievedHit] = []
     for hit in hits:
@@ -192,6 +206,7 @@ def expand_parents(
         seen.add(key)
         siblings = (
             db.query(model)
+            .filter(model.corpus_name == corpus_name)
             .filter(model.source_file == hit.row.source_file)
             .filter(model.section_path == hit.row.section_path)
             .order_by(model.chunk_index, model.id)
@@ -215,27 +230,45 @@ def expand_parents(
 
 def retrieve(
     db: Session,
-    table_name: str,
     query: str,
     *,
+    corpus_name: str,
     limit: int = 5,
     min_similarity: float = 0.55,
     source_file: str | None = None,
     retrieve_mode: str = "hybrid",
     recall_k: int = _DEFAULT_RECALL_K,
     expand_parent: bool = False,
+    lang: str | None = None,
 ) -> list[dict[str, Any]]:
     mode = (retrieve_mode or "hybrid").strip().lower()
     if mode not in _RETRIEVE_MODES:
         raise ValueError(f"不支持的 retrieve_mode: {retrieve_mode}")
+    resolved_lang = normalize_lang(lang or DEFAULT_CHUNK_LANG)
 
     use_fts = mode in ("hybrid", "hybrid_rerank")
     use_fusion = mode in ("hybrid", "hybrid_rerank")
     k = max(limit, min(recall_k, 50))
 
-    vector_hits = recall_vector(db, table_name, query, recall_k=k, source_file=source_file)
+    vector_hits = recall_vector(
+        db,
+        query,
+        corpus_name=corpus_name,
+        recall_k=k,
+        source_file=source_file,
+        lang=resolved_lang,
+    )
     fts_hits = (
-        recall_fts(db, table_name, query, recall_k=k, source_file=source_file) if use_fts else []
+        recall_fts(
+            db,
+            query,
+            corpus_name=corpus_name,
+            recall_k=k,
+            source_file=source_file,
+            lang=resolved_lang,
+        )
+        if use_fts
+        else []
     )
     hits = merge_hits(vector_hits, fts_hits) if use_fts else list(vector_hits)
 
@@ -253,7 +286,7 @@ def retrieve(
     hits = filtered[:limit]
 
     if expand_parent:
-        hits = expand_parents(db, table_name, hits)
+        hits = expand_parents(db, hits, corpus_name=corpus_name)
 
     results: list[dict[str, Any]] = []
     for hit in hits:
