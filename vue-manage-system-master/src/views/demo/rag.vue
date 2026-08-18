@@ -26,14 +26,27 @@
                     intro-page-key="rag"
                     :intros="intros"
                     @intro-saved="setIntro"
-                />
-                <div class="corpora-hybrid">
-                    <CorporaBrowsePanel
-                        intro-page-key="rag"
-                        :intros="intros"
-                        @intro-saved="setIntro"
-                    />
-                </div>
+                >
+                    <template #panel-corpora-search>
+                        <CorporaBrowsePanel
+                            intro-page-key="rag"
+                            :intros="intros"
+                            @intro-saved="setIntro"
+                        />
+                    </template>
+                </LazyApiDebugPanel>
+            </el-tab-pane>
+            <el-tab-pane :label="t('pages.rag.nl2sqlSection')" name="nl2sql" lazy>
+                <RagNl2sqlPanel />
+            </el-tab-pane>
+            <el-tab-pane :label="t('pages.rag.longdocSection')" name="longdoc" lazy>
+                <RagLongdocPanel />
+            </el-tab-pane>
+            <el-tab-pane :label="t('pages.rag.webSection')" name="web" lazy>
+                <RagWebPanel />
+            </el-tab-pane>
+            <el-tab-pane :label="t('pages.rag.agenticSection')" name="agentic" lazy>
+                <RagAgenticPanel />
             </el-tab-pane>
         </el-tabs>
     </div>
@@ -45,6 +58,10 @@ import { useI18n } from 'vue-i18n';
 import LazyApiDebugPanel from '@/components/lazy-api-debug-panel.vue';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import CorporaBrowsePanel from '@/views/demo/corpora-browse-panel.vue';
+import RagNl2sqlPanel from '@/views/demo/rag-nl2sql-panel.vue';
+import RagLongdocPanel from '@/views/demo/rag-longdoc-panel.vue';
+import RagWebPanel from '@/views/demo/rag-web-panel.vue';
+import RagAgenticPanel from '@/views/demo/rag-agentic-panel.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
 
 const { t } = useI18n();
@@ -58,18 +75,12 @@ const activeTab = ref('document');
     align-items: center;
     padding: 4px 0;
 }
-
 .page-title {
     font-size: 18px;
     font-weight: 600;
     color: #303133;
 }
-
 .mgb20 {
     margin-bottom: 16px;
-}
-
-.corpora-hybrid {
-    margin-top: 16px;
 }
 </style>

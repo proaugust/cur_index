@@ -18,8 +18,11 @@ def _model():
     return models.DocumentBusinessChunk
 
 
-def list_corpora(db: Session) -> list[models.DocumentCorpus]:
-    return db.query(models.DocumentCorpus).order_by(models.DocumentCorpus.id).all()
+def list_corpora(db: Session, category: str | None = None) -> list[models.DocumentCorpus]:
+    query = db.query(models.DocumentCorpus)
+    if category and category.strip():
+        query = query.filter(models.DocumentCorpus.category == category.strip())
+    return query.order_by(models.DocumentCorpus.id).all()
 
 
 def get_corpus_by_name(db: Session, name: str) -> models.DocumentCorpus | None:
@@ -32,6 +35,7 @@ def get_or_create_corpus(
     *,
     default_chunk_strategy: str = "structure",
     lang: str = "zh",
+    category: str = "other",
 ) -> models.DocumentCorpus:
     ensure_chunk_table(db, BUSINESS_CHUNK_TABLE)
     existing = get_corpus_by_name(db, name)
@@ -42,6 +46,9 @@ def get_or_create_corpus(
             dirty = True
         if lang and existing.lang != lang:
             existing.lang = lang
+            dirty = True
+        if category and getattr(existing, "category", None) != category:
+            existing.category = category
             dirty = True
         if dirty:
             db.commit()
@@ -60,6 +67,7 @@ def get_or_create_corpus(
         table_slug=slug,
         table_name=BUSINESS_CHUNK_TABLE,
         default_chunk_strategy=default_chunk_strategy,
+        category=category or "other",
         lang=lang,
     )
     db.add(corpus)

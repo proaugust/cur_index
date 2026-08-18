@@ -58,6 +58,7 @@ class DocumentCorpus(Base):
     table_slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     table_name: Mapped[str] = mapped_column(String(80), default="document_business_chunks")
     default_chunk_strategy: Mapped[str] = mapped_column(String(32), default="structure")
+    category: Mapped[str] = mapped_column(String(32), default="other", server_default=text("'other'"), index=True)
     lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"))
 

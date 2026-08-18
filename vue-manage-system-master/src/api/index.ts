@@ -167,17 +167,21 @@ export const importDocument = (file: File, replaceExisting = true) => {
     return request.post('/documents/import', form);
 };
 
-export const searchDocuments = (
-    q: string,
-    limit = 5,
-    min_similarity = 0.55,
-) => request.get('/documents/search', { params: { q, limit, min_similarity } });
+export const searchDocuments = (params: {
+    q?: string;
+    limit?: number;
+    min_similarity?: number;
+    retrieve_mode?: string;
+    expand_parent?: boolean;
+}) => request.get('/documents/search', { params });
 
-export const searchDocumentsAndLlm = (
-    q: string,
-    limit = 5,
-    min_similarity = 0.55,
-) => request.get('/documents/search_and_llm', { params: { q, limit, min_similarity } });
+export const searchDocumentsAndLlm = (params: {
+    q?: string;
+    limit?: number;
+    min_similarity?: number;
+    retrieve_mode?: string;
+    expand_parent?: boolean;
+}) => request.get('/documents/search_and_llm', { params });
 
 /** @deprecated 使用 searchDocumentsAndLlm */
 export const searchDocumentsPolished = searchDocumentsAndLlm;
@@ -262,6 +266,29 @@ export const updateCorpusChunk = (
 
 export const deleteCorpusChunk = (chunkId: number, corpus_name: string) =>
     request.delete(`/documents/corpora/chunks/${chunkId}`, { params: { corpus_name } });
+
+export const listCorpora = (params?: { category?: string }) =>
+    request.get('/documents/corpora', { params });
+
+export const listCorpusCategories = () => request.get('/documents/corpora/categories');
+
+export const suggestCorpusCategory = (params: { q: string }) =>
+    request.get('/documents/corpora/categories/suggest', { params });
+
+export const ragNl2sql = (data: { question: string; row_limit?: number }) =>
+    request.post('/rag-demos/nl2sql', data);
+
+export const ragLongdoc = (data: { corpus_name: string; question: string; limit?: number }) =>
+    request.post('/rag-demos/longdoc', data);
+
+export const ragWebSearch = (data: { question: string; count?: number }) =>
+    request.post('/rag-demos/web-search', data);
+
+export const ragAgentic = (data: {
+    corpus_name: string;
+    question: string;
+    per_step_limit?: number;
+}) => request.post('/rag-demos/agentic', data);
 
 // --- meeting ---
 export const organizeMeeting = (data: { text: string; style?: 'concise' | 'formal'; temperature?: number }) =>

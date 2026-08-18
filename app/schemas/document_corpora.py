@@ -14,10 +14,22 @@ class DocumentCorpusRead(BaseModel):
     table_slug: str
     table_name: str
     default_chunk_strategy: str
+    category: str = "other"
     lang: str = "zh"
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+
+class CorpusCategoryOption(BaseModel):
+    value: str
+    label: str
+
+
+class CorpusCategorySuggestResult(BaseModel):
+    category: str
+    label: str
+    score: float = 0.0
 
 
 class CorpusImportResult(BaseModel):

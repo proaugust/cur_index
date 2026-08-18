@@ -306,10 +306,10 @@ export const documentEndpoints: ApiEndpoint[] = [
     },
     {
         id: 'search',
-        name: '向量检索',
+        name: '混合检索',
         method: 'GET',
         path: '/documents/search',
-        description: 'BGE 向量语义检索 top-k 片段',
+        description: '通用文档库 document_chunks 向量/混合检索（C1 融合）',
         queryParams: [
             { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：休假规则是什么？' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
@@ -323,6 +323,14 @@ export const documentEndpoints: ApiEndpoint[] = [
                 step: 0.1,
                 placeholder: '0～1，低于此值的结果丢弃',
             },
+            {
+                name: 'retrieve_mode',
+                label: '检索模式',
+                type: 'string',
+                default: 'hybrid',
+                placeholder: 'vector | hybrid | hybrid_rerank',
+            },
+            { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: false },
         ],
         resultView: {
             mode: 'table',
@@ -347,7 +355,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         name: '搜索+LLM',
         method: 'GET',
         path: '/documents/search_and_llm',
-        description: '向量检索 + 大模型润色，返回回答与原始出处',
+        description: '通用文档库检索 + 大模型润色，返回回答与原始出处',
         queryParams: [
             { name: 'q', label: '查询文本', type: 'string' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
@@ -361,6 +369,14 @@ export const documentEndpoints: ApiEndpoint[] = [
                 step: 0.1,
                 placeholder: '0～1，低于此值的结果丢弃',
             },
+            {
+                name: 'retrieve_mode',
+                label: '检索模式',
+                type: 'string',
+                default: 'hybrid',
+                placeholder: 'vector | hybrid | hybrid_rerank',
+            },
+            { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: true },
         ],
         resultView: {
             mode: 'table',
@@ -413,7 +429,7 @@ const corpusChunkRowActions: ApiResultRowActions = {
     ],
 };
 
-/** 业务知识库（固定表 document_business_chunks）：导入 / 列表 / 查询 / 删库；检索亦可在同 Tab BrowsePanel */
+/** 业务知识库（固定表 document_business_chunks）：导入 / 列表 / 查询 / 删库；检索 Tab 内嵌 BrowsePanel */
 export const corporaEndpoints: ApiEndpoint[] = [
     {
         id: 'corpora-import',
@@ -428,6 +444,13 @@ export const corporaEndpoints: ApiEndpoint[] = [
         },
         formParams: [
             { name: 'corpus_name', label: '资料名', type: 'string', required: true, placeholder: '如 FastAPI / 休假规则' },
+            {
+                name: 'category',
+                label: '资料分类',
+                type: 'string',
+                default: 'other',
+                placeholder: 'policy/product/support/legal/report/other',
+            },
             { name: 'file', label: '文档/.zip', type: 'file' },
             {
                 name: 'folder_path',
@@ -483,12 +506,21 @@ export const corporaEndpoints: ApiEndpoint[] = [
         method: 'GET',
         path: '/documents/corpora',
         description: '列出已注册业务知识库（切块均在 document_business_chunks）',
+        queryParams: [
+            {
+                name: 'category',
+                label: '资料分类',
+                type: 'string',
+                placeholder: 'policy/product/support/legal/report/other',
+            },
+        ],
         resultView: {
             mode: 'table',
             pageSize: 20,
             columns: [
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'name', label: '资料名', width: 120, showOverflowTooltip: true },
+                { prop: 'category', label: '分类', width: 100 },
                 { prop: 'table_name', label: '物理表', minWidth: 200, showOverflowTooltip: true },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'default_chunk_strategy', label: '默认切分', width: 100 },
@@ -591,8 +623,6 @@ export const corporaEndpoints: ApiEndpoint[] = [
         resultView: {
             mode: 'table',
             pageSize: 5,
-            contentField: 'content',
-            contentLabel: '内容',
             columns: [
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
@@ -638,8 +668,6 @@ export const corporaEndpoints: ApiEndpoint[] = [
             mode: 'table',
             dataPath: 'original_sources',
             pageSize: 5,
-            contentField: 'content',
-            contentLabel: '原文',
             highlightFields: [
                 { key: 'query', label: '查询' },
                 { key: 'polished_answer', label: '润色回答' },

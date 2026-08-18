@@ -13,7 +13,7 @@ from app.services.shared.embedding import embed_text
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 _SEARCH_DESC = (
-    "将查询文本经 BGE 模型转为 768 维向量，在 PostgreSQL 中用 pgvector 余弦距离检索 top-k。"
+    "retrieve_mode=vector 时仅用 BGE+pgvector；hybrid / hybrid_rerank 为向量+全文召回并做 C1 融合重排。"
     "入库与查询须使用同一 embedding 模型；更换模型后需重新导入文档。"
 )
 _LLM_DESC = (
@@ -82,33 +82,55 @@ def clear_documents(
 @router.get(
     "/search",
     response_model=list[schemas.DocumentChunkSearchResult],
-    summary="向量语义检索 document_chunks",
+    summary="通用文档库检索（vector / hybrid）",
     description=_SEARCH_DESC,
 )
 def search(
     q: str | None = Query(default=None, description="查询文本；留空则返回库中前 limit 条切块"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.65, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    retrieve_mode: str = Query(
+        default="hybrid",
+        description="vector | hybrid | hybrid_rerank（hybrid=向量+全文+C1融合）",
+    ),
+    expand_parent: bool = Query(default=False, description="按 section_path 扩同节上下文"),
     service: DocumentSearchService = Depends(get_document_search_service),
     _: User = Depends(require_permission("82.search", name="向量检索")),
 ) -> list[schemas.DocumentChunkSearchResult]:
-    return service.search(q, limit=limit, min_similarity=min_similarity)
+    return service.search(
+        q,
+        limit=limit,
+        min_similarity=min_similarity,
+        retrieve_mode=retrieve_mode,
+        expand_parent=expand_parent,
+    )
 
 
 @router.get(
     "/search_and_llm",
     response_model=schemas.DocumentSearchPolishedResult,
-    summary="向量检索 + 大模型润色回答",
+    summary="通用文档库检索 + 大模型润色回答",
     description=_LLM_DESC,
 )
 def search_and_llm(
     q: str | None = Query(default=None, description="查询文本；留空则返回库中前 limit 条切块"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.65, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    retrieve_mode: str = Query(
+        default="hybrid",
+        description="vector | hybrid | hybrid_rerank",
+    ),
+    expand_parent: bool = Query(default=True, description="LLM 路径默认扩 Parent"),
     service: DocumentSearchService = Depends(get_document_search_service),
     _: User = Depends(require_permission("82.search-and-llm", name="搜索+LLM")),
 ) -> schemas.DocumentSearchPolishedResult:
-    return service.search_polished(q, limit=limit, min_similarity=min_similarity)
+    return service.search_polished(
+        q,
+        limit=limit,
+        min_similarity=min_similarity,
+        retrieve_mode=retrieve_mode,
+        expand_parent=expand_parent,
+    )
 
 
 @router.post("/chunks", response_model=schemas.DocumentChunkRead)
@@ -118,10 +140,11 @@ def create_document_chunk(
     _: User = Depends(require_permission("82.chunks-create", name="新增切块")),
 ) -> schemas.DocumentChunkRead:
     from app.services.modules.chunk_lang import resolve_lang
+    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, ensure_chunk_fts, refresh_search_vectors
 
     lang = resolve_lang(payload.lang, payload.content)
     embedding = embed_text(payload.content)
-    return crud.create_document_chunk(
+    row = crud.create_document_chunk(
         db,
         source_file=payload.source_file,
         content=payload.content,
@@ -131,6 +154,10 @@ def create_document_chunk(
         embedding=embedding,
         lang=lang,
     )
+    ensure_chunk_fts(db, GENERAL_CHUNK_TABLE)
+    refresh_search_vectors(db, GENERAL_CHUNK_TABLE, source_files=[payload.source_file])
+    db.commit()
+    return row
 
 
 @router.put("/chunks/{chunk_id}", response_model=schemas.DocumentChunkRead)
@@ -138,6 +165,8 @@ def update_document_chunk(
     chunk_id: int, payload: schemas.DocumentChunkUpdate, db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.chunks-update", name="更新切块")),
 ) -> schemas.DocumentChunkRead:
+    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, ensure_chunk_fts, refresh_search_vectors
+
     chunk = crud.get_document_chunk_by_id(db, chunk_id)
     if chunk is None:
         raise HTTPException(status_code=404, detail="切块不存在")
@@ -151,7 +180,7 @@ def update_document_chunk(
         char_count = len(payload.content)
         embedding = embed_text(payload.content)
 
-    return crud.update_document_chunk(
+    updated = crud.update_document_chunk(
         db,
         chunk,
         content=payload.content,
@@ -160,6 +189,10 @@ def update_document_chunk(
         char_count=char_count,
         embedding=embedding,
     )
+    ensure_chunk_fts(db, GENERAL_CHUNK_TABLE)
+    refresh_search_vectors(db, GENERAL_CHUNK_TABLE, source_files=[updated.source_file])
+    db.commit()
+    return updated
 
 
 @router.delete("/chunks/{chunk_id}")

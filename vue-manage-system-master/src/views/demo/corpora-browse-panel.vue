@@ -1,5 +1,5 @@
 <template>
-    <el-card v-if="canShow" shadow="hover" class="corpora-browse">
+    <div v-if="canShow" class="corpora-browse">
         <div class="panel-title-row">
             <span class="panel-title">{{ t('pages.rag.corporaBrowse.title') }}</span>
             <FeatureIntroIcon
@@ -24,8 +24,32 @@
                     </el-radio-button>
                 </el-radio-group>
             </el-form-item>
+            <el-form-item :label="t('pages.rag.corporaBrowse.category')" required>
+                <el-select
+                    v-model="form.category"
+                    clearable
+                    filterable
+                    style="width: 280px"
+                    :placeholder="t('pages.rag.corporaBrowse.categoryPh')"
+                    @change="onCategoryChange"
+                >
+                    <el-option v-for="c in categories" :key="c.value" :label="c.label" :value="c.value" />
+                </el-select>
+                <el-button class="ml8" :disabled="!form.q.trim()" @click="suggestCat">
+                    {{ t('pages.rag.corporaBrowse.suggestCategory') }}
+                </el-button>
+            </el-form-item>
             <el-form-item :label="t('pages.rag.corporaBrowse.corpusName')" required>
-                <el-input v-model="form.corpus_name" clearable style="width: 280px" />
+                <el-select
+                    v-model="form.corpus_name"
+                    filterable
+                    clearable
+                    style="width: 280px"
+                    :placeholder="t('pages.rag.corporaBrowse.corpusPh')"
+                    :loading="corporaLoading"
+                >
+                    <el-option v-for="c in corpora" :key="c.name" :label="c.name" :value="c.name" />
+                </el-select>
             </el-form-item>
             <el-form-item v-if="mode !== 'llm'" :label="t('pages.rag.corporaBrowse.sourceFile')">
                 <el-input
@@ -71,21 +95,6 @@
             <div class="answer-label">{{ t('pages.rag.highlights.polished_answer') }}</div>
             <div class="answer-body">{{ polishedAnswer }}</div>
         </div>
-        <div v-if="pagedRows.length" class="result-content-list">
-            <div
-                v-for="(row, idx) in pagedRows"
-                :key="`content-${row.id ?? idx}`"
-                class="answer-box result-content-item"
-            >
-                <div class="answer-label">
-                    <span v-if="row.similarity != null">相似度 {{ row.similarity }}</span>
-                    <span v-if="row.source_file"> · {{ row.source_file }}</span>
-                    <span v-if="row.section_title"> · {{ row.section_title }}</span>
-                    <span v-if="row.id != null"> · #{{ row.id }}</span>
-                </div>
-                <div class="answer-body">{{ row.content }}</div>
-            </div>
-        </div>
         <el-table v-if="rows.length" :data="pagedRows" stripe border size="small" class="result-table">
             <el-table-column prop="id" label="ID" width="64" />
             <el-table-column prop="source_file" :label="t('pages.rag.columns.source_file')" width="100" show-overflow-tooltip />
@@ -109,134 +118,84 @@
             :page-size="pageSize"
             v-model:current-page="page"
         />
-        <el-empty v-else-if="queried && !rows.length && !polishedAnswer" :description="t('pages.rag.corporaBrowse.empty')" />
-    </el-card>
+        <el-empty
+            v-else-if="queried && !rows.length && !polishedAnswer"
+            :description="t('pages.rag.corporaBrowse.empty')"
+        />
+        <div v-if="lastQuery" class="raw-block">
+            <div class="answer-label">原始查询</div>
+            <pre class="raw-pre">{{ lastQuery }}</pre>
+        </div>
+        <div v-if="lastJson" class="raw-block">
+            <div class="answer-label">JSON</div>
+            <el-input v-model="lastJson" type="textarea" :rows="12" readonly class="response-box" />
+        </div>
+    </div>
 </template>
 
 <script setup lang="ts" name="corpora-browse-panel">
-import { computed, reactive, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
-import { searchCorpus, searchCorpusAndLlm } from '@/api';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
-import { usePermissStore } from '@/store/permiss';
-
-type Mode = 'search' | 'llm';
-type Row = Record<string, unknown>;
+import { useCorporaBrowse } from '@/composables/useCorporaBrowse';
 
 defineProps<{ introPageKey?: string; intros?: FeatureIntroMap }>();
 const emit = defineEmits<{ 'intro-saved': [sectionKey: string, content: string] }>();
-
 const { t } = useI18n();
-const permiss = usePermissStore();
-const canSearch = computed(() => permiss.hasApi('82', 'corpora-search'));
-const canLlm = computed(() => permiss.hasApi('82', 'corpora-search-llm'));
-const canShow = computed(() => canSearch.value || canLlm.value);
-
-const mode = ref<Mode>('search');
-const loading = ref(false);
-const queried = ref(false);
-const rows = ref<Row[]>([]);
-const polishedAnswer = ref('');
-const page = ref(1);
-const pageSize = 10;
-const form = reactive({
-    corpus_name: 'fastapi',
-    source_file: '',
-    q: '',
-    limit: 5,
-    min_similarity: 0.55,
-    retrieve_mode: 'hybrid',
-    expand_parent: true,
-});
-
-watch(
-    () => [canSearch.value, canLlm.value] as const,
-    () => {
-        if (mode.value === 'search' && !canSearch.value) mode.value = 'llm';
-        else if (mode.value === 'llm' && !canLlm.value) mode.value = 'search';
-    },
-    { immediate: true },
-);
-watch(mode, () => { page.value = 1; });
-
-const pagedRows = computed(() => rows.value.slice((page.value - 1) * pageSize, page.value * pageSize));
-
-/** 悬停显示全文（多行、可滚动、可移入复制） */
-const contentTooltip = {
-    popperClass: 'corpus-content-tooltip',
-    placement: 'top' as const,
-    enterable: true,
-};
-
-const errDetail = (err: unknown) =>
-    err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        : undefined;
-
-const runQuery = async () => {
-    const name = form.corpus_name.trim();
-    if (!name) {
-        ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
-        return;
-    }
-    loading.value = true;
-    queried.value = true;
-    polishedAnswer.value = '';
-    rows.value = [];
-    page.value = 1;
-    try {
-        if (mode.value === 'search') {
-            const res = await searchCorpus({
-                corpus_name: name,
-                q: form.q.trim() || undefined,
-                limit: form.limit,
-                min_similarity: form.min_similarity,
-                source_file: form.source_file.trim() || undefined,
-                retrieve_mode: form.retrieve_mode,
-            });
-            rows.value = (res.data as Row[]) ?? [];
-        } else {
-            const res = await searchCorpusAndLlm({
-                corpus_name: name,
-                q: form.q.trim() || undefined,
-                limit: form.limit,
-                min_similarity: form.min_similarity,
-                retrieve_mode: form.retrieve_mode,
-                expand_parent: form.expand_parent,
-            });
-            const data = res.data as { polished_answer?: string; original_sources?: Row[] };
-            polishedAnswer.value = data.polished_answer ?? '';
-            rows.value = data.original_sources ?? [];
-        }
-    } catch (err: unknown) {
-        ElMessage.error(errDetail(err) || t('pages.rag.corporaBrowse.failed'));
-    } finally {
-        loading.value = false;
-    }
-};
+const {
+    canShow,
+    canSearch,
+    canLlm,
+    mode,
+    loading,
+    corporaLoading,
+    queried,
+    rows,
+    polishedAnswer,
+    page,
+    pageSize,
+    categories,
+    corpora,
+    form,
+    pagedRows,
+    contentTooltip,
+    lastQuery,
+    lastJson,
+    onCategoryChange,
+    suggestCat,
+    runQuery,
+} = useCorporaBrowse();
 </script>
 
 <style scoped>
-.corpora-browse { margin-bottom: 16px; }
+.corpora-browse { margin-bottom: 0; }
 .panel-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .panel-title { font-size: 16px; font-weight: 600; }
 .panel-desc { margin: 0 0 12px; color: #909399; font-size: 13px; }
-.param-form { max-width: 640px; }
+.param-form { max-width: 720px; }
+.ml8 { margin-left: 8px; }
 .answer-box { margin: 12px 0; padding: 12px 14px; background: #f5f7fa; border-radius: 6px; }
 .answer-label { font-size: 13px; color: #606266; margin-bottom: 6px; }
 .answer-body { white-space: pre-wrap; word-break: break-word; line-height: 1.6; font-size: 14px; }
-.result-content-list { margin-top: 8px; }
-.result-content-item { margin-bottom: 10px; }
 .result-table { width: 100%; margin-top: 8px; }
+.raw-block { margin-top: 16px; }
+.raw-pre {
+    margin: 0;
+    padding: 12px 14px;
+    background: #f5f7fa;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.response-box { font-family: ui-monospace, Consolas, monospace; }
 .result-table :deep(.el-table__header),
 .result-table :deep(.el-table__body) { table-layout: fixed; }
 .result-table :deep(.el-table__cell) { text-align: left; }
 .pager { margin-top: 12px; justify-content: flex-end; }
 </style>
 
-<!-- tooltip 挂到 body，需非 scoped -->
 <style>
 .corpus-content-tooltip {
     max-width: min(840px, 90vw) !important;
@@ -248,4 +207,3 @@ const runQuery = async () => {
     font-size: 13px;
 }
 </style>
-

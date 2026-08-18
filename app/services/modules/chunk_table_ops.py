@@ -1,4 +1,4 @@
-"""业务资料库固定表 document_business_chunks 的建表 / FTS / HNSW 辅助。"""
+"""切块表 document_chunks / document_business_chunks 的建表 / FTS / HNSW 辅助。"""
 
 from __future__ import annotations
 
@@ -21,13 +21,32 @@ logger = logging.getLogger(__name__)
 
 BUSINESS_CHUNK_TABLE = "document_business_chunks"
 GENERAL_CHUNK_TABLE = "document_chunks"
+_CHUNK_TABLES = frozenset({BUSINESS_CHUNK_TABLE, GENERAL_CHUNK_TABLE})
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 HNSW_BULK_THRESHOLD = 500
 
 
+def _require_chunk_table(table_name: str) -> str:
+    if table_name not in _CHUNK_TABLES:
+        raise ValueError(f"切块表仅支持 {sorted(_CHUNK_TABLES)}，收到: {table_name}")
+    return table_name
+
+
 def hnsw_index_name(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
-    return "ix_dcc_business_hnsw" if table_name == BUSINESS_CHUNK_TABLE else f"ix_dcc_{table_name}_hnsw"[:63]
+    if table_name == BUSINESS_CHUNK_TABLE:
+        return "ix_dcc_business_hnsw"
+    if table_name == GENERAL_CHUNK_TABLE:
+        return "ix_document_chunks_embedding_hnsw"
+    return f"ix_dcc_{table_name}_hnsw"[:63]
+
+
+def fts_index_name(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
+    if table_name == BUSINESS_CHUNK_TABLE:
+        return "ix_dcc_business_fts"
+    if table_name == GENERAL_CHUNK_TABLE:
+        return "ix_document_chunks_fts"
+    return f"ix_dcc_{table_name}_fts"[:63]
 
 
 def source_file_like_pattern(pattern: str | None) -> str | None:
@@ -130,23 +149,24 @@ def ensure_chunk_lang(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> No
 
 
 def ensure_chunk_fts(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        return
+    table = _require_chunk_table(table_name)
     engine = db.get_bind()
-    cols = {c["name"] for c in inspect(engine).get_columns(BUSINESS_CHUNK_TABLE)}
+    if table not in inspect(engine).get_table_names():
+        return
+    cols = {c["name"] for c in inspect(engine).get_columns(table)}
     with engine.begin() as conn:
         if "search_vector" not in cols:
-            conn.execute(text(f"ALTER TABLE {BUSINESS_CHUNK_TABLE} ADD COLUMN search_vector tsvector"))
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN search_vector tsvector"))
         for lang in CHUNK_LANGS:
             expr = search_vector_sql_expr(lang)
             conn.execute(
                 text(
-                    f"UPDATE {BUSINESS_CHUNK_TABLE} SET search_vector = {expr} "
+                    f"UPDATE {table} SET search_vector = {expr} "
                     f"WHERE search_vector IS NULL AND lang = :lang"
                 ),
                 {"lang": lang},
             )
-        conn.execute(text(_create_fts_sql()))
+        conn.execute(text(_create_fts_sql(table)))
 
 
 def refresh_search_vectors(
@@ -156,77 +176,75 @@ def refresh_search_vectors(
     source_files: list[str] | None = None,
     corpus_name: str | None = None,
 ) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        raise ValueError(f"非法表名: {table_name}")
+    table = _require_chunk_table(table_name)
     for lang in CHUNK_LANGS:
         expr = search_vector_sql_expr(lang)
         clauses = ["lang = :lang"]
         params: dict[str, Any] = {"lang": lang}
-        if corpus_name:
+        if corpus_name and table == BUSINESS_CHUNK_TABLE:
             clauses.append("corpus_name = :corpus_name")
             params["corpus_name"] = corpus_name
         if source_files:
             clauses.append("source_file IN :files")
             stmt = text(
-                f"UPDATE {BUSINESS_CHUNK_TABLE} SET search_vector = {expr} "
-                f"WHERE {' AND '.join(clauses)}"
+                f"UPDATE {table} SET search_vector = {expr} WHERE {' AND '.join(clauses)}"
             ).bindparams(bindparam("files", expanding=True))
             params["files"] = list(source_files)
             db.execute(stmt, params)
         else:
             clauses.append("search_vector IS NULL")
             db.execute(
-                text(
-                    f"UPDATE {BUSINESS_CHUNK_TABLE} SET search_vector = {expr} "
-                    f"WHERE {' AND '.join(clauses)}"
-                ),
+                text(f"UPDATE {table} SET search_vector = {expr} WHERE {' AND '.join(clauses)}"),
                 params,
             )
 
 
-def _create_hnsw_sql() -> str:
+def _create_hnsw_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
     return (
-        f"CREATE INDEX IF NOT EXISTS {hnsw_index_name()} "
-        f"ON {BUSINESS_CHUNK_TABLE} USING hnsw (embedding vector_cosine_ops) "
+        f"CREATE INDEX IF NOT EXISTS {hnsw_index_name(table_name)} "
+        f"ON {table_name} USING hnsw (embedding vector_cosine_ops) "
         f"WHERE embedding IS NOT NULL"
     )
 
 
-def _create_fts_sql() -> str:
-    return f"CREATE INDEX IF NOT EXISTS ix_dcc_business_fts ON {BUSINESS_CHUNK_TABLE} USING gin (search_vector)"
+def _create_fts_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
+    return (
+        f"CREATE INDEX IF NOT EXISTS {fts_index_name(table_name)} "
+        f"ON {table_name} USING gin (search_vector)"
+    )
 
 
 def ensure_chunk_source_file_trgm(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        return
+    table = _require_chunk_table(table_name)
+    idx = (
+        "ix_dcc_business_src_trgm"
+        if table == BUSINESS_CHUNK_TABLE
+        else "ix_document_chunks_source_file_trgm"
+    )
     with db.get_bind().begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         conn.execute(
-            text(
-                f"CREATE INDEX IF NOT EXISTS ix_dcc_business_src_trgm "
-                f"ON {BUSINESS_CHUNK_TABLE} USING gin (source_file gin_trgm_ops)"
-            )
+            text(f"CREATE INDEX IF NOT EXISTS {idx} ON {table} USING gin (source_file gin_trgm_ops)")
         )
 
 
 def drop_hnsw_index(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        raise ValueError(f"非法表名: {table_name}")
-    db.execute(text(f"DROP INDEX IF EXISTS {hnsw_index_name()}"))
+    table = _require_chunk_table(table_name)
+    db.execute(text(f"DROP INDEX IF EXISTS {hnsw_index_name(table)}"))
 
 
 def create_hnsw_index(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        raise ValueError(f"非法表名: {table_name}")
-    db.execute(text(_create_hnsw_sql()))
+    table = _require_chunk_table(table_name)
+    db.execute(text(_create_hnsw_sql(table)))
 
 
 def get_chunk_model(table_name: str = BUSINESS_CHUNK_TABLE):
-    """返回业务切块 ORM（固定表）。"""
-    if table_name != BUSINESS_CHUNK_TABLE:
-        raise ValueError(f"业务切块仅支持固定表 {BUSINESS_CHUNK_TABLE}，收到: {table_name}")
+    """返回切块 ORM（通用 / 业务固定表）。"""
+    table = _require_chunk_table(table_name)
     from app import models
 
+    if table == GENERAL_CHUNK_TABLE:
+        return models.DocumentChunk
     return models.DocumentBusinessChunk
 
 

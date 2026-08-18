@@ -15,6 +15,7 @@ from app.routers.modules import (
     insight,
     meeting,
     my_agent,
+    rag_demos,
     smart_route,
     zha_jinhua,
 )
@@ -32,6 +33,7 @@ def all_routers() -> tuple[APIRouter, ...]:
         login_logs.router,
         documents.router,
         document_corpora.router,
+        rag_demos.router,
         complaints.router,
         insight.router,
         chat.router,

@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_complaints_stats: int = 20  # /complaints/stats 每用户每分钟
     rate_limit_complaints_samples: int = 60  # /complaints/samples 每用户每分钟
+    # Bing Web Search API v7（Tab5 时效 RAG）；未配置则接口返回明确错误
+    bing_search_api_key: str = ""
+    bing_search_endpoint: str = "https://api.bing.microsoft.com/v7.0/search"
 
     @model_validator(mode="after")
     def _resolve_database_url(self) -> Self:

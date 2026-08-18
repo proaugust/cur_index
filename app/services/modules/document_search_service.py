@@ -1,16 +1,24 @@
-﻿from sqlalchemy.orm import Session
+﻿"""通用文档库检索（document_chunks）：vector / hybrid / hybrid_rerank。"""
 
-from app import models, schemas
+from __future__ import annotations
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app import schemas
 from app.crud import modules as crud
 from app.services.modules.chunk_lang import DEFAULT_CHUNK_LANG, detect_lang
-from app.services.modules.chunk_table_ops import embedding_preview, source_file_like_pattern
-from app.services.shared.embedding import embed_query
+from app.services.modules.chunk_table_ops import (
+    GENERAL_CHUNK_TABLE,
+    ensure_chunk_fts,
+    row_to_dict,
+)
+from app.services.modules.corpus_retrieve import retrieve
+from app.services.modules.rag_prompts import STRICT_DOC_QA
 from app.services.shared.llm import chat_completion
 
-_SYSTEM_PROMPT = (
-    "你是专业的文档问答助手。用户会提供一个问题和若干条检索到的文档片段。"
-    "你的任务是把**所有相关片段的信息综合起来**，写成一份完整、易读的回答，而不是简单复述某一条片段。\n"
-)
+_SYSTEM_PROMPT = STRICT_DOC_QA
+_RETRIEVE_MODES = ("vector", "hybrid", "hybrid_rerank")
 
 
 class DocumentSearchService:
@@ -23,7 +31,9 @@ class DocumentSearchService:
         source_file: str | None = None,
         lang: str | None = None,
     ) -> list[schemas.DocumentChunkSearchResult]:
-        chunks, _ = crud.get_document_chunks(self.db, source_file=source_file, page=1, page_size=max(limit * 3, limit))
+        chunks, _ = crud.get_document_chunks(
+            self.db, source_file=source_file, page=1, page_size=max(limit * 3, limit)
+        )
         results: list[schemas.DocumentChunkSearchResult] = []
         for chunk in chunks:
             chunk_lang = getattr(chunk, "lang", None) or DEFAULT_CHUNK_LANG
@@ -31,15 +41,7 @@ class DocumentSearchService:
                 continue
             results.append(
                 schemas.DocumentChunkSearchResult(
-                    id=chunk.id,
-                    source_file=chunk.source_file,
-                    section_title=chunk.section_title,
-                    section_path=chunk.section_path,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    char_count=chunk.char_count,
-                    lang=chunk_lang,
-                    embedding_preview=embedding_preview(chunk.embedding),
+                    **row_to_dict(chunk),
                     similarity=0.0,
                 )
             )
@@ -53,50 +55,52 @@ class DocumentSearchService:
         limit: int = 5,
         source_file: str | None = None,
         min_similarity: float = 0.55,
+        retrieve_mode: str = "hybrid",
+        expand_parent: bool = False,
     ) -> list[schemas.DocumentChunkSearchResult]:
-        resolved = detect_lang(query) if query and query.strip() else None
+        mode = (retrieve_mode or "hybrid").strip().lower()
+        if mode not in _RETRIEVE_MODES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"retrieve_mode 仅支持: {', '.join(_RETRIEVE_MODES)}",
+            )
+        ensure_chunk_fts(self.db, GENERAL_CHUNK_TABLE)
         if not query or not query.strip():
             return self._list_recent_chunks(limit=limit, source_file=source_file)
 
-        query_vector = embed_query(query.strip())
-        distance_expr = models.DocumentChunk.embedding.cosine_distance(query_vector).label("distance")
-        q = self.db.query(models.DocumentChunk, distance_expr).filter(models.DocumentChunk.embedding.isnot(None))
-        if resolved:
-            q = q.filter(models.DocumentChunk.lang == resolved)
-        file_pattern = source_file_like_pattern(source_file)
-        if file_pattern:
-            q = q.filter(models.DocumentChunk.source_file.ilike(file_pattern))
-        rows = q.order_by(distance_expr).limit(limit).all()
-
-        results: list[schemas.DocumentChunkSearchResult] = []
-        for chunk, distance in rows:
-            similarity = round(1 - distance, 4)
-            if similarity < min_similarity:
-                continue
-            results.append(
-                schemas.DocumentChunkSearchResult(
-                    id=chunk.id,
-                    source_file=chunk.source_file,
-                    section_title=chunk.section_title,
-                    section_path=chunk.section_path,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    char_count=chunk.char_count,
-                    lang=getattr(chunk, "lang", None) or DEFAULT_CHUNK_LANG,
-                    embedding_preview=embedding_preview(chunk.embedding),
-                    similarity=similarity,
-                )
+        resolved_lang = detect_lang(query)
+        try:
+            items = retrieve(
+                self.db,
+                query.strip(),
+                table_name=GENERAL_CHUNK_TABLE,
+                limit=limit,
+                min_similarity=min_similarity,
+                source_file=source_file,
+                retrieve_mode=mode,
+                expand_parent=expand_parent,
+                lang=resolved_lang,
             )
-        return results
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return [schemas.DocumentChunkSearchResult(**item) for item in items]
 
     def search_polished(
         self,
         query: str | None,
         limit: int = 5,
         min_similarity: float = 0.55,
+        retrieve_mode: str = "hybrid",
+        expand_parent: bool = True,
     ) -> schemas.DocumentSearchPolishedResult:
+        sources = self.search(
+            query,
+            limit=limit,
+            min_similarity=min_similarity,
+            retrieve_mode=retrieve_mode,
+            expand_parent=expand_parent,
+        )
         if not query or not query.strip():
-            sources = self._list_recent_chunks(limit=limit)
             original_sources = [
                 schemas.DocumentSearchPolishedSource(
                     snippet_index=index,
@@ -121,7 +125,6 @@ class DocumentSearchService:
                 original_sources=original_sources,
             )
 
-        sources = self.search(query, limit=limit, min_similarity=min_similarity)
         if not sources:
             return schemas.DocumentSearchPolishedResult(
                 query=query, polished_answer="未检索到相关文档片段，无法生成回答。", source_count=0, original_sources=[]
@@ -150,11 +153,16 @@ class DocumentSearchService:
                 )
             )
 
-        user_prompt = f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n" + "\n\n".join(context_blocks)
+        user_prompt = (
+            f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n"
+            + "\n\n".join(context_blocks)
+        )
         polished_answer = chat_completion(
             _SYSTEM_PROMPT, user_prompt, temperature=0.5, disable_thinking=True, caller="rag.search_and_llm"
         )
-
         return schemas.DocumentSearchPolishedResult(
-            query=query, polished_answer=polished_answer, source_count=len(original_sources), original_sources=original_sources
+            query=query,
+            polished_answer=polished_answer,
+            source_count=len(original_sources),
+            original_sources=original_sources,
         )

@@ -90,6 +90,29 @@ def chat_completion(
     try:
         with _http_opener.open(request, timeout=60) as response:
             body = json.loads(response.read().decode("utf-8"))
+    except TimeoutError as exc:
+        # urlopen/read 超时有时以裸 TimeoutError 抛出，非 URLError
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        logger.warning(
+            "LLM 超时 request_id=%s caller=%s model=%s json_mode=%s %.0fms",
+            rid,
+            caller,
+            model,
+            json_mode,
+            elapsed_ms,
+        )
+        record_llm_usage(
+            caller=caller,
+            engine=engine,
+            model=model,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            latency_ms=elapsed_ms,
+            success=False,
+            request_id=rid,
+        )
+        raise HTTPException(status_code=502, detail="大模型接口超时，请稍后重试") from exc
     except urllib.error.HTTPError as exc:
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         logger.warning(

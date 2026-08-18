@@ -25,6 +25,8 @@
                         <p v-if="ep.description" class="endpoint-desc">{{ ep.description }}</p>
                     </div>
 
+                    <slot v-if="hasPanelSlot(ep.id)" :name="`panel-${ep.id}`" />
+                    <template v-else>
                     <div v-if="ep.queryExamples?.length" class="example-list">
                         <div class="param-section-title">{{ t('apiDebug.exampleQueries') }}</div>
                         <div
@@ -308,6 +310,7 @@
                         :placeholder="ep.resultView?.mode === 'content' ? t('apiDebug.responseMetaPh') : t('apiDebug.responseJsonPh')"
                         class="response-box"
                     />
+                    </template>
                 </el-tab-pane>
             </el-tabs>
         </el-card>
@@ -355,7 +358,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
+import { reactive, ref, useSlots, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
@@ -367,6 +370,8 @@ import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
 import type { ApiAsyncJobConfig, ApiEndpoint, ApiParam, ApiQueryExample } from '@/config/api-endpoints';
 
 const { t } = useI18n();
+const slots = useSlots();
+const hasPanelSlot = (id: string) => Boolean(slots[`panel-${id}`]);
 
 const props = withDefaults(
     defineProps<{

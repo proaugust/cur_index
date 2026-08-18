@@ -10,12 +10,10 @@ from app.crud import document_corpora as corpus_crud
 from app.services.modules.chunk_lang import detect_lang
 from app.services.modules.chunk_table_ops import BUSINESS_CHUNK_TABLE, ensure_chunk_table, row_to_dict
 from app.services.modules.corpus_retrieve import retrieve
+from app.services.modules.rag_prompts import STRICT_DOC_QA
 from app.services.shared.llm import chat_completion
 
-_SYSTEM_PROMPT = (
-    "你是专业的文档问答助手。用户会提供一个问题和若干条检索到的文档片段。"
-    "你的任务是把**所有相关片段的信息综合起来**，写成一份完整、易读的回答，而不是简单复述某一条片段。\n"
-)
+_SYSTEM_PROMPT = STRICT_DOC_QA
 _RETRIEVE_MODES = ("vector", "hybrid", "hybrid_rerank")
 
 
@@ -91,6 +89,7 @@ class CorpusSearchService:
             items = retrieve(
                 self.db,
                 query.strip(),
+                table_name=BUSINESS_CHUNK_TABLE,
                 corpus_name=corpus.name,
                 limit=limit,
                 min_similarity=min_similarity,

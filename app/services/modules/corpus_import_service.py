@@ -192,6 +192,7 @@ class CorpusImportService:
             corpus_name.strip(),
             default_chunk_strategy=chunk_strategy,
             lang=resolved_lang,
+            category=getattr(self, "_import_category", "other"),
         )
         chunks, section_count = self._chunk_text(
             text,
@@ -235,6 +236,7 @@ class CorpusImportService:
             corpus_name.strip(),
             default_chunk_strategy=chunk_strategy,
             lang=default_lang,
+            category=getattr(self, "_import_category", "other"),
         )
         prepared = self._prepare_chunked(
             items,
@@ -265,8 +267,12 @@ class CorpusImportService:
         max_chunk_len: int,
         chunk_overlap: int,
         file_bytes: bytes | None = None,
+        category: str = "other",
         on_progress: ProgressCb | None = None,
     ) -> schemas.CorpusImportResult:
+        from app.services.modules.corpus_categories import normalize_category
+
+        self._import_category = normalize_category(category)
         kw = dict(
             corpus_name=corpus_name,
             replace_existing=replace_existing,

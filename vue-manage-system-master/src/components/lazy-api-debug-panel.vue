@@ -6,7 +6,11 @@
             :intro-page-key="introPageKey"
             :intros="intros"
             @intro-saved="(key, content) => emit('intro-saved', key, content)"
-        />
+        >
+            <template v-for="(_, name) in $slots" :key="name" #[name]="slotProps">
+                <slot :name="name" v-bind="slotProps || {}" />
+            </template>
+        </ApiDebugPanel>
         <template #fallback>
             <el-skeleton :rows="5" animated class="lazy-panel-skeleton" />
         </template>

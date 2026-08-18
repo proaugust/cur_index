@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.crud import modules as crud
 from app.services.modules.chunk_lang import detect_lang
+from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, ensure_chunk_fts, refresh_search_vectors
 from app.services.shared.embedding import embed_texts
 from app.services.shared.text_chunker import CHUNK_LEN, CHUNK_OVERLAP, SMALL_PIECE_LEN, chunk_document, parse_sections
 
@@ -58,6 +59,9 @@ class DocumentImportService:
             )
 
         created = crud.bulk_create_document_chunks(self.db, rows)
+        ensure_chunk_fts(self.db, GENERAL_CHUNK_TABLE)
+        refresh_search_vectors(self.db, GENERAL_CHUNK_TABLE, source_files=[source_file])
+        self.db.commit()
         return schemas.DocumentImportResult(source_file=source_file, sections=len(parse_sections(text)), chunks=len(created))
 
     def import_file(self, file_path: str, replace_existing: bool = True) -> schemas.DocumentImportResult:

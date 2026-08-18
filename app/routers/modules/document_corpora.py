@@ -9,6 +9,7 @@ from app.core.permissions import require_permission
 from app.crud import document_corpora as corpus_crud
 from app.models import User
 from app.services.modules.chunk_lang import resolve_lang
+from app.services.modules.corpus_categories import list_category_options, normalize_category, suggest_category
 from app.services.modules.corpus_import_jobs import create_import_job, get_import_job, run_import_job
 from app.services.modules.corpus_search_service import CorpusSearchService
 from app.services.shared.embedding import embed_text
@@ -28,11 +29,37 @@ def _require_corpus(db: Session, corpus_name: str):
     return corpus
 
 
+@router.get("/categories", response_model=list[schemas.CorpusCategoryOption], summary="资料库分类枚举")
+def list_corpus_categories(
+    _: User = Depends(require_permission("82.corpora-list", name="资料库列表")),
+) -> list[schemas.CorpusCategoryOption]:
+    return [schemas.CorpusCategoryOption(**item) for item in list_category_options()]
+
+
+@router.get(
+    "/categories/suggest",
+    response_model=schemas.CorpusCategorySuggestResult,
+    summary="根据问题推荐资料分类",
+)
+def suggest_corpus_category(
+    q: str = Query(..., min_length=1, description="用户问题"),
+    _: User = Depends(require_permission("82.corpora-search", name="资料库检索")),
+) -> schemas.CorpusCategorySuggestResult:
+    return schemas.CorpusCategorySuggestResult(**suggest_category(q))
+
+
 @router.get("", response_model=list[schemas.DocumentCorpusRead], summary="列出业务知识库")
 def list_corpora(
+    category: str | None = Query(default=None, description="按分类过滤，如 policy / product"),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.corpora-list", name="资料库列表")),
 ) -> list[schemas.DocumentCorpusRead]:
+    if category and category.strip():
+        raw = category.strip().lower()
+        normalized = normalize_category(raw)
+        if normalized != raw:
+            return []
+        return corpus_crud.list_corpora(db, category=normalized)
     return corpus_crud.list_corpora(db)
 
 
@@ -66,6 +93,7 @@ async def import_corpus(
     folder_path: str | None = Form(default=None, description="本机文件夹绝对路径"),
     replace_existing: bool = Form(True, description="覆盖同文件名已有切块"),
     chunk_strategy: str = Form("structure", description="structure | legacy"),
+    category: str = Form("other", description="资料分类：policy/product/support/legal/report/other"),
     max_chunk_len: int = Form(DEFAULT_MAX_CHUNK, ge=50, le=2000),
     min_chunk_len: int = Form(DEFAULT_MIN_CHUNK, ge=20, le=1000),
     chunk_overlap: int = Form(DEFAULT_OVERLAP, ge=0, le=500),
@@ -93,6 +121,7 @@ async def import_corpus(
         "folder_path": folder_path,
         "replace_existing": replace_existing,
         "chunk_strategy": chunk_strategy,
+        "category": normalize_category(category),
         "min_chunk_len": min_chunk_len,
         "max_chunk_len": max_chunk_len,
         "chunk_overlap": chunk_overlap,
