@@ -4,11 +4,7 @@
             <template #header>
                 <div class="page-header">
                     <div class="page-header-top">
-                        <span class="page-title">{{ t('pages.agent.title') }}</span>
-                        <el-radio-group v-model="activeEngine" size="small">
-                            <el-radio-button value="native">{{ t('pages.agent.nativeAgent') }}</el-radio-button>
-                            <el-radio-button value="langchain">{{ t('pages.agent.langchainAgent') }}</el-radio-button>
-                        </el-radio-group>
+                        <span class="page-title">{{ title }}</span>
                     </div>
                 </div>
             </template>
@@ -32,7 +28,7 @@
                         :nodes="[t('pages.agent.nodeUser'), '工具 Agent', '回答 Agent', t('pages.agent.nodeReply')]"
                     />
                     <AgentDemo
-                        cache-key="single"
+                        :cache-key="`${engine}-single`"
                         :loading="loading.single"
                         :steps="steps.single"
                         :initial-question="singleExamples[0].question"
@@ -62,7 +58,7 @@
                         :nodes="[t('pages.agent.nodeUser'), '规划 Agent', '执行 Agent', '总结 Agent', t('pages.agent.nodeAnswer')]"
                     />
                     <AgentDemo
-                        cache-key="sequential"
+                        :cache-key="`${engine}-sequential`"
                         :loading="loading.sequential"
                         :steps="steps.sequential"
                         :initial-question="defaultQuestions.sequential"
@@ -89,7 +85,7 @@
                         :branches="[t('pages.agent.branchTech'), t('pages.agent.branchBiz'), t('pages.agent.branchGeneral')]"
                     />
                     <AgentDemo
-                        cache-key="routing"
+                        :cache-key="`${engine}-routing`"
                         :loading="loading.routing"
                         :steps="steps.routing"
                         :initial-question="defaultQuestions.routing"
@@ -116,7 +112,7 @@
                         :loop="true"
                     />
                     <AgentDemo
-                        cache-key="reflection"
+                        :cache-key="`${engine}-reflection`"
                         :loading="loading.reflection"
                         :steps="steps.reflection"
                         :initial-question="defaultQuestions.reflection"
@@ -128,28 +124,29 @@
     </div>
 </template>
 
-<script setup lang="ts" name="demo-agent">
+<script setup lang="ts" name="agent-panel">
 import { computed, defineAsyncComponent, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { useCachedRef } from '@/composables/useFormCache';
-import { runAgent as runAgentApi } from '@/api';
-import type { AgentExample, AgentStep } from './agent/types';
+import { runNativeAgent } from '@/api';
+import type { AgentExample, AgentStep } from './types';
 
-const ModeIntro = defineAsyncComponent(() => import('./agent/mode-intro.vue'));
-const AgentDemo = defineAsyncComponent(() => import('./agent/agent-demo.vue'));
+const ModeIntro = defineAsyncComponent(() => import('./mode-intro.vue'));
+const AgentDemo = defineAsyncComponent(() => import('./agent-demo.vue'));
 type AgentMode = 'single' | 'sequential' | 'routing' | 'reflection';
-type AgentEngine = 'native' | 'langchain';
 
-const { t, locale } = useI18n();
+const props = defineProps<{
+    engine: 'native';
+    title: string;
+}>();
+
+const { t } = useI18n();
 const { intros, setIntro } = useFeatureIntros('agent');
 
-void locale;
-
-const activeTab = useCachedRef('agent:activeTab', 'single');
-const activeEngine = useCachedRef<AgentEngine>('agent:activeEngine', 'native');
+const activeTab = useCachedRef(`agent:${props.engine}:activeTab`, 'single');
 
 const singleExamples = computed<AgentExample[]>(() => [
     {
@@ -192,10 +189,9 @@ const runAgent = async (mode: AgentMode, question: string) => {
     loading[mode] = true;
     steps[mode] = [];
     try {
-        const res = await runAgentApi({
+        const res = await runNativeAgent({
             question,
             mode,
-            engine: activeEngine.value,
             temperature: 0.7,
         });
         steps[mode] = res.data.steps ?? [];

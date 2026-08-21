@@ -167,6 +167,32 @@ export const importDocument = (file: File, replaceExisting = true) => {
     return request.post('/documents/import', form);
 };
 
+/** 业务知识库：异步导入（.md/.txt/.zip；资料名必填或可推导） */
+export const importCorpus = (params: {
+    file?: File | null;
+    corpus_name?: string;
+    category?: string;
+    replace_existing?: boolean;
+    chunk_strategy?: string;
+    max_chunk_len?: number;
+    min_chunk_len?: number;
+    chunk_overlap?: number;
+}) => {
+    const form = new FormData();
+    if (params.file) form.append('file', params.file);
+    if (params.corpus_name?.trim()) form.append('corpus_name', params.corpus_name.trim());
+    form.append('category', params.category || 'other');
+    form.append('replace_existing', String(params.replace_existing ?? true));
+    form.append('chunk_strategy', params.chunk_strategy || 'structure');
+    if (params.max_chunk_len != null) form.append('max_chunk_len', String(params.max_chunk_len));
+    if (params.min_chunk_len != null) form.append('min_chunk_len', String(params.min_chunk_len));
+    if (params.chunk_overlap != null) form.append('chunk_overlap', String(params.chunk_overlap));
+    return request.post('/documents/corpora/import', form);
+};
+
+export const getCorpusImportJob = (jobId: string) =>
+    request.get(`/documents/corpora/import/jobs/${encodeURIComponent(jobId)}`);
+
 export const searchDocuments = (params: {
     q?: string;
     limit?: number;
@@ -192,7 +218,7 @@ export const listDocumentChunksByFile = (params?: {
     page_size?: number;
 }) => request.get('/documents/listByFile', { params });
 
-/** @deprecated 使用 listDocumentChunksByFile */
+/** @deprecated 使用 listDocumentChunksByFile（现返回文件路径列表，不含切块） */
 export const listDocumentChunks = listDocumentChunksByFile;
 
 export const createDocumentChunk = (data: {
@@ -214,9 +240,9 @@ export const deleteDocumentChunk = (chunkId: number) =>
 /** 通用文档库 document_chunks：清空全部切块 */
 export const clearDocuments = () => request.delete('/documents');
 
-/** 业务知识库 document_business_chunks：按文件名查切块 */
+/** 业务知识库：按文件名查（仅文件路径列表，不含切块） */
 export const listCorpusChunksByFile = (params: {
-    corpus_name: string;
+    corpus_name?: string;
     source_file?: string;
     page?: number;
     page_size?: number;
@@ -224,7 +250,9 @@ export const listCorpusChunksByFile = (params: {
 
 /** 业务知识库 document_business_chunks：检索 / 检索+LLM / 清空切块 / 删库 */
 export const searchCorpus = (params: {
-    corpus_name: string;
+    corpus_name?: string;
+    corpus_names?: string;
+    categories?: string;
     q?: string;
     limit?: number;
     min_similarity?: number;
@@ -234,10 +262,13 @@ export const searchCorpus = (params: {
 }) => request.get('/documents/corpora/search', { params });
 
 export const searchCorpusAndLlm = (params: {
-    corpus_name: string;
+    corpus_name?: string;
+    corpus_names?: string;
+    categories?: string;
     q?: string;
     limit?: number;
     min_similarity?: number;
+    source_file?: string;
     retrieve_mode?: string;
     expand_parent?: boolean;
 }) => request.get('/documents/corpora/search_and_llm', { params });
@@ -275,6 +306,9 @@ export const listCorpusCategories = () => request.get('/documents/corpora/catego
 export const suggestCorpusCategory = (params: { q: string }) =>
     request.get('/documents/corpora/categories/suggest', { params });
 
+export const suggestCorpusSearchFilters = (params: { q: string }) =>
+    request.get('/documents/corpora/search/suggest-filters', { params });
+
 export const ragNl2sql = (data: { question: string; row_limit?: number }) =>
     request.post('/rag-demos/nl2sql', data);
 
@@ -283,12 +317,6 @@ export const ragLongdoc = (data: { corpus_name: string; question: string; limit?
 
 export const ragWebSearch = (data: { question: string; count?: number }) =>
     request.post('/rag-demos/web-search', data);
-
-export const ragAgentic = (data: {
-    corpus_name: string;
-    question: string;
-    per_step_limit?: number;
-}) => request.post('/rag-demos/agentic', data);
 
 // --- meeting ---
 export const organizeMeeting = (data: { text: string; style?: 'concise' | 'formal'; temperature?: number }) =>
@@ -331,12 +359,26 @@ export const deleteAttendancePerson = (personId: number) =>
     request.delete(`/attendance/persons/${personId}`);
 
 // --- agent ---
-export const runAgent = (data: {
+export const runNativeAgent = (data: {
     question: string;
     mode: 'single' | 'sequential' | 'routing' | 'reflection';
-    engine?: 'native' | 'langchain';
     temperature?: number;
-}) => request.post('/my_agent/run', data);
+}) => request.post('/my_agent/run', { ...data, engine: 'native' });
+
+export const runLangchainAgent = (data: { question: string; temperature?: number }) =>
+    request.post('/my_agent/langchain', data);
+
+export const runAutogenAgent = (data: { question: string; temperature?: number }) =>
+    request.post('/my_agent/autogen', data);
+
+export const runCrewaiAgent = (data: { question: string; temperature?: number }) =>
+    request.post('/my_agent/crewai', data);
+
+export const runAgenticAgent = (data: {
+    corpus_name: string;
+    question: string;
+    per_step_limit?: number;
+}) => request.post('/my_agent/agentic', data);
 
 // --- COBOL migrate demo ---
 export const runCobolMigrateStep = (step: number) =>
@@ -558,6 +600,16 @@ export interface LoginLogQuery {
 
 export const fetchLoginLogs = (params?: LoginLogQuery) =>
     request.get('/login-logs', { params });
+
+export interface ApiAccessStatQuery {
+    page?: number;
+    page_size?: number;
+    username?: string;
+    days?: number | null;
+}
+
+export const fetchApiAccessStats = (params?: ApiAccessStatQuery) =>
+    request.get('/api-access-stats', { params });
 
 export const fetchEpochStats = () =>
     request.get('/epoch/stats');

@@ -93,6 +93,20 @@ class DocumentChunksPage(BaseModel):
     page_size: int
 
 
+class SourceFileItem(BaseModel):
+    """按文件名查：仅路径元数据（可含目录前缀），无切块正文。"""
+
+    source_file: str
+    corpus_name: str | None = None
+
+
+class SourceFileListPage(BaseModel):
+    items: list[SourceFileItem]
+    total: int
+    page: int
+    page_size: int
+
+
 class DocumentChunkCreate(BaseModel):
     source_file: str = Field(min_length=1, description="来源文件名")
     content: str = Field(min_length=1, description="切块正文，入库时自动计算向量")
@@ -465,7 +479,7 @@ class EmployeeProfileRead(BaseModel):
 
 
 AgentMode = Literal["single", "sequential", "routing", "reflection"]
-AgentEngine = Literal["native", "langchain"]
+AgentEngine = Literal["native", "langchain", "autogen", "crewai", "agentic"]
 AgentStepStatus = Literal["pending", "running", "done", "error"]
 
 
@@ -480,14 +494,17 @@ class AgentStep(BaseModel):
 
 class AgentRunRequest(BaseModel):
     question: str = Field(min_length=1, description="用户提问")
-    mode: AgentMode = Field(description="Agent 模式：single / sequential / routing / reflection")
-    engine: AgentEngine = Field(default="native", description="执行引擎：native 原生编排 / langchain")
     temperature: float = Field(default=0.7, ge=0, le=2)
+
+
+class AgentNativeRunRequest(AgentRunRequest):
+    mode: AgentMode = Field(description="Agent 模式：single / sequential / routing / reflection")
+    engine: AgentEngine = Field(default="native")
 
 
 class AgentRunResponse(BaseModel):
     question: str
-    mode: AgentMode
+    mode: AgentMode | None = None
     engine: AgentEngine
     steps: list[AgentStep]
     answer: str = Field(description="最终答复")

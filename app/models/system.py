@@ -1,6 +1,6 @@
 ﻿from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -70,3 +70,18 @@ class LoginLog(Base):
     ip: Mapped[str] = mapped_column(String(64), default="")
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class ApiAccessStat(Base):
+    __tablename__ = "api_access_stats"
+    __table_args__ = (
+        UniqueConstraint("user_id", "method", "path", name="uq_api_access_stats_user_method_path"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    method: Mapped[str] = mapped_column(String(16), default="GET")
+    path: Mapped[str] = mapped_column(String(200), default="")
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_status: Mapped[int] = mapped_column(Integer, default=0)
+    last_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

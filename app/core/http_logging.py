@@ -48,7 +48,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         rid = uuid.uuid4().hex[:12]
         rid_token = request_id_var.set(rid)
-        uid_token = bind_llm_usage_user_id(_user_id_from_request(request))
+        uid = _user_id_from_request(request)
+        uid_token = bind_llm_usage_user_id(uid)
         start = time.perf_counter()
         status_code = 500
         try:
@@ -69,6 +70,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 status_code,
                 duration_ms,
             )
+            from app.services.system.api_access_stat_service import maybe_record_request
+
+            maybe_record_request(request.method, request.url.path, uid, status_code)
 
 
 def register_exception_logging(app: FastAPI) -> None:

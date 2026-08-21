@@ -1,4 +1,4 @@
-"""业务知识库向量检索（document_business_chunks，按 corpus_name 过滤）。"""
+"""业务知识库向量检索（document_business_chunks，按 corpus_name / 多库过滤）。"""
 
 from __future__ import annotations
 
@@ -10,11 +10,38 @@ from app.crud import document_corpora as corpus_crud
 from app.services.modules.chunk_lang import detect_lang
 from app.services.modules.chunk_table_ops import BUSINESS_CHUNK_TABLE, ensure_chunk_table, row_to_dict
 from app.services.modules.corpus_retrieve import retrieve
+from app.services.modules.corpus_search_filters import (
+    normalize_category_list,
+    resolve_corpus_names,
+    suggest_search_filters,
+)
 from app.services.modules.rag_prompts import STRICT_DOC_QA
 from app.services.shared.llm import chat_completion
 
 _SYSTEM_PROMPT = STRICT_DOC_QA
 _RETRIEVE_MODES = ("vector", "hybrid", "hybrid_rerank")
+
+_REWRITE_SYSTEM = (
+    "你是检索查询优化助手。将用户问题改写为更适合文档检索的关键词组合。"
+    "要求：保留核心意图；补充专业同义词/上下位词；去掉口语化表达；"
+    "输出仅一行改写后的查询，不要解释，不要标点符号开头。"
+)
+
+
+def _rewrite_query(query: str) -> str:
+    """用 LLM 改写查询以提升向量/全文召回率；失败时静默回退到原 query。"""
+    try:
+        rewritten = chat_completion(
+            _REWRITE_SYSTEM,
+            query,
+            temperature=0.0,
+            disable_thinking=True,
+            caller="rag.query_rewrite",
+        )
+        rewritten = rewritten.strip().splitlines()[0].strip()
+        return rewritten if rewritten else query
+    except Exception:
+        return query
 
 
 class CorpusSearchService:
@@ -32,40 +59,69 @@ class CorpusSearchService:
             self.db.refresh(corpus)
         return corpus
 
-    def list_files(self, corpus_name: str) -> schemas.CorpusFileListResult:
-        corpus = self._require_corpus(corpus_name)
+    def suggest_filters(self, question: str) -> schemas.CorpusSearchFiltersSuggest:
+        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
+        return schemas.CorpusSearchFiltersSuggest(**suggest_search_filters(self.db, question))
+
+    def list_files(self, corpus_name: str | None) -> schemas.CorpusFileListResult:
+        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
+        resolved_name = self._require_corpus(corpus_name).name if corpus_name else None
+        rows = corpus_crud.list_source_files(self.db, resolved_name)
         files = [
-            schemas.CorpusFileItem(source_file=name)
-            for name in corpus_crud.list_source_files(self.db, corpus.name)
+            schemas.CorpusFileItem(
+                source_file=source_file,
+                corpus_name=name if resolved_name is None else None,
+            )
+            for name, source_file in rows
         ]
         return schemas.CorpusFileListResult(
-            corpus_name=corpus.name, table_name=BUSINESS_CHUNK_TABLE, files=files
+            corpus_name=resolved_name,
+            table_name=BUSINESS_CHUNK_TABLE,
+            files=files,
         )
 
     def list_by_file(
         self,
-        corpus_name: str,
+        corpus_name: str | None,
         source_file: str | None = None,
         *,
         page: int = 1,
         page_size: int = 10,
-    ) -> schemas.DocumentChunksPage:
-        corpus = self._require_corpus(corpus_name)
-        rows, total = corpus_crud.list_chunks(
-            self.db, corpus.name, source_file=source_file, page=page, page_size=page_size
+    ) -> schemas.SourceFileListPage:
+        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
+        resolved_name = self._require_corpus(corpus_name).name if corpus_name else None
+        rows, total = corpus_crud.list_source_files_page(
+            self.db,
+            resolved_name,
+            source_file=source_file,
+            page=page,
+            page_size=page_size,
         )
-        items = [schemas.DocumentChunkRead.model_validate(row) for row in rows]
-        return schemas.DocumentChunksPage(items=items, total=total, page=page, page_size=page_size)
+        items = [
+            schemas.SourceFileItem(
+                source_file=path,
+                corpus_name=name if resolved_name is None else None,
+            )
+            for name, path in rows
+        ]
+        return schemas.SourceFileListPage(
+            items=items, total=total, page=page, page_size=page_size
+        )
 
-    def _list_recent(self, corpus_name: str, limit: int, source_file: str | None):
+    def _list_recent(self, corpus_names: list[str] | None, limit: int, source_file: str | None):
         rows, _ = corpus_crud.list_chunks(
-            self.db, corpus_name, source_file=source_file, page=1, page_size=limit
+            self.db,
+            None,
+            source_file=source_file,
+            corpus_names=corpus_names,
+            page=1,
+            page_size=limit,
         )
         return [schemas.DocumentChunkSearchResult(**row_to_dict(row), similarity=0.0) for row in rows]
 
     def search(
         self,
-        corpus_name: str,
+        corpus_name: str | None,
         query: str | None,
         *,
         limit: int = 5,
@@ -73,6 +129,8 @@ class CorpusSearchService:
         min_similarity: float = 0.55,
         retrieve_mode: str = "hybrid",
         expand_parent: bool = False,
+        corpus_names: list[str] | None = None,
+        categories: list[str] | None = None,
     ) -> list[schemas.DocumentChunkSearchResult]:
         mode = (retrieve_mode or "hybrid").strip().lower()
         if mode not in _RETRIEVE_MODES:
@@ -80,17 +138,27 @@ class CorpusSearchService:
                 status_code=400,
                 detail=f"retrieve_mode 仅支持: {', '.join(_RETRIEVE_MODES)}",
             )
-        corpus = self._require_corpus(corpus_name)
+        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
+        scope = resolve_corpus_names(
+            self.db,
+            corpus_name=corpus_name,
+            corpus_names=corpus_names,
+            categories=normalize_category_list(categories),
+        )
+        if scope is not None and not scope:
+            return []
         if not query or not query.strip():
-            return self._list_recent(corpus.name, limit, source_file)
+            return self._list_recent(scope, limit, source_file)
 
-        resolved_lang = detect_lang(query)
+        raw_query = query.strip()
+        resolved_lang = detect_lang(raw_query)
+        retrieve_query = _rewrite_query(raw_query) if len(raw_query) >= 4 else raw_query
         try:
             items = retrieve(
                 self.db,
-                query.strip(),
+                retrieve_query,
                 table_name=BUSINESS_CHUNK_TABLE,
-                corpus_name=corpus.name,
+                corpus_names=scope,
                 limit=limit,
                 min_similarity=min_similarity,
                 source_file=source_file,
@@ -104,13 +172,16 @@ class CorpusSearchService:
 
     def search_polished(
         self,
-        corpus_name: str,
+        corpus_name: str | None,
         query: str | None,
         *,
         limit: int = 5,
         min_similarity: float = 0.55,
         retrieve_mode: str = "hybrid",
         expand_parent: bool = True,
+        source_file: str | None = None,
+        corpus_names: list[str] | None = None,
+        categories: list[str] | None = None,
     ) -> schemas.DocumentSearchPolishedResult:
         sources = self.search(
             corpus_name,
@@ -119,6 +190,9 @@ class CorpusSearchService:
             min_similarity=min_similarity,
             retrieve_mode=retrieve_mode,
             expand_parent=expand_parent,
+            source_file=source_file,
+            corpus_names=corpus_names,
+            categories=categories,
         )
         if not query or not query.strip():
             original = [
@@ -146,7 +220,10 @@ class CorpusSearchService:
             )
         if not sources:
             return schemas.DocumentSearchPolishedResult(
-                query=query, polished_answer="未检索到相关文档片段，无法生成回答。", source_count=0, original_sources=[]
+                query=query,
+                polished_answer="未检索到相关文档片段，无法生成回答。",
+                source_count=0,
+                original_sources=[],
             )
 
         blocks = []
@@ -171,7 +248,10 @@ class CorpusSearchService:
                     lang=chunk.lang,
                 )
             )
-        user_prompt = f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n" + "\n\n".join(blocks)
+        user_prompt = (
+            f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n"
+            + "\n\n".join(blocks)
+        )
         answer = chat_completion(
             _SYSTEM_PROMPT,
             user_prompt,

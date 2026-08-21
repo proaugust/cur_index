@@ -1,4 +1,4 @@
-"""RAG 场景演示 schemas（NL2SQL / 长文档 / Web / Agentic）。"""
+"""RAG 场景演示 schemas（NL2SQL / 长文档 / Web）。"""
 
 from typing import Any
 
@@ -50,11 +50,3 @@ class RagAgenticRequest(BaseModel):
     corpus_name: str = Field(min_length=1)
     question: str = Field(min_length=1)
     per_step_limit: int = Field(default=3, ge=1, le=10)
-
-
-class RagAgenticResult(BaseModel):
-    question: str
-    corpus_name: str
-    steps: list[str]
-    step_results: list[dict[str, Any]]
-    answer: str

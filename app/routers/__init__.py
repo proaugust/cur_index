@@ -20,7 +20,7 @@ from app.routers.modules import (
     zha_jinhua,
 )
 from app.routers.ops import error_logs, feature_intros, llm_usage
-from app.routers.system import auth, login_logs, menus, permissions, roles, users
+from app.routers.system import api_access_stats, auth, login_logs, menus, permissions, roles, users
 
 
 def all_routers() -> tuple[APIRouter, ...]:
@@ -31,6 +31,7 @@ def all_routers() -> tuple[APIRouter, ...]:
         menus.router,
         permissions.router,
         login_logs.router,
+        api_access_stats.router,
         documents.router,
         document_corpora.router,
         rag_demos.router,

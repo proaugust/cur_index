@@ -55,10 +55,10 @@ class DocumentSearchService:
         limit: int = 5,
         source_file: str | None = None,
         min_similarity: float = 0.55,
-        retrieve_mode: str = "hybrid",
+        retrieve_mode: str = "hybrid_rerank",
         expand_parent: bool = False,
     ) -> list[schemas.DocumentChunkSearchResult]:
-        mode = (retrieve_mode or "hybrid").strip().lower()
+        mode = (retrieve_mode or "hybrid_rerank").strip().lower()
         if mode not in _RETRIEVE_MODES:
             raise HTTPException(
                 status_code=400,

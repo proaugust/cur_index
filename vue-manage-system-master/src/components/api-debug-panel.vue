@@ -235,8 +235,9 @@
                                 :key="col.prop"
                                 :prop="col.prop"
                                 :label="col.label"
-                                :width="col.width"
-                                :min-width="col.minWidth"
+                                :min-width="col.minWidth ?? col.width"
+                                :class-name="col.minWidth && !col.width ? 'col-fill' : 'col-fit'"
+                                :label-class-name="col.minWidth && !col.width ? 'col-fill' : 'col-fit'"
                                 :show-overflow-tooltip="col.showOverflowTooltip"
                             />
                         </el-table>
@@ -984,9 +985,8 @@ const validateRequest = (ep: ApiEndpoint): string | null => {
     }
     if (ep.id === 'corpora-import') {
         const file = formState[ep.id].form.file;
-        const folder = String(formState[ep.id].form.folder_path ?? '').trim();
-        if (!(file instanceof File) && !folder) {
-            return '请上传文档/.zip，或填写本机文件夹路径';
+        if (!(file instanceof File)) {
+            return '请上传文档/.zip';
         }
     }
     for (const p of ep.formParams ?? []) {
@@ -1236,12 +1236,38 @@ const sendRequest = async (ep: ApiEndpoint) => {
 }
 
 .result-table :deep(.el-table__header),
-.result-table :deep(.el-table__body) {
-    table-layout: fixed;
+.result-table :deep(.el-table__body),
+.result-table :deep(table) {
+    table-layout: auto !important;
+    width: 100% !important;
 }
 
 .result-table :deep(.el-table__cell) {
     text-align: left;
+}
+
+/* 前面列：按内容撑开、单行不折 */
+.result-table :deep(th.col-fit),
+.result-table :deep(td.col-fit) {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.result-table :deep(th.col-fit .cell),
+.result-table :deep(td.col-fit .cell) {
+    white-space: nowrap;
+}
+
+/* 最后列：吃掉剩余宽度，长文本省略（悬停仍看全文） */
+.result-table :deep(th.col-fill),
+.result-table :deep(td.col-fill) {
+    width: 99%;
+}
+
+.result-table :deep(td.col-fill .cell) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .result-pagination {

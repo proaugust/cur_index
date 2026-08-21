@@ -75,6 +75,23 @@ def get_distinct_source_files(db: Session) -> list[str]:
     return [row[0] for row in rows]
 
 
+def list_source_files_page(
+    db: Session,
+    source_file: str | None = None,
+    *,
+    page: int = 1,
+    page_size: int = 10,
+) -> tuple[list[str], int]:
+    query = db.query(models.DocumentChunk.source_file).distinct()
+    file_pattern = source_file_like_pattern(source_file)
+    if file_pattern:
+        query = query.filter(models.DocumentChunk.source_file.ilike(file_pattern))
+    query = query.order_by(models.DocumentChunk.source_file)
+    total = int(query.count())
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return [row[0] for row in rows], total
+
+
 def get_document_chunks(
     db: Session,
     source_file: str | None = None,
@@ -464,7 +481,7 @@ DEFAULT_FEATURE_INTROS: list[tuple[str, str, str]] = [
     ("rag", "page", "RAG 检索"),
     ("rag", "import", "导入文档"),
     ("rag", "listByFile", "按文件名查"),
-    ("rag", "search", "向量检索"),
+    ("rag", "search", "混合检索，重排，top5"),
     ("rag", "search-and-llm", "搜索+LLM"),
     ("ai-chat", "page", "AI 训练提问"),
     ("agent", "single", "单智能体"),

@@ -37,6 +37,12 @@ export const menuData: Menus[] = [
                 index: '/system-login-logs',
                 titleKey: 'menu.systemLoginLogs',
             },
+            {
+                id: '15',
+                pid: '1',
+                index: '/system-api-access',
+                titleKey: 'menu.systemApiAccess',
+            },
         ],
     },
     {
@@ -74,6 +80,38 @@ export const menuData: Menus[] = [
                 pid: '8',
                 index: '/demo-rag',
                 titleKey: 'menu.demoRag',
+                children: [
+                    {
+                        id: '82',
+                        pid: '82',
+                        index: '/demo-rag/document',
+                        titleKey: 'pages.rag.documentSection',
+                    },
+                    {
+                        id: '82',
+                        pid: '82',
+                        index: '/demo-rag/corpora',
+                        titleKey: 'pages.rag.corporaSection',
+                    },
+                    {
+                        id: '82',
+                        pid: '82',
+                        index: '/demo-rag/nl2sql',
+                        titleKey: 'pages.rag.nl2sqlSection',
+                    },
+                    {
+                        id: '82',
+                        pid: '82',
+                        index: '/demo-rag/longdoc',
+                        titleKey: 'pages.rag.longdocSection',
+                    },
+                    {
+                        id: '82',
+                        pid: '82',
+                        index: '/demo-rag/web',
+                        titleKey: 'pages.rag.webSection',
+                    },
+                ],
             },
             {
                 id: '83',
@@ -84,8 +122,40 @@ export const menuData: Menus[] = [
             {
                 id: '84',
                 pid: '8',
-                index: '/demo-agent',
+                index: '84',
                 titleKey: 'menu.demoAgent',
+                children: [
+                    {
+                        id: '84',
+                        pid: '84',
+                        index: '/demo-agent/native',
+                        titleKey: 'pages.agent.nativeSection',
+                    },
+                    {
+                        id: '84',
+                        pid: '84',
+                        index: '/demo-agent/langchain',
+                        titleKey: 'pages.agent.langchainSection',
+                    },
+                    {
+                        id: '84',
+                        pid: '84',
+                        index: '/demo-agent/autogen',
+                        titleKey: 'pages.agent.autogenSection',
+                    },
+                    {
+                        id: '84',
+                        pid: '84',
+                        index: '/demo-agent/crewai',
+                        titleKey: 'pages.agent.crewaiSection',
+                    },
+                    {
+                        id: '84',
+                        pid: '84',
+                        index: '/demo-agent/agentic',
+                        titleKey: 'pages.agent.agenticSection',
+                    },
+                ],
             },
             {
                 id: '85',

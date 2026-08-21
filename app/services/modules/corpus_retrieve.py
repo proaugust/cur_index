@@ -23,13 +23,13 @@ from app.services.modules.chunk_table_ops import (
     row_to_dict,
     source_file_like_pattern,
 )
+from app.services.modules.corpus_search_filters import apply_corpus_name_filter, merge_corpus_names
 from app.services.shared.embedding import embed_query
 
 _RETRIEVE_MODES = frozenset({"vector", "hybrid", "hybrid_rerank"})
 _DEFAULT_RECALL_K = 30
 _PARENT_MAX_CHARS = 1500
 _W_VECTOR, _W_FTS, _W_TITLE, _W_PATH = 0.55, 0.35, 0.07, 0.03
-
 
 @dataclass
 class RetrievedHit:
@@ -75,13 +75,14 @@ def recall_vector(
     source_file: str | None,
     lang: ChunkLang,
     corpus_name: str | None = None,
+    corpus_names: list[str] | None = None,
 ) -> list[RetrievedHit]:
     model = get_chunk_model(table_name)
+    names = merge_corpus_names(corpus_name, corpus_names)
     query_vector = embed_query(query.strip())
     distance_expr = model.embedding.cosine_distance(query_vector).label("distance")
     q = db.query(model, distance_expr).filter(model.embedding.isnot(None)).filter(model.lang == lang)
-    if corpus_name is not None:
-        q = q.filter(model.corpus_name == corpus_name)
+    q = apply_corpus_name_filter(q, model, names)
     file_pattern = source_file_like_pattern(source_file)
     if file_pattern:
         q = q.filter(model.source_file.ilike(file_pattern))
@@ -101,6 +102,7 @@ def recall_fts(
     source_file: str | None,
     lang: ChunkLang,
     corpus_name: str | None = None,
+    corpus_names: list[str] | None = None,
 ) -> list[RetrievedHit]:
     prepared = prepare_query_text(query, lang)
     if not prepared:
@@ -108,9 +110,16 @@ def recall_fts(
     cfg = ts_config(lang)
     params: dict[str, Any] = {"q": prepared, "limit": recall_k, "lang": lang}
     extra = ""
-    if corpus_name is not None:
-        extra += " AND corpus_name = :corpus_name"
-        params["corpus_name"] = corpus_name
+    names = merge_corpus_names(corpus_name, corpus_names)
+    if names is not None:
+        if len(names) == 1:
+            extra += " AND corpus_name = :corpus_name"
+            params["corpus_name"] = names[0]
+        else:
+            placeholders = ", ".join(f":cn{i}" for i in range(len(names)))
+            extra += f" AND corpus_name IN ({placeholders})"
+            for i, n in enumerate(names):
+                params[f"cn{i}"] = n
     file_pattern = source_file_like_pattern(source_file)
     if file_pattern:
         extra += " AND source_file ILIKE :source_file_pattern"
@@ -179,16 +188,19 @@ def expand_parents(
     *,
     table_name: str,
     corpus_name: str | None = None,
+    corpus_names: list[str] | None = None,
     max_chars: int = _PARENT_MAX_CHARS,
 ) -> list[RetrievedHit]:
     """按 section_path 拼同节上下文到 expanded_content；同节只保留一条。"""
     if not hits:
         return []
     model = get_chunk_model(table_name)
-    seen: set[tuple[str, str]] = set()
+    names = merge_corpus_names(corpus_name, corpus_names)
+    seen: set[tuple[str, str, str]] = set()
     out: list[RetrievedHit] = []
     for hit in hits:
-        key = (hit.row.source_file, hit.row.section_path or "")
+        row_corpus = getattr(hit.row, "corpus_name", None) or ""
+        key = (row_corpus, hit.row.source_file, hit.row.section_path or "")
         if key in seen:
             continue
         seen.add(key)
@@ -197,8 +209,10 @@ def expand_parents(
             .filter(model.source_file == hit.row.source_file)
             .filter(model.section_path == hit.row.section_path)
         )
-        if corpus_name is not None:
-            q = q.filter(model.corpus_name == corpus_name)
+        if row_corpus:
+            q = q.filter(model.corpus_name == row_corpus)
+        else:
+            q = apply_corpus_name_filter(q, model, names)
         siblings = q.order_by(model.chunk_index, model.id).all()
         if len(siblings) <= 1:
             out.append(hit)
@@ -222,6 +236,7 @@ def retrieve(
     *,
     table_name: str = BUSINESS_CHUNK_TABLE,
     corpus_name: str | None = None,
+    corpus_names: list[str] | None = None,
     limit: int = 5,
     min_similarity: float = 0.55,
     source_file: str | None = None,
@@ -233,10 +248,7 @@ def retrieve(
     mode = (retrieve_mode or "hybrid").strip().lower()
     if mode not in _RETRIEVE_MODES:
         raise ValueError(f"不支持的 retrieve_mode: {retrieve_mode}")
-    if table_name == BUSINESS_CHUNK_TABLE and not corpus_name:
-        raise ValueError("业务知识库检索必须指定 corpus_name")
-    if table_name == GENERAL_CHUNK_TABLE:
-        corpus_name = None
+    names = None if table_name == GENERAL_CHUNK_TABLE else merge_corpus_names(corpus_name, corpus_names)
 
     resolved_lang = normalize_lang(lang or DEFAULT_CHUNK_LANG)
     use_fts = mode in ("hybrid", "hybrid_rerank")
@@ -247,7 +259,7 @@ def retrieve(
         recall_k=k,
         source_file=source_file,
         lang=resolved_lang,
-        corpus_name=corpus_name,
+        corpus_names=names,
     )
     vector_hits = recall_vector(db, query, **common)
     fts_hits = recall_fts(db, query, **common) if use_fts else []
@@ -258,15 +270,22 @@ def retrieve(
     else:
         hits.sort(key=lambda h: h.vector_sim, reverse=True)
 
+    fts_score_gate = min_similarity * 0.6
     filtered: list[RetrievedHit] = []
     for hit in hits:
         if hit.from_vector and hit.vector_sim >= min_similarity:
             filtered.append(hit)
-        elif hit.from_fts:
-            filtered.append(hit)
+        elif hit.from_fts and not hit.from_vector:
+            if use_fusion and hit.fusion_score >= fts_score_gate:
+                filtered.append(hit)
+            elif not use_fusion:
+                filtered.append(hit)
+        elif hit.from_fts and hit.from_vector:
+            if use_fusion and hit.fusion_score >= min_similarity * 0.8:
+                filtered.append(hit)
     hits = filtered[:limit]
     if expand_parent:
-        hits = expand_parents(db, hits, table_name=table_name, corpus_name=corpus_name)
+        hits = expand_parents(db, hits, table_name=table_name, corpus_names=names)
 
     results: list[dict[str, Any]] = []
     for hit in hits:

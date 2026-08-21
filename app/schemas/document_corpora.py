@@ -32,6 +32,14 @@ class CorpusCategorySuggestResult(BaseModel):
     score: float = 0.0
 
 
+class CorpusSearchFiltersSuggest(BaseModel):
+    categories: list[str] = Field(default_factory=list)
+    corpus_names: list[str] = Field(default_factory=list)
+    source_file: str | None = None
+    retrieve_mode: str = "hybrid"
+    rationale: str = ""
+
+
 class CorpusImportResult(BaseModel):
     corpus_name: str
     table_name: str
@@ -58,10 +66,11 @@ class CorpusImportJobStatus(BaseModel):
 
 class CorpusFileItem(BaseModel):
     source_file: str
+    corpus_name: str | None = None
 
 
 class CorpusFileListResult(BaseModel):
-    corpus_name: str
+    corpus_name: str | None = None
     table_name: str
     files: list[CorpusFileItem]
 

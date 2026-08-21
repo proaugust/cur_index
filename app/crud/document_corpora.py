@@ -125,28 +125,57 @@ def bulk_insert_chunks(
     return len(items)
 
 
-def list_source_files(db: Session, corpus_name: str) -> list[str]:
+def list_source_files(db: Session, corpus_name: str | None = None) -> list[tuple[str, str]]:
     model = _model()
-    rows = (
-        db.query(model.source_file)
-        .filter(model.corpus_name == corpus_name)
-        .distinct()
-        .order_by(model.source_file)
-        .all()
-    )
-    return [row[0] for row in rows]
+    query = db.query(model.corpus_name, model.source_file).distinct()
+    if corpus_name:
+        query = query.filter(model.corpus_name == corpus_name)
+    rows = query.order_by(model.corpus_name, model.source_file).all()
+    return [(row[0], row[1]) for row in rows]
 
 
-def list_chunks(
+def list_source_files_page(
     db: Session,
-    corpus_name: str,
+    corpus_name: str | None = None,
     source_file: str | None = None,
     *,
     page: int = 1,
     page_size: int = 10,
+) -> tuple[list[tuple[str, str]], int]:
+    model = _model()
+    query = db.query(model.corpus_name, model.source_file).distinct()
+    if corpus_name:
+        query = query.filter(model.corpus_name == corpus_name)
+    file_pattern = source_file_like_pattern(source_file)
+    if file_pattern:
+        query = query.filter(model.source_file.ilike(file_pattern))
+    query = query.order_by(model.corpus_name, model.source_file)
+    total = int(query.count())
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return [(row[0], row[1]) for row in rows], total
+
+
+def list_chunks(
+    db: Session,
+    corpus_name: str | None = None,
+    source_file: str | None = None,
+    *,
+    corpus_names: list[str] | None = None,
+    page: int = 1,
+    page_size: int = 10,
 ) -> tuple[list, int]:
     model = _model()
-    query = db.query(model).filter(model.corpus_name == corpus_name)
+    query = db.query(model)
+    names = [n for n in (corpus_names or []) if n] if corpus_names is not None else None
+    if names is not None:
+        if len(names) == 1:
+            query = query.filter(model.corpus_name == names[0])
+        elif names:
+            query = query.filter(model.corpus_name.in_(names))
+        else:
+            return [], 0
+    elif corpus_name:
+        query = query.filter(model.corpus_name == corpus_name)
     file_pattern = source_file_like_pattern(source_file)
     if file_pattern:
         query = query.filter(model.source_file.ilike(file_pattern))

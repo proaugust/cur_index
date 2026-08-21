@@ -22,8 +22,8 @@
                             <el-sub-menu v-if="subItem.children" :index="subItem.index">
                                 <template #title>{{ menuTitle(subItem) }}</template>
                                 <el-menu-item
-                                    v-for="(threeItem, i) in subItem.children"
-                                    :key="i"
+                                    v-for="threeItem in subItem.children"
+                                    :key="threeItem.index"
                                     :index="threeItem.index"
                                 >
                                     {{ menuTitle(threeItem) }}

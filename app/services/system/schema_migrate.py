@@ -1,10 +1,10 @@
 """轻量数据库迁移：按文件名排序执行 app/db_migrations/ 下未跑过的脚本。
 
-新增迁移：
-  - SQL：003_short_name.sql（单条或多条以 ; 分隔）
-  - Python：004_short_name.py，实现 upgrade(engine: Engine) -> None
+目录可为空（已有库结构已对齐）。以后有表结构变更再从 001 加：
+  - SQL：001_short_name.sql（单条或多条以 ; 分隔）
+  - Python：001_short_name.py，实现 upgrade(engine: Engine) -> None
 
-已执行记录保存在 schema_migrations 表；本地与部署环境在启动时各跑各库，发版即同步结构。
+已执行记录保存在 schema_migrations 表；启动时只跑尚未记录的文件。
 """
 
 from __future__ import annotations

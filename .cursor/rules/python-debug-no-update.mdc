@@ -1,0 +1,31 @@
+---
+description: 勿更新 Python 调试相关扩展，F5 问题用终端或配置绕过
+alwaysApply: true
+---
+
+# Python 调试扩展：禁止主动更新
+
+用户已明确：**以后不要更新 Python 调试相关插件**（`ms-python.debugpy`、`ms-python.python`、`ms-python.vscode-python-envs`）。更新曾导致 Cursor 中「Python extension loading...」死循环，排查成本高。
+
+## AI 行为
+
+- **不要**建议用户 Update / 升级上述扩展，除非用户**明确要求**更新。
+- **不要**在排查 F5 / 调试问题时，第一步就提议重装或升级 Python 扩展。
+- 优先用**终端直接跑**或改 `.vscode/launch.json` / `.vscode/settings.json`，而不是动扩展版本。
+
+## 本地开发启动（绕过 F5）
+
+```powershell
+cd D:\code\py\demo\cur_index
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+## 工作区约定（已生效，勿随意改）
+
+- `python.useEnvironmentsExtension`: `false`
+- `python.defaultInterpreterPath`: `${workspaceFolder}/.venv/Scripts/python.exe`
+- `Python Environments` 扩展保持 **Disabled**
+
+## 若用户仍要 F5
+
+仅在不涉及「更新扩展」的前提下排查：Reload Window、确认 `launch.json` 里 `python` 指向 `.venv`、检查是否多版本 debugpy 并存（删重复旧版 ≠ 升级到最新）。

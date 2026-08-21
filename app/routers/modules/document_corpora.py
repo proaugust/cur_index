@@ -10,7 +10,9 @@ from app.crud import document_corpora as corpus_crud
 from app.models import User
 from app.services.modules.chunk_lang import resolve_lang
 from app.services.modules.corpus_categories import list_category_options, normalize_category, suggest_category
+from app.services.modules.corpus_import_io import derive_corpus_name
 from app.services.modules.corpus_import_jobs import create_import_job, get_import_job, run_import_job
+from app.services.modules.corpus_search_filters import split_csv
 from app.services.modules.corpus_search_service import CorpusSearchService
 from app.services.shared.embedding import embed_text
 from app.services.shared.structure_chunker import DEFAULT_MAX_CHUNK, DEFAULT_MIN_CHUNK, DEFAULT_OVERLAP
@@ -85,12 +87,18 @@ def get_corpus_import_job(
 )
 async def import_corpus(
     background_tasks: BackgroundTasks,
-    corpus_name: str = Form(..., description="资料名（相同则写入同一 document_business_chunks 分区）"),
+    corpus_name: str | None = Form(
+        default=None,
+        description="资料库名；留空则 ZIP 内顶级文件夹名 / 上传文件名（去扩展名）/ 本机目录名",
+    ),
     file: UploadFile | None = File(
         default=None,
-        description="单文件 .md/.txt 或 .zip（与 folder_path 三选一）",
+        description="单文件 .md/.txt 或 .zip（推荐；与 folder_path 二选一）",
     ),
-    folder_path: str | None = Form(default=None, description="本机文件夹绝对路径"),
+    folder_path: str | None = Form(
+        default=None,
+        description="仅本地调试：服务端本机文件夹绝对路径（生产请用上传）",
+    ),
     replace_existing: bool = Form(True, description="覆盖同文件名已有切块"),
     chunk_strategy: str = Form("structure", description="structure | legacy"),
     category: str = Form("other", description="资料分类：policy/product/support/legal/report/other"),
@@ -113,8 +121,18 @@ async def import_corpus(
             except UnicodeDecodeError as exc:
                 raise HTTPException(status_code=400, detail="文件编码必须是 UTF-8") from exc
 
+    has_upload = bool(file_name and (file_text is not None or file_bytes is not None))
+    has_folder = bool(folder_path and folder_path.strip())
+    if not has_upload and not has_folder:
+        raise HTTPException(status_code=400, detail="请上传 .md/.txt/.zip，或填写本机 folder_path")
+
+    resolved_name = (corpus_name or "").strip() or derive_corpus_name(
+        file_name=file_name,
+        folder_path=folder_path,
+        zip_bytes=file_bytes,
+    )
     params = {
-        "corpus_name": corpus_name,
+        "corpus_name": resolved_name,
         "file_name": file_name,
         "file_text": file_text,
         "file_bytes": file_bytes,
@@ -126,19 +144,14 @@ async def import_corpus(
         "max_chunk_len": max_chunk_len,
         "chunk_overlap": chunk_overlap,
     }
-    has_upload = bool(file_name and (file_text is not None or file_bytes is not None))
-    has_folder = bool(folder_path and folder_path.strip())
-    if not has_upload and not has_folder:
-        raise HTTPException(status_code=400, detail="请上传 .md/.txt/.zip，或填写本机 folder_path")
-
-    job_id = create_import_job(corpus_name=corpus_name.strip())
+    job_id = create_import_job(corpus_name=resolved_name)
     background_tasks.add_task(run_import_job, job_id, params)
     return schemas.CorpusImportJobAccepted(job_id=job_id)
 
 
 @router.get("/files", response_model=schemas.CorpusFileListResult, summary="资料库内文件名列表")
 def list_corpus_files(
-    corpus_name: str = Query(..., description="资料名"),
+    corpus_name: str | None = Query(None, description="资料名（留空查全部资料库）"),
     service: CorpusSearchService = Depends(_search_service),
     _: User = Depends(require_permission("82.corpora-files", name="资料库文件列表")),
 ) -> schemas.CorpusFileListResult:
@@ -147,11 +160,11 @@ def list_corpus_files(
 
 @router.get(
     "/listByFile",
-    response_model=schemas.DocumentChunksPage,
-    summary="资料库按文件名查切块",
+    response_model=schemas.SourceFileListPage,
+    summary="资料库按文件名查（仅文件路径）",
 )
 def list_corpus_by_file(
-    corpus_name: str = Query(..., description="资料名"),
+    corpus_name: str | None = Query(None, description="资料名（留空查全部资料库）"),
     source_file: str | None = Query(
         default=None, description="按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
     ),
@@ -159,7 +172,7 @@ def list_corpus_by_file(
     page_size: int = Query(default=10, ge=1, le=100),
     service: CorpusSearchService = Depends(_search_service),
     _: User = Depends(require_permission("82.corpora-listByFile", name="资料库按文件名查")),
-) -> schemas.DocumentChunksPage:
+) -> schemas.SourceFileListPage:
     return service.list_by_file(
         corpus_name, source_file=source_file, page=page, page_size=page_size
     )
@@ -270,12 +283,27 @@ def delete_corpus_chunk(
 
 
 @router.get(
+    "/search/suggest-filters",
+    response_model=schemas.CorpusSearchFiltersSuggest,
+    summary="根据问题建议检索过滤条件（规则）",
+)
+def suggest_corpus_search_filters(
+    q: str = Query(..., min_length=1, description="用户问题"),
+    service: CorpusSearchService = Depends(_search_service),
+    _: User = Depends(require_permission("82.corpora-search", name="资料库检索")),
+) -> schemas.CorpusSearchFiltersSuggest:
+    return service.suggest_filters(q)
+
+
+@router.get(
     "/search",
     response_model=list[schemas.DocumentChunkSearchResult],
     summary="业务知识库检索（vector / hybrid）",
 )
 def search_corpus(
-    corpus_name: str = Query(..., description="资料名"),
+    corpus_name: str | None = Query(None, description="资料名（单库；与 corpus_names 并存时取并集）"),
+    corpus_names: str | None = Query(None, description="多资料库名，逗号分隔"),
+    categories: str | None = Query(None, description="多分类，逗号分隔；展开为资料库后与 corpus_names 并集"),
     q: str | None = Query(default=None, description="查询文本"),
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.55, ge=0.0, le=1.0),
@@ -298,6 +326,8 @@ def search_corpus(
         min_similarity=min_similarity,
         retrieve_mode=retrieve_mode,
         expand_parent=expand_parent,
+        corpus_names=split_csv(corpus_names),
+        categories=split_csv(categories),
     )
 
 
@@ -307,10 +337,13 @@ def search_corpus(
     summary="业务知识库检索 + LLM 润色",
 )
 def search_corpus_and_llm(
-    corpus_name: str = Query(..., description="资料名"),
+    corpus_name: str | None = Query(None, description="资料名（留空检索全部资料库）"),
+    corpus_names: str | None = Query(None, description="多资料库名，逗号分隔"),
+    categories: str | None = Query(None, description="多分类，逗号分隔"),
     q: str | None = Query(default=None, description="查询文本"),
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.55, ge=0.0, le=1.0),
+    source_file: str | None = Query(default=None, description="可选文件名过滤"),
     retrieve_mode: str = Query(
         default="hybrid",
         description="vector | hybrid | hybrid_rerank",
@@ -326,4 +359,7 @@ def search_corpus_and_llm(
         min_similarity=min_similarity,
         retrieve_mode=retrieve_mode,
         expand_parent=expand_parent,
+        source_file=source_file,
+        corpus_names=split_csv(corpus_names),
+        categories=split_csv(categories),
     )

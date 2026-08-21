@@ -1,0 +1,5 @@
+# 仅跳过代码索引，不影响 Python 扩展读取解释器
+venv/
+env/
+.venv/
+ENV/

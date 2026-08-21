@@ -13,8 +13,8 @@ from app.services.shared.embedding import embed_text
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 _SEARCH_DESC = (
-    "retrieve_mode=vector 时仅用 BGE+pgvector；hybrid / hybrid_rerank 为向量+全文召回并做 C1 融合重排。"
-    "入库与查询须使用同一 embedding 模型；更换模型后需重新导入文档。"
+    "默认 hybrid_rerank：向量+全文召回后做 C1 融合重排，返回 top 5。"
+    "retrieve_mode=vector 时仅用 BGE+pgvector。入库与查询须使用同一 embedding 模型；更换模型后需重新导入文档。"
 )
 _LLM_DESC = (
     "返回两部分：① polished_answer — 将全部检索片段交给大模型综合润色后的丰富回答；"
@@ -56,7 +56,7 @@ async def import_document(
     )
 
 
-@router.get("/listByFile", response_model=schemas.DocumentChunksPage)
+@router.get("/listByFile", response_model=schemas.SourceFileListPage, summary="按文件名查（仅文件路径）")
 def listByFile(
     source_file: str | None = Query(
         default=None, description="按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
@@ -65,9 +65,12 @@ def listByFile(
     page_size: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.listByFile", name="按文件名查")),
-) -> schemas.DocumentChunksPage:
-    rows, total = crud.get_document_chunks(db, source_file=source_file, page=page, page_size=page_size)
-    return schemas.DocumentChunksPage(items=rows, total=total, page=page, page_size=page_size)
+) -> schemas.SourceFileListPage:
+    files, total = crud.list_source_files_page(
+        db, source_file=source_file, page=page, page_size=page_size
+    )
+    items = [schemas.SourceFileItem(source_file=name) for name in files]
+    return schemas.SourceFileListPage(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.delete("", response_model=schemas.DocumentClearResult, summary="清空通用文档库切块")
@@ -82,7 +85,7 @@ def clear_documents(
 @router.get(
     "/search",
     response_model=list[schemas.DocumentChunkSearchResult],
-    summary="通用文档库检索（vector / hybrid）",
+    summary="通用文档库混合检索（重排 / top5）",
     description=_SEARCH_DESC,
 )
 def search(
@@ -90,12 +93,12 @@ def search(
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.55, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     retrieve_mode: str = Query(
-        default="hybrid",
-        description="vector | hybrid | hybrid_rerank（hybrid=向量+全文+C1融合）",
+        default="hybrid_rerank",
+        description="vector | hybrid | hybrid_rerank（hybrid_rerank=向量+全文+C1融合重排）",
     ),
     expand_parent: bool = Query(default=False, description="按 section_path 扩同节上下文"),
     service: DocumentSearchService = Depends(get_document_search_service),
-    _: User = Depends(require_permission("82.search", name="向量检索")),
+    _: User = Depends(require_permission("82.search", name="混合检索")),
 ) -> list[schemas.DocumentChunkSearchResult]:
     return service.search(
         q,

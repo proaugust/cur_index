@@ -176,3 +176,23 @@ class LoginLogListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class ApiAccessStatItem(BaseModel):
+    id: int
+    user_id: int
+    username: str = ""
+    method: str
+    path: str
+    hit_count: int
+    last_status: int
+    last_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiAccessStatListResponse(BaseModel):
+    items: list[ApiAccessStatItem]
+    total: int
+    page: int
+    page_size: int

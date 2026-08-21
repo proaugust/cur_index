@@ -1,4 +1,4 @@
-/** 业务资料库 Browse：分类 → 选库 → 检索 */
+/** 业务资料库 Browse：分类多选 → 选库多选 → AI 建议过滤 → 检索 */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
@@ -7,7 +7,7 @@ import {
     listCorpusCategories,
     searchCorpus,
     searchCorpusAndLlm,
-    suggestCorpusCategory,
+    suggestCorpusSearchFilters,
 } from '@/api';
 import { usePermissStore } from '@/store/permiss';
 
@@ -25,25 +25,33 @@ export function useCorporaBrowse() {
 
     const mode = ref<BrowseMode>('search');
     const loading = ref(false);
+    const suggestLoading = ref(false);
     const corporaLoading = ref(false);
     const queried = ref(false);
     const rows = ref<Row[]>([]);
     const polishedAnswer = ref('');
+    const filterRationale = ref('');
     const lastQuery = ref('');
     const lastJson = ref('');
     const page = ref(1);
     const pageSize = 10;
     const categories = ref<Cat[]>([]);
-    const corpora = ref<Corpus[]>([]);
+    const allCorpora = ref<Corpus[]>([]);
     const form = reactive({
-        category: '',
-        corpus_name: '',
+        categories: [] as string[],
+        corpus_names: [] as string[],
         source_file: '',
         q: '',
         limit: 5,
         min_similarity: 0.55,
         retrieve_mode: 'hybrid',
         expand_parent: true,
+    });
+
+    const corpora = computed(() => {
+        if (!form.categories.length) return allCorpora.value;
+        const set = new Set(form.categories);
+        return allCorpora.value.filter((c) => c.category && set.has(c.category));
     });
 
     const loadCategories = async () => {
@@ -58,39 +66,52 @@ export function useCorporaBrowse() {
     const loadCorpora = async () => {
         corporaLoading.value = true;
         try {
-            const res = await listCorpora(form.category ? { category: form.category } : undefined);
-            corpora.value = (res.data as Corpus[]) ?? [];
-            if (form.corpus_name && !corpora.value.some((c) => c.name === form.corpus_name)) {
-                form.corpus_name = '';
-            }
-            if (!form.corpus_name && corpora.value.length === 1) {
-                form.corpus_name = corpora.value[0].name;
-            }
+            const res = await listCorpora();
+            allCorpora.value = (res.data as Corpus[]) ?? [];
+            pruneCorpusNames();
         } catch {
-            corpora.value = [];
+            allCorpora.value = [];
         } finally {
             corporaLoading.value = false;
         }
     };
 
-    const onCategoryChange = () => {
-        form.corpus_name = '';
-        loadCorpora();
+    const pruneCorpusNames = () => {
+        const allowed = new Set(corpora.value.map((c) => c.name));
+        form.corpus_names = form.corpus_names.filter((n) => allowed.has(n));
     };
 
-    const suggestCat = async () => {
+    const onCategoryChange = () => {
+        pruneCorpusNames();
+    };
+
+    const suggestFilters = async () => {
+        const q = form.q.trim();
+        if (!q) {
+            ElMessage.warning(t('pages.rag.corporaBrowse.queryRequired'));
+            return;
+        }
+        suggestLoading.value = true;
         try {
-            const res = await suggestCorpusCategory({ q: form.q.trim() });
-            const data = res.data as { category?: string; label?: string };
-            if (data.category) {
-                form.category = data.category;
-                ElMessage.success(
-                    `${t('pages.rag.corporaBrowse.suggestCategory')}: ${data.label || data.category}`,
-                );
-                await loadCorpora();
-            }
+            const res = await suggestCorpusSearchFilters({ q });
+            const data = res.data as {
+                categories?: string[];
+                corpus_names?: string[];
+                source_file?: string | null;
+                retrieve_mode?: string;
+                rationale?: string;
+            };
+            form.categories = data.categories ?? [];
+            const allNames = new Set(allCorpora.value.map((c) => c.name));
+            form.corpus_names = (data.corpus_names ?? []).filter((n) => allNames.has(n));
+            if (data.source_file != null) form.source_file = data.source_file;
+            if (data.retrieve_mode) form.retrieve_mode = data.retrieve_mode;
+            filterRationale.value = data.rationale ?? '';
+            ElMessage.success(t('pages.rag.corporaBrowse.suggestDone'));
         } catch {
             ElMessage.error(t('pages.rag.corporaBrowse.failed'));
+        } finally {
+            suggestLoading.value = false;
         }
     };
 
@@ -127,35 +148,24 @@ export function useCorporaBrowse() {
             : undefined;
 
     const runQuery = async () => {
-        const name = form.corpus_name.trim();
-        if (!name) {
-            ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
-            return;
-        }
+        const sourceFile = form.source_file.trim();
         loading.value = true;
         queried.value = true;
         polishedAnswer.value = '';
         rows.value = [];
         page.value = 1;
         const q = form.q.trim() || undefined;
-        const payload =
-            mode.value === 'search'
-                ? {
-                      corpus_name: name,
-                      q,
-                      limit: form.limit,
-                      min_similarity: form.min_similarity,
-                      source_file: form.source_file.trim() || undefined,
-                      retrieve_mode: form.retrieve_mode,
-                  }
-                : {
-                      corpus_name: name,
-                      q,
-                      limit: form.limit,
-                      min_similarity: form.min_similarity,
-                      retrieve_mode: form.retrieve_mode,
-                      expand_parent: form.expand_parent,
-                  };
+        const payload = {
+            categories: form.categories.length ? form.categories.join(',') : undefined,
+            corpus_names: form.corpus_names.length ? form.corpus_names.join(',') : undefined,
+            q,
+            limit: form.limit,
+            min_similarity: form.min_similarity,
+            retrieve_mode: form.retrieve_mode,
+            ...(mode.value === 'search'
+                ? { source_file: sourceFile || undefined }
+                : { expand_parent: form.expand_parent, source_file: sourceFile || undefined }),
+        };
         lastQuery.value = JSON.stringify(payload, null, 2);
         lastJson.value = '';
         try {
@@ -183,10 +193,12 @@ export function useCorporaBrowse() {
         canLlm,
         mode,
         loading,
+        suggestLoading,
         corporaLoading,
         queried,
         rows,
         polishedAnswer,
+        filterRationale,
         page,
         pageSize,
         categories,
@@ -197,7 +209,7 @@ export function useCorporaBrowse() {
         lastQuery,
         lastJson,
         onCategoryChange,
-        suggestCat,
+        suggestFilters,
         runQuery,
     };
 }

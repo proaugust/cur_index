@@ -1,4 +1,4 @@
-"""RAG 场景演示 API：NL2SQL / 长文档 / Web 时效 / Agentic。"""
+"""RAG 场景演示 API：NL2SQL / 长文档 / Web 时效。"""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -7,7 +7,6 @@ from app import schemas
 from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User
-from app.services.modules.rag_agentic_service import RagAgenticService
 from app.services.modules.rag_longdoc_service import RagLongdocService
 from app.services.modules.rag_nl2sql_service import RagNl2sqlService
 from app.services.modules.rag_web_search_service import RagWebSearchService
@@ -42,15 +41,3 @@ def rag_web_search(
 ) -> schemas.RagWebSearchResult:
     result = RagWebSearchService().search_and_answer(body.question, count=body.count)
     return schemas.RagWebSearchResult(**result)
-
-
-@router.post("/agentic", response_model=schemas.RagAgenticResult, summary="多步 Agentic RAG")
-def rag_agentic(
-    body: schemas.RagAgenticRequest,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_permission("82.agentic", name="Agentic RAG演示")),
-) -> schemas.RagAgenticResult:
-    result = RagAgenticService(db).run(
-        body.corpus_name, body.question, per_step_limit=body.per_step_limit
-    )
-    return schemas.RagAgenticResult(**result)

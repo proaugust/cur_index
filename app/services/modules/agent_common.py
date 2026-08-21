@@ -7,7 +7,7 @@ from typing import Literal
 import httpx
 
 AgentMode = Literal["single", "sequential", "routing", "reflection"]
-AgentEngine = Literal["native", "langchain"]
+AgentEngine = Literal["native", "langchain", "autogen", "crewai"]
 AgentStepStatus = Literal["pending", "running", "done", "error"]
 
 REFLECTION_MAX_ROUNDS = 2

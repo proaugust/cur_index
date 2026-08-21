@@ -51,20 +51,29 @@ const ready = ref(false);
 
 const menuCode = computed(() => MENU_CODE_MAP[props.endpointKey]);
 
-const visibleEndpoints = computed(() =>
-    endpoints.value.filter((ep) => permiss.hasApi(menuCode.value, ep.id)),
-);
+const visibleEndpoints = computed(() => {
+    const filtered = endpoints.value.filter((ep) => permiss.hasApi(menuCode.value, ep.id));
+    if (filtered.length) return filtered;
+    // 有页面权限但本地 API 码未同步时，仍展示调试面板（后端会再鉴权）
+    return permiss.hasRoutePermiss(menuCode.value) ? endpoints.value : [];
+});
 
 const loadEndpoints = async () => {
-    const mod = await import('@/config/api-endpoints');
-    const map: Record<typeof props.endpointKey, ApiEndpoint[]> = {
-        complaint: mod.complaintEndpoints,
-        document: mod.getDocumentEndpoints(t, te),
-        corpora: mod.getCorporaEndpoints(t, te),
-        chat: mod.chatEndpoints,
-    };
-    endpoints.value = map[props.endpointKey];
-    ready.value = true;
+    try {
+        const mod = await import('@/config/api-endpoints');
+        const map: Record<typeof props.endpointKey, ApiEndpoint[]> = {
+            complaint: mod.complaintEndpoints,
+            document: mod.getDocumentEndpoints(t, te),
+            corpora: mod.getCorporaEndpoints(t, te),
+            chat: mod.chatEndpoints,
+        };
+        endpoints.value = map[props.endpointKey];
+    } catch (err) {
+        console.error('加载接口列表失败', err);
+        endpoints.value = [];
+    } finally {
+        ready.value = true;
+    }
 };
 
 onMounted(loadEndpoints);

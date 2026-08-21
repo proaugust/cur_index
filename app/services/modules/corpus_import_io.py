@@ -11,6 +11,53 @@ from fastapi import HTTPException
 _TEXT_SUFFIXES = {".md", ".markdown", ".txt"}
 
 
+def _zip_root_folder_name(zip_bytes: bytes) -> str | None:
+    """ZIP 内文本成员若共享同一顶级目录，返回该文件夹名。"""
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except zipfile.BadZipFile:
+        return None
+    roots: set[str] = set()
+    with zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            name = info.filename.replace("\\", "/")
+            if name.startswith("__MACOSX/") or "/__MACOSX/" in name:
+                continue
+            path = PurePosixPath(name)
+            if ".." in path.parts or path.suffix.lower() not in _TEXT_SUFFIXES:
+                continue
+            if len(path.parts) < 2:
+                return None
+            roots.add(path.parts[0])
+            if len(roots) > 1:
+                return None
+    return next(iter(roots)) if len(roots) == 1 else None
+
+
+def derive_corpus_name(
+    *,
+    file_name: str | None,
+    folder_path: str | None = None,
+    zip_bytes: bytes | None = None,
+) -> str:
+    """资料库名：本机文件夹名 > ZIP 内顶级文件夹名 > 上传文件名（去扩展名）。"""
+    if folder_path and folder_path.strip():
+        name = Path(folder_path.strip()).name.strip()
+        if name:
+            return name
+    if zip_bytes:
+        root = _zip_root_folder_name(zip_bytes)
+        if root:
+            return root
+    if file_name and file_name.strip():
+        stem = Path(file_name.strip()).stem.strip()
+        if stem:
+            return stem
+    raise HTTPException(status_code=400, detail="无法从文件或文件夹推导资料库名")
+
+
 def read_folder_texts(folder_path: str) -> list[tuple[str, str]]:
     root = Path(folder_path)
     if not root.is_dir():

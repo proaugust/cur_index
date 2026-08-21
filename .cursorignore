@@ -10,14 +10,7 @@ __pycache__/
 *.pyo
 *.pyd
 
-# 虚拟环境（超大）
-venv/
-env/
-.venv/
-ENV/
-
-
-
+# 虚拟环境请只写在 .cursorindexingignore，不要忽略 .venv（否则 Python 扩展解析不到解释器）
 
 # 日志文件
 *.log

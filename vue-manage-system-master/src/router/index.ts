@@ -65,13 +65,61 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: '/demo-rag',
-                name: 'demo-rag',
+                redirect: '/demo-rag/document',
+            },
+            {
+                path: '/demo-rag/document',
+                name: 'demo-rag-document',
                 meta: {
-                    titleKey: 'route.demoRag',
-                    title: 'RAG 检索演示',
+                    titleKey: 'pages.rag.documentSection',
+                    title: '通用文档库',
                     permiss: '82',
                 },
-                component: () => import(/* webpackChunkName: "demo-rag" */ '../views/demo/rag.vue'),
+                component: () => import(/* webpackChunkName: "demo-rag-document" */ '../views/demo/rag/document.vue'),
+            },
+            {
+                path: '/demo-rag/corpora',
+                name: 'demo-rag-corpora',
+                meta: {
+                    titleKey: 'pages.rag.corporaSection',
+                    title: '业务资料库',
+                    permiss: '82',
+                },
+                component: () => import(/* webpackChunkName: "demo-rag-corpora" */ '../views/demo/rag/corpora.vue'),
+            },
+            {
+                path: '/demo-rag/nl2sql',
+                name: 'demo-rag-nl2sql',
+                meta: {
+                    titleKey: 'pages.rag.nl2sqlSection',
+                    title: '问数 NL2SQL',
+                    permiss: '82',
+                },
+                component: () => import(/* webpackChunkName: "demo-rag-nl2sql" */ '../views/demo/rag/nl2sql.vue'),
+            },
+            {
+                path: '/demo-rag/longdoc',
+                name: 'demo-rag-longdoc',
+                meta: {
+                    titleKey: 'pages.rag.longdocSection',
+                    title: '长文档审计',
+                    permiss: '82',
+                },
+                component: () => import(/* webpackChunkName: "demo-rag-longdoc" */ '../views/demo/rag/longdoc.vue'),
+            },
+            {
+                path: '/demo-rag/web',
+                name: 'demo-rag-web',
+                meta: {
+                    titleKey: 'pages.rag.webSection',
+                    title: '时效 Web',
+                    permiss: '82',
+                },
+                component: () => import(/* webpackChunkName: "demo-rag-web" */ '../views/demo/rag/web.vue'),
+            },
+            {
+                path: '/demo-rag/agentic',
+                redirect: '/demo-agent/agentic',
             },
             {
                 path: '/demo-ai-chat',
@@ -85,13 +133,59 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: '/demo-agent',
-                name: 'demo-agent',
+                redirect: '/demo-agent/native',
+            },
+            {
+                path: '/demo-agent/native',
+                name: 'demo-agent-native',
                 meta: {
-                    titleKey: 'route.demoAgent',
-                    title: 'agent测试',
+                    titleKey: 'pages.agent.nativeSection',
+                    title: '原生编排',
                     permiss: '84',
                 },
-                component: () => import(/* webpackChunkName: "demo-agent" */ '../views/demo/agent.vue'),
+                component: () => import(/* webpackChunkName: "demo-agent-native" */ '../views/demo/agent/native.vue'),
+            },
+            {
+                path: '/demo-agent/langchain',
+                name: 'demo-agent-langchain',
+                meta: {
+                    titleKey: 'pages.agent.langchainSection',
+                    title: 'LangChain / LangGraph',
+                    permiss: '84',
+                },
+                component: () =>
+                    import(/* webpackChunkName: "demo-agent-langchain" */ '../views/demo/agent/langchain.vue'),
+            },
+            {
+                path: '/demo-agent/autogen',
+                name: 'demo-agent-autogen',
+                meta: {
+                    titleKey: 'pages.agent.autogenSection',
+                    title: 'AutoGen',
+                    permiss: '84',
+                },
+                component: () => import(/* webpackChunkName: "demo-agent-autogen" */ '../views/demo/agent/autogen.vue'),
+            },
+            {
+                path: '/demo-agent/crewai',
+                name: 'demo-agent-crewai',
+                meta: {
+                    titleKey: 'pages.agent.crewaiSection',
+                    title: 'CrewAI',
+                    permiss: '84',
+                },
+                component: () => import(/* webpackChunkName: "demo-agent-crewai" */ '../views/demo/agent/crewai.vue'),
+            },
+            {
+                path: '/demo-agent/agentic',
+                name: 'demo-agent-agentic',
+                meta: {
+                    titleKey: 'pages.agent.agenticSection',
+                    title: '多步 Agent',
+                    permiss: '84',
+                },
+                component: () =>
+                    import(/* webpackChunkName: "demo-agent-agentic" */ '../views/demo/agent/agentic.vue'),
             },
             {
                 path: '/demo-meeting',
@@ -201,6 +295,16 @@ const routes: RouteRecordRaw[] = [
                     permiss: '14',
                 },
                 component: () => import(/* webpackChunkName: "system-login-logs" */ '../views/system/login-logs.vue'),
+            },
+            {
+                path: '/system-api-access',
+                name: 'system-api-access',
+                meta: {
+                    titleKey: 'route.systemApiAccess',
+                    title: '接口访问',
+                    permiss: '15',
+                },
+                component: () => import(/* webpackChunkName: "system-api-access" */ '../views/system/api-access.vue'),
             },
             {
                 path: '/table',
