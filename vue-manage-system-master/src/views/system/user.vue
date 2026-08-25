@@ -3,7 +3,7 @@
         <TableSearch :query="query" :options="searchOpt" :search="handleSearch" />
         <div class="container">
             <TableCustom :columns="columns" :tableData="tableData" :total="page.total" :viewFunc="handleView"
-                :delFunc="handleDelete" :page-change="changePage" :editFunc="handleEdit">
+                :delFunc="handleDelete" :changePage="changePage" :refresh="getData" :editFunc="handleEdit">
                 <template #toolbarBtn>
                     <el-button type="warning" :icon="CirclePlusFilled" @click="visible = true">{{ t('pages.system.add') }}</el-button>
                 </template>
@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts" name="system-user">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, onActivated, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { CirclePlusFilled } from '@element-plus/icons-vue';
@@ -54,10 +54,24 @@ const loadRoles = async () => {
     );
 };
 
+const skipActivateQuery = ref(true);
+
 onMounted(async () => {
-    const me = await fetchMe();
-    currentLevel.value = me.data.user.level;
-    await loadRoles();
+    getData();
+    try {
+        const me = await fetchMe();
+        currentLevel.value = me.data.user.level;
+        await loadRoles();
+    } catch {
+        /* 角色下拉失败不影响用户列表 */
+    }
+});
+
+onActivated(() => {
+    if (skipActivateQuery.value) {
+        skipActivateQuery.value = false;
+        return;
+    }
     getData();
 });
 

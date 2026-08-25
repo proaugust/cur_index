@@ -63,8 +63,8 @@ const loadEndpoints = async () => {
         const mod = await import('@/config/api-endpoints');
         const map: Record<typeof props.endpointKey, ApiEndpoint[]> = {
             complaint: mod.complaintEndpoints,
-            document: mod.getDocumentEndpoints(t, te),
-            corpora: mod.getCorporaEndpoints(t, te),
+            document: mod.getDocumentEndpoints((key) => String(t(key)), te),
+            corpora: mod.getCorporaEndpoints((key) => String(t(key)), te),
             chat: mod.chatEndpoints,
         };
         endpoints.value = map[props.endpointKey];
@@ -77,7 +77,7 @@ const loadEndpoints = async () => {
 };
 
 onMounted(loadEndpoints);
-watch(locale, loadEndpoints);
+watch(() => locale.value, loadEndpoints);
 </script>
 
 <style scoped>

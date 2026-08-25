@@ -12,6 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from app.core.config import settings
+from app.services.modules.ai_trends_merge import merge_trends
 from app.services.shared.redis_client import cache_get_json, cache_set_json
 
 logger = logging.getLogger(__name__)
@@ -41,12 +42,6 @@ ONLINE_SOURCES = [
 
 INVESTMENT_VALUE_COL = "Estimated funding raised by privately held AI companies - Field: All"
 PAPERS_VALUE_COL = "AI scholarly publications - Field: All"
-COUNTRY_ALIAS = {
-    "United States": "United States",
-    "United Kingdom": "United Kingdom",
-    "United Arab Emirates": "United Arab Emirates",
-    "South Korea": "South Korea",
-}
 
 _update_lock = threading.Lock()
 
@@ -157,7 +152,7 @@ class AiTrendsService:
         if trends:
             inv_map = self._parse_owid_kv(RUNTIME_CSVS[0], INVESTMENT_VALUE_COL)
             papers_map = self._parse_owid_kv(RUNTIME_CSVS[1], PAPERS_VALUE_COL)
-            self._merge_trends(trends, inv_map, papers_map)
+            merge_trends(trends, inv_map, papers_map)
 
         return {
             "status": "success",
@@ -166,27 +161,6 @@ class AiTrendsService:
             "trends": trends,
             "intelligence": intelligence,
         }
-
-    def _merge_trends(
-        self,
-        trends: list[dict],
-        inv_map: dict[tuple[str, int], float],
-        papers_map: dict[tuple[str, int], float],
-    ) -> None:
-        inv_hits = papers_hits = 0
-        for row in trends:
-            entity = COUNTRY_ALIAS.get(row["country"], row["country"])
-            key = (entity, row["year"])
-            if inv_map:
-                if key in inv_map:
-                    row["investmentBillionsUsd"] = round(inv_map[key] / 1e9, 2)
-                    inv_hits += 1
-                else:
-                    row["investmentBillionsUsd"] = None
-            if key in papers_map:
-                row["publishedPapersThousands"] = round(papers_map[key] / 1000, 2)
-                papers_hits += 1
-        logger.info("OWID merge: investment=%s rows, papers=%s rows", inv_hits, papers_hits)
 
     def _parse_owid_kv(self, file_path: Path, value_col: str) -> dict[tuple[str, int], float]:
         if not file_path.exists():

@@ -124,6 +124,11 @@ class DocumentChunkUpdate(BaseModel):
 
 class DocumentChunkSearchResult(DocumentChunkRead):
     similarity: float
+    from_vector: bool = False
+    from_fts: bool = False
+    vector_sim: float = 0.0
+    fts_rank: float = 0.0
+    gin_preview: str = "—"
 
 
 class DocumentSearchPolishedSource(BaseModel):
@@ -139,8 +144,24 @@ class DocumentSearchPolishedSource(BaseModel):
     similarity: float = Field(description="与查询的向量相似度，越高越相关")
     embedding_preview: str | None = Field(default=None, description="向量摘要")
     lang: str = Field(default="zh", description="语言：zh / ja / en")
+    from_vector: bool = False
+    from_fts: bool = False
+    vector_sim: float = 0.0
+    fts_rank: float = 0.0
+    gin_preview: str = "—"
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_search_hit(
+        cls,
+        snippet_index: int,
+        chunk: DocumentChunkSearchResult,
+        source_label: str,
+    ) -> "DocumentSearchPolishedSource":
+        data = chunk.model_dump()
+        data.update(snippet_index=snippet_index, source_label=source_label)
+        return cls.model_validate(data)
 
 
 class DocumentSearchPolishedResult(BaseModel):

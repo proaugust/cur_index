@@ -6,8 +6,8 @@
             <v-tabs></v-tabs>
             <div class="content">
                 <router-view v-slot="{ Component, route: viewRoute }">
-                    <transition name="move" mode="out-in">
-                        <!-- exclude 固定排除摄像头页；勿用 tabs 动态 include，会与路由切换竞态导致 deactivate 报错、内容卡在首页 -->
+                    <!-- 不用 out-in：leave 未完成时会挡住下一页，表现为点菜单不跳转 -->
+                    <transition name="move">
                         <keep-alive exclude="demo-attendance">
                             <component :is="Component" v-if="Component" :key="viewRoute.name" />
                         </keep-alive>

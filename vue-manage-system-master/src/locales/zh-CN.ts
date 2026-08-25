@@ -325,6 +325,7 @@ export default {
                 char_count: '字数',
                 content: '内容',
                 embedding_preview: '向量',
+                gin_preview: 'GIN',
                 lang: '语言',
                 name: '资料名',
                 table_name: '物理表',
@@ -415,6 +416,9 @@ export default {
                         page: { label: '页码' },
                         page_size: { label: '每页条数' },
                     },
+                    columns: {
+                        source_file: '文件路径',
+                    },
                 },
                 clear: {
                     description: '清空通用文档库全部切块数据',
@@ -450,6 +454,7 @@ export default {
                 },
                 search: {
                     description: '向量+全文混合检索，C1 融合重排，默认返回 top 5',
+                    contentLabel: '内容',
                     query: {
                         q: { label: '查询文本', placeholder: '例如：休假规则是什么？' },
                         limit: { label: '条数' },
@@ -463,6 +468,7 @@ export default {
                 },
                 searchAndLlm: {
                     description: '混合检索 + 大模型润色，返回回答与原始出处',
+                    contentLabel: '原文',
                     query: {
                         q: { label: '查询文本', placeholder: '可直接复制下方示例，或点击「填入查询框」' },
                         limit: { label: '条数' },
@@ -1151,7 +1157,7 @@ export default {
             barRaceTitle: '全球 AI 累计投资排行',
             barRaceDesc: '国色编码；柱长为自有数据年起的跨年累计融资（自动播放）',
             annualBarRaceTitle: '全球 AI 当年投资排行',
-            annualBarRaceDesc: '年色编码；柱长为该年私募 AI 融资额（与左侧累计对照）',
+            annualBarRaceDesc: '纵向柱图；横轴国家固定、纵轴为投资额；按年自动切换展示当年私募 AI 融资',
             intelligenceTitle: 'AI 智力提升趋势',
             intelligenceDesc: '2018–2026 年模型在阅读理解、数学推理、代码生成、复杂推理（人类考试）四项能力得分',
             milestonesTitle: '发展里程碑',
@@ -1257,6 +1263,15 @@ export default {
             systemMenuNoDelete: '系统内置菜单不可删除',
         },
     },
+    featureIntro: {
+        tooltip: '功能介绍',
+        fallbackTitle: '功能介绍',
+        dialogTitle: '{title} — 说明',
+        hint: '在此填写该 Tab / 功能块的说明，保存后写入数据库，所有用户可见。',
+        placeholder: '例如：本页用于文档向量检索与大模型润色演示……',
+        saved: '功能说明已保存',
+        saveFailed: '保存失败，请检查后端是否已启动',
+    },
     apiDebug: {
         pathParams: 'Path 参数',
         queryParams: 'Query 参数',
@@ -1289,5 +1304,10 @@ export default {
         deleteConfirmTitle: '删除确认',
         deleted: '已删除',
         deleteFailed: '删除失败',
+        similarityPrefix: '相似度',
+        pleaseFill: '请填写{label}',
+        pleaseSelect: '请选择{label}',
+        pleaseUploadZip: '请上传文档/.zip',
+        requestFailed: '请求失败',
     },
 };

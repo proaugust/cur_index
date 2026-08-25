@@ -8,13 +8,13 @@
                             <el-tag :type="methodTagType(ep.method)" size="small" class="method-tag">
                                 {{ ep.method }}
                             </el-tag>
-                            <span>{{ ep.name }}</span>
+                            <span>{{ ep.nameKey ? t(ep.nameKey) : ep.name }}</span>
                             <FeatureIntroIcon
                                 v-if="introPageKey"
                                 :page-key="introPageKey"
                                 :section-key="ep.id"
                                 :intros="intros"
-                                :title="ep.name"
+                                :title="ep.nameKey ? t(ep.nameKey) : ep.name"
                                 @saved="onIntroSaved"
                             />
                         </span>
@@ -22,7 +22,9 @@
 
                     <div class="endpoint-header">
                         <code class="endpoint-path">{{ ep.path }}</code>
-                        <p v-if="ep.description" class="endpoint-desc">{{ ep.description }}</p>
+                        <p v-if="ep.descriptionKey || ep.description" class="endpoint-desc">
+                            {{ ep.descriptionKey ? t(ep.descriptionKey) : ep.description }}
+                        </p>
                     </div>
 
                     <slot v-if="hasPanelSlot(ep.id)" :name="`panel-${ep.id}`" />
@@ -210,7 +212,9 @@
                                 class="highlight-block result-content-item"
                             >
                                 <div class="highlight-label">
-                                    <span v-if="row.similarity != null">相似度 {{ row.similarity }}</span>
+                                    <span v-if="row.similarity != null">
+                                        {{ t('apiDebug.similarityPrefix') }} {{ row.similarity }}
+                                    </span>
                                     <span v-if="row.source_file || row.source_label">
                                         · {{ row.source_file || row.source_label }}
                                     </span>
@@ -227,6 +231,7 @@
                             stripe
                             size="small"
                             class="result-table"
+                            table-layout="fixed"
                             highlight-current-row
                             @current-change="(row) => onRowSelect(ep, row)"
                         >
@@ -235,9 +240,8 @@
                                 :key="col.prop"
                                 :prop="col.prop"
                                 :label="col.label"
-                                :min-width="col.minWidth ?? col.width"
-                                :class-name="col.minWidth && !col.width ? 'col-fill' : 'col-fit'"
-                                :label-class-name="col.minWidth && !col.width ? 'col-fill' : 'col-fit'"
+                                :width="col.width"
+                                :min-width="col.minWidth"
                                 :show-overflow-tooltip="col.showOverflowTooltip"
                             />
                         </el-table>
@@ -679,7 +683,7 @@ const onTablePageChange = (ep: ApiEndpoint, page: number) => {
     if (formState[ep.id]?.query) {
         formState[ep.id].query.page = page;
     }
-    void sendRequest(ep);
+    void sendRequest(ep, { keepPage: true });
 };
 
 const buildBody = (ep: ApiEndpoint) => {
@@ -970,43 +974,54 @@ const isBlank = (v: FormValue) => v === null || v === undefined || v === '';
 const validateRequest = (ep: ApiEndpoint): string | null => {
     for (const p of ep.pathParams ?? []) {
         if (p.required && isBlank(formState[ep.id].path[p.name])) {
-            return `请填写${p.label}`;
+            return t('apiDebug.pleaseFill', { label: p.label });
         }
     }
     for (const p of ep.queryParams ?? []) {
         if (p.required && isBlank(formState[ep.id].query[p.name])) {
-            return `请填写${p.label}`;
+            return t('apiDebug.pleaseFill', { label: p.label });
         }
     }
     for (const p of ep.bodyParams ?? []) {
         if (p.required && isBlank(formState[ep.id].body[p.name])) {
-            return `请填写${p.label}`;
+            return t('apiDebug.pleaseFill', { label: p.label });
         }
     }
     if (ep.id === 'corpora-import') {
         const file = formState[ep.id].form.file;
         if (!(file instanceof File)) {
-            return '请上传文档/.zip';
+            return t('apiDebug.pleaseUploadZip');
         }
     }
     for (const p of ep.formParams ?? []) {
         if (!p.required) continue;
         const raw = formState[ep.id].form[p.name];
         if (p.type === 'file') {
-            if (!(raw instanceof File)) return `请选择${p.label}`;
+            if (!(raw instanceof File)) return t('apiDebug.pleaseSelect', { label: p.label });
         } else if (isBlank(raw)) {
-            return `请填写${p.label}`;
+            return t('apiDebug.pleaseFill', { label: p.label });
         }
     }
     return null;
 };
 
-const sendRequest = async (ep: ApiEndpoint) => {
+const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
     const invalid = validateRequest(ep);
     if (invalid) {
         ElMessage.warning(invalid);
         statusInfo[ep.id] = { ok: false, text: invalid };
         return;
+    }
+
+    // 点「发送」回到第 1 页，避免 localStorage 缓存的超大 page 导致空表
+    if (
+        !opts?.keepPage &&
+        ep.resultView?.mode === 'table' &&
+        ep.resultView.serverPaging &&
+        formState[ep.id]?.query &&
+        'page' in formState[ep.id].query
+    ) {
+        formState[ep.id].query.page = 1;
     }
 
     loading[ep.id] = true;
@@ -1078,7 +1093,7 @@ const sendRequest = async (ep: ApiEndpoint) => {
         }
         const axiosErr = err as AxiosError;
         const status = axiosErr.response?.status;
-        const detail = axiosErr.response?.data ?? { message: axiosErr.message || '请求失败' };
+        const detail = axiosErr.response?.data ?? { message: axiosErr.message || t('apiDebug.requestFailed') };
         const errMsg = formatErrorDetail(detail);
         responses[ep.id] = formatJson(detail);
         tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
@@ -1235,36 +1250,11 @@ const sendRequest = async (ep: ApiEndpoint) => {
     width: 100%;
 }
 
-.result-table :deep(.el-table__header),
-.result-table :deep(.el-table__body),
-.result-table :deep(table) {
-    table-layout: auto !important;
-    width: 100% !important;
-}
-
 .result-table :deep(.el-table__cell) {
     text-align: left;
 }
 
-/* 前面列：按内容撑开、单行不折 */
-.result-table :deep(th.col-fit),
-.result-table :deep(td.col-fit) {
-    width: 1%;
-    white-space: nowrap;
-}
-
-.result-table :deep(th.col-fit .cell),
-.result-table :deep(td.col-fit .cell) {
-    white-space: nowrap;
-}
-
-/* 最后列：吃掉剩余宽度，长文本省略（悬停仍看全文） */
-.result-table :deep(th.col-fill),
-.result-table :deep(td.col-fill) {
-    width: 99%;
-}
-
-.result-table :deep(td.col-fill .cell) {
+.result-table :deep(.el-table__cell .cell) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

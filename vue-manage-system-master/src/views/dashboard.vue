@@ -214,6 +214,7 @@ async function ensureDashboardCharts() {
         components.TooltipComponent,
         components.LegendComponent,
         components.TimelineComponent,
+        components.TitleComponent,
         components.VisualMapComponent,
         components.GeoComponent,
     ]);

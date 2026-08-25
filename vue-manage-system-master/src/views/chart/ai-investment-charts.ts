@@ -4,20 +4,6 @@ import {
     COUNTRY_COLORS,
 } from './ai-index-data';
 
-/** 年份色（当年投资图）：按时间轴索引取色，与国色分离 */
-const YEAR_COLORS = [
-    '#5470c6',
-    '#91cc75',
-    '#fac858',
-    '#ee6666',
-    '#73c0de',
-    '#3ba272',
-    '#fc8452',
-    '#9a60b4',
-    '#ea7ccc',
-    '#48b8d0',
-];
-
 function hasInvestment(row: AiTrendRow): boolean {
     return row.investmentBillionsUsd != null && !Number.isNaN(row.investmentBillionsUsd);
 }
@@ -40,9 +26,17 @@ function countryColor(data: AiTrendRow[], country: string): string {
     return COUNTRY_COLORS[index >= 0 ? index : 0] ?? '#2d8cf0';
 }
 
-function yearColor(years: number[], year: number): string {
-    const index = years.indexOf(year);
-    return YEAR_COLORS[index >= 0 ? index % YEAR_COLORS.length : 0] ?? '#5470c6';
+/** 纵轴国家固定：按最近一年投资额降序，缺当年数据视为 0 */
+function getInvestmentCountries(data: AiTrendRow[]): string[] {
+    const years = getInvestmentYears(data);
+    const latest = years[years.length - 1];
+    const latestVal = new Map(
+        (latest == null ? [] : rowsByYear(data, latest))
+            .filter(hasInvestment)
+            .map((row) => [row.country, row.investmentBillionsUsd as number]),
+    );
+    const names = [...new Set(data.filter(hasInvestment).map((row) => row.country))];
+    return names.sort((a, b) => (latestVal.get(b) ?? 0) - (latestVal.get(a) ?? 0));
 }
 
 /** 按国对有值年份做跨年累加；无投资的年份保持 null */
@@ -216,7 +210,7 @@ export function buildInvestmentBarRaceOption(
     return buildBarRaceBase(years, maxInvestment, axisName, texts, buildFrame);
 }
 
-/** 年色 + 当年投资动态排行（颜色表示当前年份，国名认国家） */
+/** 纵向柱图：横轴国家固定，按年播放当年投资额 */
 export function buildAnnualInvestmentBarRaceOption(
     customData?: AiTrendRow[],
     texts: DashboardChartTexts = {
@@ -236,44 +230,64 @@ export function buildAnnualInvestmentBarRaceOption(
 ) {
     const data = customData ?? [];
     const years = getInvestmentYears(data);
+    const countries = getInvestmentCountries(data);
     const invValues = data.filter(hasInvestment).map((row) => row.investmentBillionsUsd as number);
     const maxInvestment = invValues.length ? Math.ceil(Math.max(...invValues) * 1.1) : 1;
+    const xLabels = countries.map((c) => texts.countryLabel(c));
     const axisName = texts.investmentAxisAnnual ?? texts.investmentAxis;
 
-    const buildFrame = (year: number) => {
-        const color = yearColor(years, year);
-        const ranked = [...rowsByYear(data, year)]
-            .filter(hasInvestment)
-            .sort((a, b) => (a.investmentBillionsUsd as number) - (b.investmentBillionsUsd as number));
-
-        return {
-            yAxis: {
-                type: 'category',
-                inverse: true,
-                data: ranked.map((row) => texts.countryLabel(row.country)),
-                animationDuration: 300,
-                animationDurationUpdate: 300,
-                max: 13,
+    return {
+        baseOption: {
+            timeline: {
+                axisType: 'category',
+                autoPlay: true,
+                playInterval: 1200,
+                data: years,
+                label: { formatter: (value: string) => `${value}${texts.yearSuffix}` },
+                left: '3%',
+                right: '3%',
+                bottom: 0,
             },
-            series: [
-                {
-                    realtimeSort: true,
-                    type: 'bar',
-                    data: ranked.map((row) => ({
-                        value: row.investmentBillionsUsd,
-                        itemStyle: { color },
-                    })),
-                    label: {
-                        show: true,
-                        position: 'right',
-                        valueAnimation: true,
-                        formatter: '{c} B',
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                valueFormatter: (value: number) => `${value} ${texts.investmentBillion}`,
+            },
+            grid: { top: '12%', left: '3%', right: '4%', bottom: '16%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: xLabels,
+                axisLabel: { interval: 0, rotate: 30 },
+            },
+            yAxis: { type: 'value', max: maxInvestment, name: axisName },
+            series: [{ type: 'bar' }],
+            animationDuration: 0,
+            animationDurationUpdate: 800,
+            animationEasingUpdate: 'linear',
+        },
+        options: years.map((year) => {
+            const yearRows = rowsByYear(data, year);
+            return {
+                title: { text: `${year}${texts.yearSuffix}`, left: 'center', top: 0, textStyle: { fontSize: 16 } },
+                series: [
+                    {
+                        type: 'bar',
+                        data: countries.map((country) => {
+                            const row = yearRows.find((item) => item.country === country);
+                            const value = row && hasInvestment(row) ? row.investmentBillionsUsd : 0;
+                            return {
+                                value,
+                                itemStyle: { color: countryColor(data, country) },
+                            };
+                        }),
+                        label: {
+                            show: true,
+                            position: 'top',
+                            formatter: (p: { value?: number }) => (p.value ? `${p.value}` : ''),
+                        },
                     },
-                    itemStyle: { color },
-                },
-            ],
-        };
+                ],
+            };
+        }),
     };
-
-    return buildBarRaceBase(years, maxInvestment, axisName, texts, buildFrame);
 }

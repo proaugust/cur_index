@@ -10,6 +10,7 @@ from app.crud import modules as crud
 from app.services.modules.chunk_lang import DEFAULT_CHUNK_LANG, detect_lang
 from app.services.modules.chunk_table_ops import (
     GENERAL_CHUNK_TABLE,
+    apply_gin_previews,
     ensure_chunk_fts,
     row_to_dict,
 )
@@ -34,20 +35,16 @@ class DocumentSearchService:
         chunks, _ = crud.get_document_chunks(
             self.db, source_file=source_file, page=1, page_size=max(limit * 3, limit)
         )
-        results: list[schemas.DocumentChunkSearchResult] = []
+        raw: list[dict] = []
         for chunk in chunks:
             chunk_lang = getattr(chunk, "lang", None) or DEFAULT_CHUNK_LANG
             if lang and chunk_lang != lang:
                 continue
-            results.append(
-                schemas.DocumentChunkSearchResult(
-                    **row_to_dict(chunk),
-                    similarity=0.0,
-                )
-            )
-            if len(results) >= limit:
+            raw.append({**row_to_dict(chunk), "similarity": 0.0})
+            if len(raw) >= limit:
                 break
-        return results
+        apply_gin_previews(self.db, GENERAL_CHUNK_TABLE, raw)
+        return [schemas.DocumentChunkSearchResult(**item) for item in raw]
 
     def search(
         self,
@@ -102,19 +99,10 @@ class DocumentSearchService:
         )
         if not query or not query.strip():
             original_sources = [
-                schemas.DocumentSearchPolishedSource(
-                    snippet_index=index,
-                    id=chunk.id,
-                    source_file=chunk.source_file,
-                    source_label=f"{chunk.source_file} · {chunk.section_title or chunk.section_path or '正文'}",
-                    section_title=chunk.section_title,
-                    section_path=chunk.section_path,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    char_count=chunk.char_count,
-                    similarity=chunk.similarity,
-                    embedding_preview=chunk.embedding_preview,
-                    lang=chunk.lang,
+                schemas.DocumentSearchPolishedSource.from_search_hit(
+                    index,
+                    chunk,
+                    f"{chunk.source_file} · {chunk.section_title or chunk.section_path or '正文'}",
                 )
                 for index, chunk in enumerate(sources, start=1)
             ]
@@ -137,20 +125,7 @@ class DocumentSearchService:
             source_label = f"{chunk.source_file} · {header}"
             context_blocks.append(f"[片段{index}] 来源: {source_label}\n{chunk.content}")
             original_sources.append(
-                schemas.DocumentSearchPolishedSource(
-                    snippet_index=index,
-                    id=chunk.id,
-                    source_file=chunk.source_file,
-                    source_label=source_label,
-                    section_title=chunk.section_title,
-                    section_path=chunk.section_path,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    char_count=chunk.char_count,
-                    similarity=chunk.similarity,
-                    embedding_preview=chunk.embedding_preview,
-                    lang=chunk.lang,
-                )
+                schemas.DocumentSearchPolishedSource.from_search_hit(index, chunk, source_label)
             )
 
         user_prompt = (

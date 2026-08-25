@@ -82,9 +82,12 @@ export interface ApiAsyncJobConfig {
 export interface ApiEndpoint {
     id: string;
     name: string;
+    /** 供模板按当前语言实时翻译 Tab 名（避免切换语言后仍用快照） */
+    nameKey?: string;
     method: 'GET' | 'POST' | 'PUT' | 'DELETE';
     path: string;
     description?: string;
+    descriptionKey?: string;
     pathParams?: ApiParam[];
     queryParams?: ApiParam[];
     bodyParams?: ApiParam[];
@@ -336,6 +339,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'gin_preview', label: 'GIN', width: 88, showOverflowTooltip: true },
                 { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
@@ -386,6 +390,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'gin_preview', label: 'GIN', width: 88, showOverflowTooltip: true },
                 { prop: 'content', label: '原文', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: documentChunkRowActions,
@@ -627,6 +632,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'gin_preview', label: 'GIN', width: 88, showOverflowTooltip: true },
                 { prop: 'content', label: '内容', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: corpusChunkRowActions,
@@ -678,6 +684,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
+                { prop: 'gin_preview', label: 'GIN', width: 88, showOverflowTooltip: true },
                 { prop: 'content', label: '原文', minWidth: 420, showOverflowTooltip: longTextOverflowTooltip },
             ],
             rowActions: corpusChunkRowActions,
@@ -762,18 +769,30 @@ function localizeRagEndpoints(
 ): ApiEndpoint[] {
     return endpoints.map((ep) => {
         const epKey = i18nKeyMap[ep.id] ?? ep.id;
+        const nameKey = `pages.rag.tabs.${epKey}`;
+        const descriptionKey = ep.description
+            ? `pages.rag.endpoints.${epKey}.description`
+            : undefined;
         const localized: ApiEndpoint = {
             ...ep,
-            name: t(`pages.rag.tabs.${epKey}`),
-            description: ep.description ? t(`pages.rag.endpoints.${epKey}.description`) : undefined,
+            nameKey,
+            name: t(nameKey),
+            descriptionKey,
+            description: descriptionKey ? t(descriptionKey) : undefined,
             queryParams: localizeParams(ep.queryParams, epKey, t, 'query'),
             formParams: localizeParams(ep.formParams, epKey, t, 'form'),
             bodyParams: localizeParams(ep.bodyParams, epKey, t, 'body'),
         };
 
         if (ep.resultView?.mode === 'table') {
+            const contentLabelKey = `pages.rag.endpoints.${epKey}.contentLabel`;
             localized.resultView = {
                 ...ep.resultView,
+                contentLabel: ep.resultView.contentLabel
+                    ? te?.(contentLabelKey)
+                        ? t(contentLabelKey)
+                        : t('apiDebug.contentLabel')
+                    : ep.resultView.contentLabel,
                 highlightFields: ep.resultView.highlightFields?.map((field) => ({
                     ...field,
                     label: t(`pages.rag.highlights.${field.key}`),

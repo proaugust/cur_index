@@ -8,7 +8,8 @@
                 :total="page.total"
                 :viewFunc="handleView"
                 :delFunc="canManage ? handleDelete : undefined"
-                :page-change="changePage"
+                :changePage="changePage"
+                :refresh="getData"
                 :editFunc="canManage ? handleEdit : undefined"
             >
                 <template #toolbarBtn>
@@ -88,7 +89,7 @@
 </template>
 
 <script setup lang="ts" name="system-role">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, onActivated, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { Role } from '@/types/role';
@@ -135,9 +136,23 @@ const getData = async () => {
     page.total = res.data.pageTotal;
 };
 
+const skipActivateQuery = ref(true);
+
 onMounted(async () => {
-    const me = await fetchMe();
-    canManage.value = me.data.user.level === 1;
+    getData();
+    try {
+        const me = await fetchMe();
+        canManage.value = me.data.user.level === 1;
+    } catch {
+        /* 是否可管理不影响列表查询 */
+    }
+});
+
+onActivated(() => {
+    if (skipActivateQuery.value) {
+        skipActivateQuery.value = false;
+        return;
+    }
     getData();
 });
 

@@ -322,6 +322,7 @@ export default {
                 char_count: 'Characters',
                 content: 'Content',
                 embedding_preview: 'Vector',
+                gin_preview: 'GIN',
                 lang: 'Language',
                 name: 'Corpus Name',
                 table_name: 'Physical Table',
@@ -459,6 +460,9 @@ export default {
                             label: 'Page Size',
                         },
                     },
+                    columns: {
+                        source_file: 'File path',
+                    },
                 },
                 clear: {
                     description: 'Clear all chunks in the general document library',
@@ -494,6 +498,7 @@ export default {
                 },
                 search: {
                     description: 'Hybrid vector+FTS search with C1 fusion rerank; default top 5',
+                    contentLabel: 'Content',
                     query: {
                         q: {
                             label: 'Query Text',
@@ -508,10 +513,11 @@ export default {
                         },
                         retrieve_mode: { label: 'Retrieve Mode', placeholder: 'vector | hybrid | hybrid_rerank' },
                         expand_parent: { label: 'Expand Parent' },
-                    },
+},
                 },
                 searchAndLlm: {
                     description: 'Hybrid search + LLM polishing, returns the answer and original sources',
+                    contentLabel: 'Original Text',
                     query: {
                         q: {
                             label: 'Query Text',
@@ -524,7 +530,9 @@ export default {
                             label: 'Minimum Similarity',
                             placeholder: '0-1; discard results below this value',
                         },
-                    },
+                        retrieve_mode: { label: 'Retrieve Mode', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Expand Parent' },
+},
                     examples: {
                         leave: {
                             label: 'Leave',
@@ -1200,7 +1208,7 @@ export default {
             barRaceTitle: 'Global AI Cumulative Investment Ranking',
             barRaceDesc: 'Country-colored bars; length shows cumulative cross-year funding since each country\'s first data year (auto-play)',
             annualBarRaceTitle: 'Global AI Annual Investment Ranking',
-            annualBarRaceDesc: 'Year-colored bars; length shows private AI funding for that year (compare with the cumulative chart on the left)',
+            annualBarRaceDesc: 'Vertical bars; countries fixed on the X-axis, bar height is private AI funding; auto-plays year by year',
             intelligenceTitle: 'AI Capability Improvement Trend',
             intelligenceDesc: 'Scores for models from 2018 to 2026 across reading comprehension, math reasoning, code generation, and complex reasoning (human exam)',
             milestonesTitle: 'Development Milestones',
@@ -1331,6 +1339,15 @@ export default {
             systemMenuNoDelete: 'Built-in system menus cannot be deleted',
         },
     },
+    featureIntro: {
+        tooltip: 'Feature intro',
+        fallbackTitle: 'Feature intro',
+        dialogTitle: '{title} — Notes',
+        hint: 'Write notes for this tab/feature. Saved to the database and visible to all users.',
+        placeholder: 'e.g. This page demos document retrieval and LLM polishing…',
+        saved: 'Feature notes saved',
+        saveFailed: 'Save failed. Check that the backend is running.',
+    },
     apiDebug: {
         pathParams: 'Path Parameters',
         queryParams: 'Query Parameters',
@@ -1363,5 +1380,10 @@ export default {
         deleteConfirmTitle: 'Delete Confirmation',
         deleted: 'Deleted',
         deleteFailed: 'Delete failed',
+        similarityPrefix: 'Similarity',
+        pleaseFill: 'Please fill in {label}',
+        pleaseSelect: 'Please select {label}',
+        pleaseUploadZip: 'Please upload a document/.zip',
+        requestFailed: 'Request failed',
     },
 };

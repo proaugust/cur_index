@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.crud import document_corpora as corpus_crud
 from app.services.modules.chunk_lang import detect_lang
-from app.services.modules.chunk_table_ops import BUSINESS_CHUNK_TABLE, ensure_chunk_table, row_to_dict
+from app.services.modules.chunk_table_ops import (
+    BUSINESS_CHUNK_TABLE,
+    apply_gin_previews,
+    ensure_chunk_table,
+    row_to_dict,
+)
 from app.services.modules.corpus_retrieve import retrieve
 from app.services.modules.corpus_search_filters import (
     normalize_category_list,
@@ -117,7 +122,9 @@ class CorpusSearchService:
             page=1,
             page_size=limit,
         )
-        return [schemas.DocumentChunkSearchResult(**row_to_dict(row), similarity=0.0) for row in rows]
+        raw = [{**row_to_dict(row), "similarity": 0.0} for row in rows]
+        apply_gin_previews(self.db, BUSINESS_CHUNK_TABLE, raw)
+        return [schemas.DocumentChunkSearchResult(**item) for item in raw]
 
     def search(
         self,
@@ -196,19 +203,10 @@ class CorpusSearchService:
         )
         if not query or not query.strip():
             original = [
-                schemas.DocumentSearchPolishedSource(
-                    snippet_index=i,
-                    id=c.id,
-                    source_file=c.source_file,
-                    source_label=f"{c.source_file} · {c.section_title or c.section_path or '正文'}",
-                    section_title=c.section_title,
-                    section_path=c.section_path,
-                    chunk_index=c.chunk_index,
-                    content=c.content,
-                    char_count=c.char_count,
-                    similarity=c.similarity,
-                    embedding_preview=c.embedding_preview,
-                    lang=c.lang,
+                schemas.DocumentSearchPolishedSource.from_search_hit(
+                    i,
+                    c,
+                    f"{c.source_file} · {c.section_title or c.section_path or '正文'}",
                 )
                 for i, c in enumerate(sources, start=1)
             ]
@@ -232,22 +230,7 @@ class CorpusSearchService:
             header = chunk.section_title or chunk.section_path or "正文"
             label = f"{chunk.source_file} · {header}"
             blocks.append(f"[片段{i}] 来源: {label}\n{chunk.content}")
-            original.append(
-                schemas.DocumentSearchPolishedSource(
-                    snippet_index=i,
-                    id=chunk.id,
-                    source_file=chunk.source_file,
-                    source_label=label,
-                    section_title=chunk.section_title,
-                    section_path=chunk.section_path,
-                    chunk_index=chunk.chunk_index,
-                    content=chunk.content,
-                    char_count=chunk.char_count,
-                    similarity=chunk.similarity,
-                    embedding_preview=chunk.embedding_preview,
-                    lang=chunk.lang,
-                )
-            )
+            original.append(schemas.DocumentSearchPolishedSource.from_search_hit(i, chunk, label))
         user_prompt = (
             f"用户问题：{query}\n\n共检索到 {len(sources)} 条相关片段，请综合后回答：\n\n"
             + "\n\n".join(blocks)

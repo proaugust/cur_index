@@ -10,18 +10,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.modules.chunk_lang import (
-    ChunkLang,
-    DEFAULT_CHUNK_LANG,
-    normalize_lang,
-    prepare_query_text,
-    ts_config,
+    ChunkLang, DEFAULT_CHUNK_LANG, normalize_lang, prepare_query_text, ts_config,
 )
 from app.services.modules.chunk_table_ops import (
-    BUSINESS_CHUNK_TABLE,
-    GENERAL_CHUNK_TABLE,
-    get_chunk_model,
-    row_to_dict,
-    source_file_like_pattern,
+    BUSINESS_CHUNK_TABLE, GENERAL_CHUNK_TABLE, apply_gin_previews, get_chunk_model,
+    row_to_dict, source_file_like_pattern,
 )
 from app.services.modules.corpus_search_filters import apply_corpus_name_filter, merge_corpus_names
 from app.services.shared.embedding import embed_query
@@ -287,12 +280,21 @@ def retrieve(
     if expand_parent:
         hits = expand_parents(db, hits, table_name=table_name, corpus_names=names)
 
-    results: list[dict[str, Any]] = []
-    for hit in hits:
-        item = row_to_dict(hit.row)
-        if hit.expanded_content is not None:
-            item["content"] = hit.expanded_content
-            item["char_count"] = len(hit.expanded_content)
-        item["similarity"] = display_similarity(hit, use_fusion=use_fusion)
-        results.append(item)
-    return results
+    items = [_hit_item(hit, use_fusion=use_fusion) for hit in hits]
+    return apply_gin_previews(db, table_name, items)
+
+
+def _hit_item(hit: RetrievedHit, *, use_fusion: bool) -> dict[str, Any]:
+    item = row_to_dict(hit.row)
+    if hit.expanded_content is not None:
+        item["content"] = hit.expanded_content
+        item["char_count"] = len(hit.expanded_content)
+    fts = round(hit.fts_rank, 4)
+    item.update(
+        similarity=display_similarity(hit, use_fusion=use_fusion),
+        from_vector=hit.from_vector,
+        from_fts=hit.from_fts,
+        vector_sim=hit.vector_sim,
+        fts_rank=fts,
+    )
+    return item

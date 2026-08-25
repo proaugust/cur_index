@@ -325,6 +325,7 @@ export default {
                 char_count: '文字数',
                 content: '内容',
                 embedding_preview: 'ベクトル',
+                gin_preview: 'GIN',
                 lang: '言語',
                 name: '資料名',
                 table_name: '物理表',
@@ -415,6 +416,9 @@ export default {
                         page: { label: 'ページ' },
                         page_size: { label: 'ページサイズ' },
                     },
+                    columns: {
+                        source_file: 'ファイルパス',
+                    },
                 },
                 clear: {
                     description: '共通ドキュメント庫の全チャンクをクリア',
@@ -427,8 +431,6 @@ export default {
                         limit: { label: '件数' },
                         min_similarity: { label: '最低類似度' },
                         source_file: { label: 'ファイル名', placeholder: '任意フィルタ' },
-                        retrieve_mode: { label: '検索モード', placeholder: 'vector | hybrid | hybrid_rerank' },
-                        expand_parent: { label: 'Parent 拡張' },
                     },
                 },
                 corporaSearchLlm: {
@@ -450,6 +452,7 @@ export default {
                 },
                 search: {
                     description: 'ベクトル+全文のハイブリッド検索、C1 融合再ランク、既定 top 5',
+                    contentLabel: '内容',
                     query: {
                         q: { label: '検索テキスト', placeholder: '例：返品手続きは？' },
                         limit: { label: '件数' },
@@ -459,10 +462,11 @@ export default {
                         },
                         retrieve_mode: { label: '検索モード', placeholder: 'vector | hybrid | hybrid_rerank' },
                         expand_parent: { label: 'Parent 拡張' },
-                    },
+},
                 },
                 searchAndLlm: {
                     description: 'ハイブリッド検索 + LLM 推敲、回答と出典を返却',
+                    contentLabel: '原文',
                     query: {
                         q: { label: '検索テキスト', placeholder: '下の例文をコピーするか「入力欄へ填入」をクリック' },
                         limit: { label: '件数' },
@@ -470,7 +474,9 @@ export default {
                             label: '最低類似度',
                             placeholder: '0～1、この値未満の結果は除外',
                         },
-                    },
+                        retrieve_mode: { label: '検索モード', placeholder: 'vector | hybrid | hybrid_rerank' },
+                        expand_parent: { label: 'Parent 拡張' },
+},
                     examples: {
                         leave: {
                             label: '休暇申請',
@@ -1149,7 +1155,7 @@ export default {
             barRaceTitle: '世界のAI累計投資ランキング',
             barRaceDesc: '国別カラー；棒の長さは累計調達額（自動再生）',
             annualBarRaceTitle: '世界のAI年間投資ランキング',
-            annualBarRaceDesc: '年別カラー；棒の長さはその年のプライベート調達額',
+            annualBarRaceDesc: '縦棒グラフ；横軸の国は固定、棒の高さはその年の調達額；年ごとに自動再生',
             intelligenceTitle: 'AI 知能向上トレンド',
             intelligenceDesc: '2018–2026 年モデルの4能力スコア（読解・数学・コード・推論）',
             milestonesTitle: '発展マイルストーン',
@@ -1255,6 +1261,15 @@ export default {
             systemMenuNoDelete: 'システム組み込みメニューは削除できません',
         },
     },
+    featureIntro: {
+        tooltip: '機能紹介',
+        fallbackTitle: '機能紹介',
+        dialogTitle: '{title} — 説明',
+        hint: 'このタブ／機能の説明を記入します。保存後は全ユーザーに表示されます。',
+        placeholder: '例：このページは文書検索と LLM 推敲のデモです……',
+        saved: '機能説明を保存しました',
+        saveFailed: '保存に失敗しました。バックエンドの起動を確認してください。',
+    },
     apiDebug: {
         pathParams: 'Path パラメータ',
         queryParams: 'Query パラメータ',
@@ -1287,5 +1302,10 @@ export default {
         deleteConfirmTitle: '削除確認',
         deleted: '削除しました',
         deleteFailed: '削除に失敗しました',
+        similarityPrefix: '類似度',
+        pleaseFill: '{label}を入力してください',
+        pleaseSelect: '{label}を選択してください',
+        pleaseUploadZip: 'ドキュメント/.zip をアップロードしてください',
+        requestFailed: 'リクエスト失敗',
     },
 };

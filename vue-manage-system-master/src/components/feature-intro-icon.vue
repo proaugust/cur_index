@@ -1,38 +1,41 @@
 <template>
-    <el-icon class="feature-intro-icon" title="功能介绍" @click.stop="openDialog">
+    <el-icon class="feature-intro-icon" :title="t('featureIntro.tooltip')" @click.stop="openDialog">
         <ChatDotRound />
     </el-icon>
 
     <el-dialog
         v-model="visible"
-        :title="`${title || '功能介绍'} — 说明`"
+        :title="t('featureIntro.dialogTitle', { title: title || t('featureIntro.fallbackTitle') })"
         width="1040px"
         append-to-body
         destroy-on-close
         @closed="draft = ''"
     >
-        <p class="feature-intro-hint">在此填写该 Tab / 功能块的说明，保存后写入数据库，所有用户可见。</p>
+        <p class="feature-intro-hint">{{ t('featureIntro.hint') }}</p>
         <el-input
             v-model="draft"
             type="textarea"
             :rows="15"
             maxlength="2000"
             show-word-limit
-            placeholder="例如：本页用于文档向量检索与大模型润色演示……"
+            :placeholder="t('featureIntro.placeholder')"
         />
         <template #footer>
-            <el-button @click="visible = false">取消</el-button>
-            <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+            <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
+            <el-button type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</el-button>
         </template>
     </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ChatDotRound } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { upsertFeatureIntro } from '@/api';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
+
+const { t } = useI18n();
 
 const props = defineProps<{
     pageKey: string;
@@ -63,10 +66,10 @@ const handleSave = async () => {
             content,
         });
         emit('saved', props.sectionKey, content);
-        ElMessage.success('功能说明已保存');
+        ElMessage.success(t('featureIntro.saved'));
         visible.value = false;
     } catch {
-        ElMessage.error('保存失败，请检查后端是否已启动');
+        ElMessage.error(t('featureIntro.saveFailed'));
     } finally {
         saving.value = false;
     }

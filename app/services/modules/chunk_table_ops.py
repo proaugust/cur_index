@@ -40,14 +40,12 @@ def hnsw_index_name(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
         return "ix_document_chunks_embedding_hnsw"
     return f"ix_dcc_{table_name}_hnsw"[:63]
 
-
 def fts_index_name(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
     if table_name == BUSINESS_CHUNK_TABLE:
         return "ix_dcc_business_fts"
     if table_name == GENERAL_CHUNK_TABLE:
         return "ix_document_chunks_fts"
     return f"ix_dcc_{table_name}_fts"[:63]
-
 
 def source_file_like_pattern(pattern: str | None) -> str | None:
     """无通配符时按子串匹配；含 % / _ 时按 SQL LIKE 语义。"""
@@ -79,7 +77,6 @@ def name_to_slug(name: str) -> str:
 def table_name_for_slug(_slug: str) -> str:
     """业务库统一物理表（保留函数签名兼容注册逻辑）。"""
     return BUSINESS_CHUNK_TABLE
-
 
 def ensure_chunk_table(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
     """确保业务切块表存在并补齐 FTS / lang / trgm。"""
@@ -123,7 +120,6 @@ def ensure_chunk_table(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> N
     ensure_chunk_lang(db)
     ensure_chunk_fts(db)
     ensure_chunk_source_file_trgm(db)
-
 
 def ensure_chunk_lang(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
     if table_name != BUSINESS_CHUNK_TABLE:
@@ -242,14 +238,12 @@ def get_chunk_model(table_name: str = BUSINESS_CHUNK_TABLE):
     """返回切块 ORM（通用 / 业务固定表）。"""
     table = _require_chunk_table(table_name)
     from app import models
-
     if table == GENERAL_CHUNK_TABLE:
         return models.DocumentChunk
     return models.DocumentBusinessChunk
 
-
 def embedding_preview(embedding: Any, *, head: int = 4) -> str | None:
-    """仅展示前几维 + 总维数，避免把整列向量回给前端。"""
+    """前几维 + 总维数。"""
     if embedding is None:
         return None
     try:
@@ -261,11 +255,9 @@ def embedding_preview(embedding: Any, *, head: int = 4) -> str | None:
     head_s = ", ".join(f"{float(x):.3f}" for x in vals[:head])
     return f"[{head_s}, …] ×{len(vals)}"
 
-
 def chunk_embed_text(*, section_path: str, section_title: str, content: str) -> str:
     prefix = (section_path or section_title or "").strip()
     return f"[{prefix}] {content}" if prefix else content
-
 
 def row_to_dict(row: Any) -> dict[str, Any]:
     return {
@@ -279,3 +271,26 @@ def row_to_dict(row: Any) -> dict[str, Any]:
         "lang": getattr(row, "lang", None) or DEFAULT_CHUNK_LANG,
         "embedding_preview": embedding_preview(getattr(row, "embedding", None)),
     }
+
+def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str | None = None) -> str:
+    snip = (sv_text or "").strip()
+    snip = snip[:56] + "…" if len(snip) > 56 else snip
+    if from_fts:
+        return f"命中 {fts_rank:.4f}" + (f" · {snip}" if snip else "")
+    return snip or "—"
+
+def apply_gin_previews(db: Session, table_name: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    ids = [int(it["id"]) for it in items if it.get("id") is not None]
+    snips: dict[int, str] = {}
+    if ids:
+        table = _require_chunk_table(table_name)
+        stmt = text(
+            f"SELECT id, left(search_vector::text, 72) AS s FROM {table} WHERE id IN :ids"
+        ).bindparams(bindparam("ids", expanding=True))
+        snips = {int(r.id): (r.s or "") for r in db.execute(stmt, {"ids": ids})}
+    for it in items:
+        cid = int(it["id"])
+        it["gin_preview"] = gin_preview(
+            bool(it.get("from_fts")), float(it.get("fts_rank") or 0), sv_text=snips.get(cid)
+        )
+    return items

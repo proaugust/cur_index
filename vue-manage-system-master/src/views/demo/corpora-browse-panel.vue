@@ -112,6 +112,7 @@
             <el-table-column prop="chunk_index" :label="t('pages.rag.columns.chunk_index')" min-width="56" />
             <el-table-column prop="lang" :label="t('pages.rag.columns.lang')" min-width="56" />
             <el-table-column prop="embedding_preview" :label="t('pages.rag.columns.embedding_preview')" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="gin_preview" :label="t('pages.rag.columns.gin_preview')" min-width="88" show-overflow-tooltip />
         </el-table>
         <el-pagination
             v-if="rows.length > pageSize"

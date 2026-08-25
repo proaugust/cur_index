@@ -9,7 +9,7 @@
             router
             @select="onMenuSelect"
         >
-            <template v-for="item in visibleMenu" :key="item.index">
+            <template v-for="item in visibleMenu" :key="item.id">
                 <template v-if="item.children">
                     <el-sub-menu :index="item.index">
                         <template #title>
@@ -76,7 +76,7 @@ const onRoutes = computed(() => route.path);
 function onMenuSelect(index: string) {
     if (!index.startsWith('/')) return;
     if (route.path === index) return;
-    router.push(index).catch(() => {});
+    router.push({ path: index }).catch(() => {});
 }
 
 const sidebar = useSidebarStore();
