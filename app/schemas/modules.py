@@ -12,9 +12,14 @@ def _as_utc_aware(value: datetime) -> datetime:
 
 
 def _chunk_embedding_preview(data: Any) -> str | None:
+    from sqlalchemy import inspect as sa_inspect
+
     from app.services.modules.chunk_table_ops import embedding_preview
 
-    if hasattr(data, "embedding"):
+    if hasattr(data, "__mapper__"):
+        state = sa_inspect(data)
+        if "embedding" in state.unloaded:
+            return None
         return embedding_preview(getattr(data, "embedding", None))
     if isinstance(data, dict):
         if data.get("embedding_preview"):

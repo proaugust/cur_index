@@ -260,6 +260,12 @@ def chunk_embed_text(*, section_path: str, section_title: str, content: str) -> 
     return f"[{prefix}] {content}" if prefix else content
 
 def row_to_dict(row: Any) -> dict[str, Any]:
+    from sqlalchemy import inspect as sa_inspect
+
+    state = sa_inspect(row)
+    emb_preview = None
+    if "embedding" not in state.unloaded:
+        emb_preview = embedding_preview(getattr(row, "embedding", None))
     return {
         "id": row.id,
         "source_file": row.source_file,
@@ -269,7 +275,7 @@ def row_to_dict(row: Any) -> dict[str, Any]:
         "content": row.content,
         "char_count": row.char_count,
         "lang": getattr(row, "lang", None) or DEFAULT_CHUNK_LANG,
-        "embedding_preview": embedding_preview(getattr(row, "embedding", None)),
+        "embedding_preview": emb_preview,
     }
 
 def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str | None = None) -> str:

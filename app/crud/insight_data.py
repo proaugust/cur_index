@@ -3,8 +3,8 @@
 from datetime import date, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, inspect as sa_inspect
+from sqlalchemy.orm import Session, defer
 
 from app.crud import insight as crud_insight
 from app.models.insight import (
@@ -37,6 +37,18 @@ from app.schemas.insight import (
     InsightUserProfileUpdate,
 )
 from app.services.modules.insight.vector_service import embed_complaint_text
+
+_DEFER_COMPLAINT_VECTOR = defer(FactComplaintSample.complaint_vector, raiseload=True)
+
+
+def _orm_columns_dict(row) -> dict:
+    """ORM 列字典；deferred/unloaded 列填 None，避免触达触发二次查询。"""
+    state = sa_inspect(row)
+    out: dict = {}
+    for attr in state.mapper.column_attrs:
+        key = attr.key
+        out[key] = None if key in state.unloaded else getattr(row, key)
+    return out
 
 
 def _page(query, page: int, page_size: int):
@@ -184,7 +196,7 @@ def list_complaint_samples(
     page: int = 1,
     page_size: int = 10,
 ) -> InsightComplaintSampleListResponse:
-    query = db.query(FactComplaintSample)
+    query = db.query(FactComplaintSample).options(_DEFER_COMPLAINT_VECTOR)
     if user_id:
         query = query.filter(FactComplaintSample.user_id == user_id)
     if date_from:
@@ -197,7 +209,7 @@ def list_complaint_samples(
         page_size,
     )
     return InsightComplaintSampleListResponse(
-        list=[InsightComplaintSampleRead.model_validate(row) for row in rows],
+        list=[InsightComplaintSampleRead.model_validate(_orm_columns_dict(row)) for row in rows],
         pageTotal=total,
     )
 
@@ -221,7 +233,7 @@ def list_category_pairs(db: Session) -> list[dict]:
 
 
 def _complaint_read(row: FactComplaintSample, region: str | None = None) -> InsightComplaintRead:
-    data = InsightComplaintRead.model_validate(row).model_dump()
+    data = InsightComplaintRead.model_validate(_orm_columns_dict(row)).model_dump()
     data["region"] = region
     return InsightComplaintRead(**data)
 
@@ -242,6 +254,7 @@ def list_complaints(
 ) -> InsightComplaintListResponse:
     query = (
         db.query(FactComplaintSample, DimUserProfile.region)
+        .options(_DEFER_COMPLAINT_VECTOR)
         .outerjoin(DimUserProfile, FactComplaintSample.user_id == DimUserProfile.user_id)
         .filter(FactComplaintSample.complaint_id.isnot(None))
     )

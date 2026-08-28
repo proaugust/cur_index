@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app import models, schemas
 from app.services.modules.chunk_table_ops import source_file_like_pattern
@@ -99,7 +99,9 @@ def get_document_chunks(
     page: int = 1,
     page_size: int = 10,
 ) -> tuple[list[models.DocumentChunk], int]:
-    query = db.query(models.DocumentChunk)
+    query = db.query(models.DocumentChunk).options(
+        defer(models.DocumentChunk.embedding, raiseload=True)
+    )
     file_pattern = source_file_like_pattern(source_file)
     if file_pattern:
         query = query.filter(models.DocumentChunk.source_file.ilike(file_pattern))
@@ -406,12 +408,17 @@ def search_complaints(
         category_name=category_name,
         classified=classified,
     )
+    defer_embedding = defer(models.Complaint.embedding, raiseload=True)
     if query_vector is not None:
         distance_expr = models.Complaint.embedding.cosine_distance(query_vector)
-        query = db.query(models.Complaint, distance_expr.label("distance")).join(
-            models.ComplaintCategory,
-            models.Complaint.category_id == models.ComplaintCategory.id,
-            isouter=True,
+        query = (
+            db.query(models.Complaint, distance_expr.label("distance"))
+            .options(defer_embedding)
+            .join(
+                models.ComplaintCategory,
+                models.Complaint.category_id == models.ComplaintCategory.id,
+                isouter=True,
+            )
         )
         query = _apply_complaint_filters(query, filters)
         query = query.filter(models.Complaint.embedding.isnot(None))
@@ -426,7 +433,7 @@ def search_complaints(
         )
         return [(row, round(1.0 - float(distance), 4)) for row, distance in rows], total
 
-    query = _apply_complaint_filters(_complaint_query_with_category(db), filters)
+    query = _apply_complaint_filters(_complaint_query_with_category(db).options(defer_embedding), filters)
     if text:
         query = query.filter(models.Complaint.complaint_text.ilike(f"%{text}%"))
     if min_similarity is not None:

@@ -2,9 +2,10 @@
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.core.config import settings
+from app.crud.insight_data import _orm_columns_dict
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot, FactComplaintSample
 from app.schemas.insight import (
     InsightComplaintRead,
@@ -113,6 +114,7 @@ class InsightProfileService:
     def _load_recent_complaints(self, user_id: str, region: str) -> list[InsightComplaintRead]:
         rows = (
             self.db.query(FactComplaintSample)
+            .options(defer(FactComplaintSample.complaint_vector, raiseload=True))
             .filter_by(user_id=user_id)
             .filter(FactComplaintSample.complaint_id.isnot(None))
             .order_by(FactComplaintSample.sample_time.desc(), FactComplaintSample.complaint_id.desc())
@@ -120,22 +122,20 @@ class InsightProfileService:
             .all()
         )
         return [
-            InsightComplaintRead.model_validate(row).model_copy(update={"region": region, "complaint_vector": None})
+            InsightComplaintRead.model_validate(_orm_columns_dict(row)).model_copy(update={"region": region})
             for row in rows
         ]
 
     def _load_recent_samples(self, user_id: str) -> list[InsightTouchpointRead]:
         rows = (
             self.db.query(FactComplaintSample)
+            .options(defer(FactComplaintSample.complaint_vector, raiseload=True))
             .filter_by(user_id=user_id)
             .order_by(FactComplaintSample.record_date.desc(), FactComplaintSample.sample_id.desc())
             .limit(PROFILE_RECENT_TOUCHPOINT_LIMIT)
             .all()
         )
-        return [
-            InsightComplaintSampleRead.model_validate(row).model_copy(update={"complaint_vector": None})
-            for row in rows
-        ]
+        return [InsightComplaintSampleRead.model_validate(_orm_columns_dict(row)) for row in rows]
 
     def _is_hot(self, profile: InsightUserProfileResponse) -> bool:
         return self._is_hot_values(profile.stats, profile.profile.vip_level, profile.profile.risk_score)

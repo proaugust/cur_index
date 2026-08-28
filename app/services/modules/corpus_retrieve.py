@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.services.modules.chunk_lang import (
     ChunkLang, DEFAULT_CHUNK_LANG, normalize_lang, prepare_query_text, ts_config,
@@ -74,7 +74,12 @@ def recall_vector(
     names = merge_corpus_names(corpus_name, corpus_names)
     query_vector = embed_query(query.strip())
     distance_expr = model.embedding.cosine_distance(query_vector).label("distance")
-    q = db.query(model, distance_expr).filter(model.embedding.isnot(None)).filter(model.lang == lang)
+    q = (
+        db.query(model, distance_expr)
+        .options(defer(model.embedding, raiseload=True))
+        .filter(model.embedding.isnot(None))
+        .filter(model.lang == lang)
+    )
     q = apply_corpus_name_filter(q, model, names)
     file_pattern = source_file_like_pattern(source_file)
     if file_pattern:
@@ -131,7 +136,13 @@ def recall_fts(
     model = get_chunk_model(table_name)
     ids = [int(r[0]) for r in ranked]
     rank_map = {int(r[0]): float(r[1] or 0.0) for r in ranked}
-    by_id = {c.id: c for c in db.query(model).filter(model.id.in_(ids)).all()}
+    by_id = {
+        c.id: c
+        for c in db.query(model)
+        .options(defer(model.embedding, raiseload=True))
+        .filter(model.id.in_(ids))
+        .all()
+    }
     return [
         RetrievedHit(row=by_id[cid], fts_rank=rank_map[cid], from_fts=True)
         for cid in ids
@@ -199,6 +210,7 @@ def expand_parents(
         seen.add(key)
         q = (
             db.query(model)
+            .options(defer(model.embedding, raiseload=True))
             .filter(model.source_file == hit.row.source_file)
             .filter(model.section_path == hit.row.section_path)
         )

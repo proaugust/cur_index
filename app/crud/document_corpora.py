@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app import models
 from app.services.modules.chunk_table_ops import (
@@ -165,7 +165,7 @@ def list_chunks(
     page_size: int = 10,
 ) -> tuple[list, int]:
     model = _model()
-    query = db.query(model)
+    query = db.query(model).options(defer(model.embedding, raiseload=True))
     names = [n for n in (corpus_names or []) if n] if corpus_names is not None else None
     if names is not None:
         if len(names) == 1:
