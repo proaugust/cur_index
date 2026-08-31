@@ -479,46 +479,199 @@ def upsert_feature_intro(
     return row
 
 
-DEFAULT_FEATURE_INTROS: list[tuple[str, str, str]] = [
-    ("app", "header", "站点说明"),
-    ("complaints", "samples", "投诉样本查询"),
-    ("complaints", "category", "按投诉类型"),
-    ("complaints", "address", "按地区"),
-    ("complaints", "time", "按时间（天）"),
-    ("rag", "page", "RAG 检索"),
-    ("rag", "import", "导入文档"),
-    ("rag", "listByFile", "按文件名查"),
-    ("rag", "search", "混合检索，重排，top5"),
-    ("rag", "search-and-llm", "搜索+LLM"),
-    ("ai-chat", "page", "AI 训练提问"),
-    ("agent", "single", "单智能体"),
-    ("agent", "sequential", "顺序模式"),
-    ("agent", "routing", "路由模式"),
-    ("agent", "reflection", "循环/反思模式"),
-    ("meeting", "page", "会议整理"),
-    ("smart-route", "page", "智能路由"),
-    ("attendance", "punch", "人脸打卡"),
-    ("attendance", "history", "打卡历史"),
-    ("attendance", "persons", "已登记人员"),
-    ("cobol-migrate", "page", "COBOL to Java 多 Agent 迁移流程演示"),
+# (page_key, section_key, title, content)；seed 只插入缺失行，或给空 content 填默认，不覆盖已有文案
+DEFAULT_FEATURE_INTROS: list[tuple[str, str, str, str]] = [
+    (
+        "app",
+        "header",
+        "站点说明",
+        "本站是一套 AI 能力演示后台：投诉分析、RAG 检索、Agent、考勤等可从左侧菜单进入。点气泡可编辑各功能说明。",
+    ),
+    (
+        "complaints",
+        "samples",
+        "投诉样本查询",
+        "按地区、时间、正文语义检索投诉样本，可结合分类与相似度过滤，查看原始投诉文本。",
+    ),
+    (
+        "complaints",
+        "category",
+        "按投诉类型",
+        "按投诉类型聚合数量与占比，点击扇区可下钻到该类型的样本列表。",
+    ),
+    ("complaints", "address", "按地区", "按地区聚合投诉量，用于对比不同区域的投诉热度。"),
+    ("complaints", "time", "按时间（天）", "按天查看投诉量趋势，便于发现集中爆发的时段。"),
+    (
+        "rag",
+        "page",
+        "RAG 检索",
+        "根据提示词语义做检索：文本先向量化，再在向量库中按相似度召回相关切块。",
+    ),
+    (
+        "rag",
+        "import",
+        "导入文档",
+        "上传 UTF-8 文本，切块写入通用文档库 document_chunks，供后续检索与问答。",
+    ),
+    (
+        "rag",
+        "listByFile",
+        "按文件名查",
+        "列出已导入文件路径（去重）。可按文件名关键字过滤，本 Tab 不展示切块正文。",
+    ),
+    (
+        "rag",
+        "search",
+        "混合检索，重排，top5",
+        "对通用文档库做向量+全文混合检索，可选 C1 重排，默认返回最相关的 top 5 切块。",
+    ),
+    (
+        "rag",
+        "search-and-llm",
+        "搜索+LLM",
+        "先检索通用文档库相关切块，再用大模型润色成回答，并保留原始出处便于核对。",
+    ),
+    ("rag", "clear", "清空文档库", "删除通用文档库 document_chunks 中的全部切块，操作不可恢复，请确认后再执行。"),
+    (
+        "rag",
+        "corpora-import",
+        "资料库导入",
+        "中文\n将 .md/.txt/.zip 异步导入业务知识库 document_business_chunks。资料名必填（可手动填，默认取 ZIP 内文件夹名或文件名）。\n\n日文\n.md/.txt/.zip を業務ナレッジ庫 document_business_chunks へ非同期取り込みます。資料名は必須です（ZIP 内フォルダ名またはファイル名が既定値）。",
+    ),
+    (
+        "rag",
+        "corpora-import-job",
+        "资料库导入任务",
+        "中文\n查询异步导入进度：pending / running / done / failed。导入大 ZIP 时可轮询本接口。\n\n日文\n非同期取り込みの進捗（pending / running / done / failed）を確認します。",
+    ),
+    (
+        "rag",
+        "corpora-list",
+        "资料库列表",
+        "中文\n列出已注册的业务知识库（切块均在 document_business_chunks），可按分类过滤。\n\n日文\n登録済みの業務ナレッジ庫一覧です。分類で絞り込めます。",
+    ),
+    (
+        "rag",
+        "corpora-listByFile",
+        "按文件名查",
+        "中文\n列出资料库已导入的文件路径（去重）。资料名或文件名可留空查全部，本 Tab 不展示切块正文。\n\n日文\n資料庫に取り込まれたファイルパス（重複除外）を一覧します。本文チャンクは表示しません。",
+    ),
+    (
+        "rag",
+        "corpora-files",
+        "资料库文件",
+        "中文\n查询某资料库下已导入的文件名；资料名留空则查全部资料库。\n\n日文\n指定資料庫（空なら全部）に取り込まれたファイル名を照会します。",
+    ),
+    (
+        "rag",
+        "corpora-suggest-filters",
+        "检索过滤建议",
+        "中文\n根据问题关键词规则建议分类、资料库等过滤条件，可改后再检索。\n\n日文\n質問キーワードから分類・資料庫などのフィルタ候補を提案します。",
+    ),
+    (
+        "rag",
+        "corpora-search",
+        "资料库检索",
+        "中文\n对业务资料库做向量/混合检索，可按分类或多库过滤；问题留空则返回默认切块列表。\n\n日文\n業務資料庫のベクトル／ハイブリッド検索です。分類・複数庫で絞り込めます。",
+    ),
+    (
+        "rag",
+        "corpora-search-llm",
+        "资料库检索+LLM",
+        "中文\n业务资料库检索后再用大模型润色回答，并保留原始出处。\n\n日文\n業務資料庫を検索し、LLM で回答を整えます。出典も残します。",
+    ),
+    (
+        "rag",
+        "corpora-delete",
+        "资料库删除",
+        "中文\n删除资料库注册记录，并清空该资料名在 document_business_chunks 中的切块（不 DROP 共享表）。\n\n日文\n資料庫の登録を削除し、当該資料名のチャンクを空にします（共有表は DROP しません）。",
+    ),
+    (
+        "rag",
+        "corpora-browse",
+        "资料库浏览检索",
+        "中文\n可视化浏览业务知识库：选资料库、看文件与切块，并做语义检索。导入请用「资料库导入」Tab。\n\n日文\n業務ナレッジ庫を画面で閲覧・検索します。取り込みは「資料庫导入」タブを使います。",
+    ),
+    (
+        "ai-chat",
+        "page",
+        "AI 训练提问",
+        "选择场景或自定义问题，调用大模型作答，用于对比不同提示与回复风格。",
+    ),
+    (
+        "agent",
+        "single",
+        "单智能体",
+        "单个 Agent 直接使用工具完成问答，适合步骤少、目标明确的问题。",
+    ),
+    (
+        "agent",
+        "sequential",
+        "顺序模式",
+        "规划 → 执行 → 总结按固定流水线依次调用多个 Agent。",
+    ),
+    (
+        "agent",
+        "routing",
+        "路由模式",
+        "先由路由 Agent 判断意图，再交给对应专家 Agent 作答。",
+    ),
+    (
+        "agent",
+        "reflection",
+        "循环/反思模式",
+        "生成、评审、修订循环迭代，直到回答通过评审或达到轮次上限。",
+    ),
+    ("meeting", "page", "会议整理", "粘贴会议记录，按简洁或正式风格整理纪要与待办。"),
+    (
+        "smart-route",
+        "page",
+        "智能路由",
+        "根据问题意图路由到天气、考勤人员等不同后端能力，并展示路由结果。",
+    ),
+    (
+        "attendance",
+        "punch",
+        "人脸打卡",
+        "摄像头采集人脸并与已登记人员比对完成打卡（本地需人脸模型；HF 上可能不可用）。",
+    ),
+    ("attendance", "history", "打卡历史", "按人员查看打卡记录，可删除单条或批量清理。"),
+    ("attendance", "persons", "已登记人员", "管理已录入人脸的人员名单，支持新增与删除。"),
+    (
+        "cobol-migrate",
+        "page",
+        "COBOL to Java 多 Agent 迁移流程演示",
+        "多 Agent 演示 COBOL 到 Java 的解析、翻译、校验与测试报告流程，可逐步或一键跑通。",
+    ),
+    (
+        "zha-jinhua",
+        "page",
+        "炸金花 AI 对局",
+        "人机炸金花对局演示：发牌、跟注/弃牌，并展示 AI 裁判与底池流水。",
+    ),
 ]
 
 
 def seed_feature_intros(db: Session) -> list[models.FeatureIntro]:
-    created: list[models.FeatureIntro] = []
-    for page_key, section_key, title in DEFAULT_FEATURE_INTROS:
-        exists = (
+    touched: list[models.FeatureIntro] = []
+    for page_key, section_key, title, content in DEFAULT_FEATURE_INTROS:
+        row = (
             db.query(models.FeatureIntro)
             .filter(models.FeatureIntro.page_key == page_key, models.FeatureIntro.section_key == section_key)
             .first()
         )
-        if exists:
+        if row:
+            if not (row.content or "").strip() and content:
+                row.content = content
+                if not (row.title or "").strip():
+                    row.title = title
+                touched.append(row)
             continue
-        row = models.FeatureIntro(page_key=page_key, section_key=section_key, title=title, content="")
+        row = models.FeatureIntro(page_key=page_key, section_key=section_key, title=title, content=content)
         db.add(row)
-        created.append(row)
-    if created:
+        touched.append(row)
+    if touched:
         db.commit()
-        for row in created:
+        for row in touched:
             db.refresh(row)
-    return created
+    return touched

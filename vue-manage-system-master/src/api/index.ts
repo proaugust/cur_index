@@ -365,6 +365,88 @@ export const runNativeAgent = (data: {
     temperature?: number;
 }) => request.post('/my_agent/run', { ...data, engine: 'native' });
 
+type NativeAgentMode = 'single' | 'sequential' | 'routing' | 'reflection';
+
+function redirectToLoginIfUnauthorized() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('vuems_name');
+    localStorage.removeItem('vuems_permissions');
+    if (!window.location.hash.includes('/login')) {
+        window.location.hash = '#/login';
+    }
+}
+
+export const runNativeAgentStream = async (
+    data: { question: string; mode: NativeAgentMode; temperature?: number },
+    onEvent: (payload: {
+        steps: Array<{
+            agent: string;
+            role: string;
+            input: string;
+            output: string;
+            status: 'pending' | 'running' | 'done' | 'error';
+            meta?: string | null;
+        }>;
+        answer: string | null;
+    }) => void,
+) => {
+    const response = await fetch('/api/my_agent/run', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
+        },
+        body: JSON.stringify({ ...data, engine: 'native' }),
+    });
+    if (response.status === 401) {
+        redirectToLoginIfUnauthorized();
+        throw new Error('unauthorized');
+    }
+    if (!response.ok || !response.body) {
+        throw new Error(`stream ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        const payload = await response.json();
+        onEvent({ steps: payload.steps ?? [], answer: payload.answer ?? null });
+        return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const consumeBlock = (block: string) => {
+        const line = block.split('\n').find((item) => item.startsWith('data: '));
+        if (!line) {
+            return;
+        }
+        const payload = JSON.parse(line.slice(6));
+        if (payload.error) {
+            throw new Error(payload.error);
+        }
+        onEvent({ steps: payload.steps ?? [], answer: payload.answer ?? null });
+    };
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() ?? '';
+        for (const block of blocks) {
+            consumeBlock(block);
+        }
+    }
+    if (buffer.trim()) {
+        consumeBlock(buffer);
+    }
+};
+
 export const runLangchainAgent = (data: { question: string; temperature?: number }) =>
     request.post('/my_agent/langchain', data);
 

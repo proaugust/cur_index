@@ -54,7 +54,7 @@
                     </div>
 
                     <el-form label-width="120px" class="param-form" @submit.prevent="sendRequest(ep)">
-                        <div @keyup.enter="onFieldEnter(ep, $event)">
+                        <div @keydown.enter.capture="onFieldEnter(ep, $event)">
                         <template v-if="ep.pathParams?.length">
                             <div class="param-section-title">{{ t('apiDebug.pathParams') }}</div>
                             <el-form-item
@@ -1010,7 +1010,10 @@ const validateRequest = (ep: ApiEndpoint): string | null => {
 const onFieldEnter = (ep: ApiEndpoint, e: Event | KeyboardEvent) => {
     const ev = e as KeyboardEvent;
     if (ev.isComposing || ev.keyCode === 229) return;
-    if ((ev.target as HTMLElement).tagName !== 'INPUT') return;
+    const el = ev.target as HTMLElement | null;
+    if (!el || el.tagName !== 'INPUT') return;
+    if (el.closest('.el-select')) return;
+    ev.preventDefault();
     void sendRequest(ep);
 };
 

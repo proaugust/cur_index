@@ -1,11 +1,15 @@
-﻿from fastapi import APIRouter, Depends
+﻿import json
+from collections.abc import Iterator
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.core.deps import get_db
 from app.core.permissions import require_permission
 from app.models import User
-from app.services.modules.agent_native import run_agent_native
+from app.services.modules.agent_native import iter_agent_native, run_agent_native
 from app.services.modules.rag_agentic_service import RagAgenticService
 
 router = APIRouter(prefix="/my_agent", tags=["my_agent"])
@@ -36,18 +40,63 @@ def _ok(question: str, engine: schemas.AgentEngine, result, *, mode=None) -> sch
     )
 
 
-@router.post("/run", response_model=schemas.AgentRunResponse, summary="原生 Agent")
+def _sse_line(payload: dict) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _stream_native(mode: schemas.AgentMode, question: str, temperature: float) -> StreamingResponse:
+    def generate() -> Iterator[str]:
+        try:
+            for steps, answer in iter_agent_native(mode, question, temperature=temperature):
+                yield _sse_line(
+                    {
+                        "steps": [s.model_dump() for s in _to_schema_steps(steps)],
+                        "answer": answer,
+                    }
+                )
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            yield _sse_line({"error": detail, "steps": []})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/run", summary="原生 Agent")
 def run_native(
     body: schemas.AgentNativeRunRequest,
+    request: Request,
     _: User = Depends(require_permission("84.run", name="运行 Agent")),
-) -> schemas.AgentRunResponse:
+):
     question = body.question.strip()
+    if "text/event-stream" in (request.headers.get("accept") or ""):
+        if not question:
+            raise HTTPException(status_code=400, detail="问题不能为空")
+        return _stream_native(body.mode, question, body.temperature)
     return _ok(
         question,
         "native",
         run_agent_native(body.mode, question, temperature=body.temperature),
         mode=body.mode,
     )
+
+
+@router.post("/run/stream", summary="原生 Agent 逐步推送")
+def run_native_stream(
+    body: schemas.AgentNativeRunRequest,
+    _: User = Depends(require_permission("84.run", name="运行 Agent")),
+) -> StreamingResponse:
+    question = body.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="问题不能为空")
+    return _stream_native(body.mode, question, body.temperature)
 
 
 @router.post("/langchain", response_model=schemas.AgentRunResponse, summary="LangChain LCEL 简单演示")

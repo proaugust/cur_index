@@ -116,6 +116,7 @@
                         :loading="loading.reflection"
                         :steps="steps.reflection"
                         :initial-question="defaultQuestions.reflection"
+                        :lanes="reflectionLanes"
                         @run="(q) => runAgent('reflection', q)"
                     />
                 </el-tab-pane>
@@ -131,8 +132,8 @@ import { ElMessage } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { useFeatureIntros } from '@/composables/useFeatureIntros';
 import { useCachedRef } from '@/composables/useFormCache';
-import { runNativeAgent } from '@/api';
-import type { AgentExample, AgentStep } from './types';
+import { runNativeAgent, runNativeAgentStream } from '@/api';
+import type { AgentExample, AgentLane, AgentStep } from './types';
 
 const ModeIntro = defineAsyncComponent(() => import('./mode-intro.vue'));
 const AgentDemo = defineAsyncComponent(() => import('./agent-demo.vue'));
@@ -167,6 +168,20 @@ const defaultQuestions = computed(() => ({
     reflection: t('pages.agent.reflectionQuestion'),
 }));
 
+const reflectionLanes: AgentLane[] = [
+    { agent: '生成 Agent', title: '生成' },
+    { agent: '评审 Agent', title: '评审' },
+    { agent: '修订 Agent', title: '修订' },
+    { agent: '最终输出', title: '最终' },
+];
+
+const seedReflectionSteps = (question: string): AgentStep[] => [
+    { agent: '生成 Agent', role: '第 1 轮初稿', input: question, output: '', status: 'running' },
+    { agent: '评审 Agent', role: '等待评审', input: '', output: '', status: 'pending' },
+    { agent: '修订 Agent', role: '等待修订', input: '', output: '', status: 'pending' },
+    { agent: '最终输出', role: '等待终稿', input: '', output: '', status: 'pending' },
+];
+
 const loading = reactive({
     single: false,
     sequential: false,
@@ -187,14 +202,27 @@ const runAgent = async (mode: AgentMode, question: string) => {
         return;
     }
     loading[mode] = true;
-    steps[mode] = [];
+    if (mode === 'reflection') {
+        steps.reflection = seedReflectionSteps(question);
+    } else {
+        steps[mode] = [];
+    }
     try {
-        const res = await runNativeAgent({
-            question,
-            mode,
-            temperature: 0.7,
-        });
-        steps[mode] = res.data.steps ?? [];
+        if (mode === 'reflection') {
+            await runNativeAgentStream({ question, mode, temperature: 0.7 }, (payload) => {
+                steps.reflection = payload.steps.map((step) => ({
+                    ...step,
+                    meta: step.meta ?? undefined,
+                }));
+            });
+        } else {
+            const res = await runNativeAgent({
+                question,
+                mode,
+                temperature: 0.7,
+            });
+            steps[mode] = res.data.steps ?? [];
+        }
     } catch {
         ElMessage.error(t('pages.agent.runFailed'));
     } finally {

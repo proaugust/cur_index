@@ -29,6 +29,11 @@ dependencies = [
 [tool.uv]
 package = false
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+
 
 [tool.black]
 line-length = 130

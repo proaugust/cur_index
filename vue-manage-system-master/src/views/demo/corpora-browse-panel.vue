@@ -13,7 +13,7 @@
             <el-tag size="small" type="info">768d · BGE</el-tag>
         </div>
         <p class="panel-desc">{{ t('pages.rag.corporaBrowse.description') }}</p>
-        <el-form label-width="100px" class="param-form" @submit.prevent="runQuery">
+        <el-form label-width="100px" class="param-form" @submit.prevent="runQuery" @keydown.enter.capture="onFormEnter">
             <el-form-item :label="t('pages.rag.corporaBrowse.mode')" required>
                 <el-radio-group v-model="mode">
                     <el-radio-button v-if="canSearch" value="search">
@@ -30,7 +30,6 @@
                     clearable
                     :placeholder="t('pages.rag.corporaBrowse.queryPh')"
                     style="max-width: 560px"
-                    @keyup.enter="runQuery"
                 />
             </el-form-item>
             <el-form-item :label="t('pages.rag.corporaBrowse.category')">
@@ -169,6 +168,15 @@ const {
     suggestFilters,
     runQuery,
 } = useCorporaBrowse();
+
+const onFormEnter = (e: KeyboardEvent) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const el = e.target as HTMLElement | null;
+    if (!el || el.tagName !== 'INPUT') return;
+    if (el.closest('.el-select')) return;
+    e.preventDefault();
+    void runQuery();
+};
 </script>
 
 <style scoped>

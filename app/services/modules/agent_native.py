@@ -134,33 +134,41 @@ def run_routing(question: str, *, temperature: float) -> tuple[list[AgentStepDat
     return steps, answer
 
 
-def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+def iter_reflection(question: str, *, temperature: float):
+    """逐步 yield (当前 steps, 终稿或 None)，供页面按角色展示 running/pending。"""
     steps: list[AgentStepData] = []
-    draft = _ask(GENERATE_SYSTEM, question, temperature=temperature, caller="agent.native.reflection.generate")
-    steps.append(
-        AgentStepData(
-            agent="生成 Agent",
-            role="第 1 轮初稿",
-            input=question,
-            output=draft,
-        )
+
+    gen_step = AgentStepData(
+        agent="生成 Agent",
+        role="第 1 轮初稿",
+        input=question,
+        status="running",
     )
+    steps.append(gen_step)
+    yield steps, None
+    draft = _ask(GENERATE_SYSTEM, question, temperature=temperature, caller="agent.native.reflection.generate")
+    gen_step.output = draft
+    gen_step.status = "done"
+    yield steps, None
 
     for round_num in range(1, REFLECTION_MAX_ROUNDS + 1):
+        review_step = AgentStepData(
+            agent="评审 Agent",
+            role=f"第 {round_num} 轮评审",
+            input=draft,
+            status="running",
+        )
+        steps.append(review_step)
+        yield steps, None
         review = _ask(
             REVIEW_SYSTEM,
             f"用户问题：{question}\n\n草稿：\n{draft}",
             temperature=min(temperature, 0.3),
             caller=f"agent.native.reflection.review.{round_num}",
         )
-        steps.append(
-            AgentStepData(
-                agent="评审 Agent",
-                role=f"第 {round_num} 轮评审",
-                input=draft,
-                output=review,
-            )
-        )
+        review_step.output = review
+        review_step.status = "done"
+        yield steps, None
 
         score = parse_reflection_score(review)
         if score >= REFLECTION_PASS_SCORE or round_num == REFLECTION_MAX_ROUNDS:
@@ -173,26 +181,36 @@ def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStep
                     meta=f"评分 {score}/10",
                 )
             )
-            return steps, draft
+            yield steps, draft
+            return
 
         revise_input = f"用户问题：{question}\n\n当前草稿：\n{draft}\n\n评审意见：\n{review}"
         old_draft = draft
+        revise_step = AgentStepData(
+            agent="修订 Agent",
+            role=f"第 {round_num} 轮修订",
+            input=f"{old_draft}\n\n评审意见：\n{review}",
+            status="running",
+        )
+        steps.append(revise_step)
+        yield steps, None
         draft = _ask(
             REVISE_SYSTEM,
             revise_input,
             temperature=temperature,
             caller=f"agent.native.reflection.revise.{round_num}",
         )
-        steps.append(
-            AgentStepData(
-                agent="修订 Agent",
-                role=f"第 {round_num} 轮修订",
-                input=f"{old_draft}\n\n评审意见：\n{review}",
-                output=draft,
-            )
-        )
+        revise_step.output = draft
+        revise_step.status = "done"
+        yield steps, None
 
-    return steps, draft
+
+def run_reflection(question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    last: list[AgentStepData] = []
+    for last, answer in iter_reflection(question, temperature=temperature):
+        if answer is not None:
+            return last, answer
+    return last, ""
 
 
 _RUNNERS = {
@@ -203,11 +221,23 @@ _RUNNERS = {
 }
 
 
-def run_agent_native(mode: AgentMode, question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+def iter_agent_native(mode: AgentMode, question: str, *, temperature: float):
     text = question.strip()
     if not text:
         raise HTTPException(status_code=400, detail="问题不能为空")
+    if mode == "reflection":
+        yield from iter_reflection(text, temperature=temperature)
+        return
     runner = _RUNNERS.get(mode)
     if runner is None:
         raise HTTPException(status_code=400, detail=f"不支持的 mode: {mode}")
-    return runner(text, temperature=temperature)
+    steps, answer = runner(text, temperature=temperature)
+    yield steps, answer
+
+
+def run_agent_native(mode: AgentMode, question: str, *, temperature: float) -> tuple[list[AgentStepData], str]:
+    last: list[AgentStepData] = []
+    for last, answer in iter_agent_native(mode, question, temperature=temperature):
+        if answer is not None:
+            return last, answer
+    return last, ""

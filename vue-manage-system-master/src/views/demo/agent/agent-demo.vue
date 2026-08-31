@@ -37,7 +37,49 @@
             </el-button>
         </div>
 
-        <div v-if="steps.length" class="steps-timeline">
+        <div v-if="lanes?.length && (steps.length || loading)" class="lane-grid">
+            <div v-for="lane in lanes" :key="lane.agent" class="lane">
+                <div class="lane-head" :class="laneStatus(lane.agent)">
+                    <span class="lane-title">{{ lane.title }}</span>
+                    <el-tag :type="statusTagType(laneStatus(lane.agent))" size="small" effect="plain">
+                        {{ laneStatusText(lane.agent) }}
+                    </el-tag>
+                </div>
+                <div
+                    v-for="(step, i) in laneSteps(lane.agent)"
+                    :key="i"
+                    class="step-card"
+                    :class="step.status"
+                >
+                    <div class="step-header">
+                        <span class="step-role">{{ step.role }}</span>
+                        <span v-if="step.meta" class="step-meta">{{ step.meta }}</span>
+                    </div>
+                    <div v-if="step.input && step.status !== 'pending'" class="step-block">
+                        <div class="block-label">{{ t('pages.agent.input') }}</div>
+                        <div class="block-content input-content">{{ truncate(step.input) }}</div>
+                    </div>
+                    <div v-if="step.output" class="step-block">
+                        <div class="block-label">{{ t('pages.agent.output') }}</div>
+                        <div class="block-content output-content">{{ step.output }}</div>
+                    </div>
+                    <div v-else-if="step.status === 'running'" class="step-loading">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                        <span>{{ t('pages.agent.running') }}</span>
+                    </div>
+                    <div v-else-if="step.status === 'pending'" class="step-loading wait-only">
+                        {{ t('pages.agent.statusPending') }}
+                    </div>
+                </div>
+                <div v-if="!laneSteps(lane.agent).length" class="step-card pending">
+                    <div class="step-loading wait-only">
+                        {{ loading ? t('pages.agent.statusPending') : '未触发' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-else-if="steps.length" class="steps-timeline">
             <div
                 v-for="(step, i) in steps"
                 :key="i"
@@ -87,7 +129,7 @@ import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { InfoFilled, Loading } from '@element-plus/icons-vue';
 import { hasDemoCache, useCachedRef } from '@/composables/useFormCache';
-import type { AgentExample, AgentStep } from './types';
+import type { AgentExample, AgentLane, AgentStep } from './types';
 
 const { t } = useI18n();
 
@@ -101,6 +143,7 @@ const props = withDefaults(
         hint?: string;
         emptyText?: string;
         examples?: AgentExample[];
+        lanes?: AgentLane[];
     }>(),
     {
         initialQuestion: '',
@@ -127,6 +170,34 @@ const runCurrent = () => emit('run', question.value);
 const runExample = (text: string) => {
     question.value = text;
     emit('run', text);
+};
+
+const laneSteps = (agent: string) => props.steps.filter((step) => step.agent === agent);
+
+const laneStatus = (agent: string): AgentStep['status'] => {
+    const items = laneSteps(agent);
+    if (items.some((step) => step.status === 'running')) {
+        return 'running';
+    }
+    if (items.some((step) => step.status === 'error')) {
+        return 'error';
+    }
+    if (items.some((step) => step.status === 'done')) {
+        return 'done';
+    }
+    return 'pending';
+};
+
+const laneStatusText = (agent: string) => {
+    const status = laneStatus(agent);
+    if (
+        status === 'pending' &&
+        !props.loading &&
+        props.steps.some((step) => step.status === 'done' || step.status === 'error')
+    ) {
+        return '未触发';
+    }
+    return statusLabel(status);
 };
 
 const statusTagType = (status: AgentStep['status']) => {
@@ -201,6 +272,54 @@ const truncate = (text: string, max = 300) =>
     flex: 1;
 }
 
+.lane-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.lane {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.lane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #f4f4f5;
+}
+
+.lane-head.running {
+    background: #fdf6ec;
+}
+
+.lane-head.done {
+    background: #f0f9eb;
+}
+
+.lane-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #303133;
+}
+
+.wait-only {
+    color: #909399;
+}
+
+@media (max-width: 1100px) {
+    .lane-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 .steps-timeline {
     display: flex;
     flex-direction: column;
@@ -213,6 +332,11 @@ const truncate = (text: string, max = 300) =>
     border-radius: 6px;
     background: #fafafa;
     transition: border-color 0.2s;
+}
+
+.step-card.pending {
+    border-color: #e9e9eb;
+    background: #fafafa;
 }
 
 .step-card.running {

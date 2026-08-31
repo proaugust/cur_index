@@ -13,7 +13,7 @@
             <el-tag size="small" type="info">.md / .zip</el-tag>
         </div>
         <p class="panel-desc">{{ t('pages.rag.corporaImportPanel.description') }}</p>
-        <el-form label-width="110px" class="param-form" @submit.prevent="submit">
+        <el-form label-width="110px" class="param-form" @submit.prevent="submit" @keydown.enter.capture="onFormEnter">
             <el-form-item :label="t('pages.rag.corporaImportPanel.corpusName')" required>
                 <el-input
                     v-model="form.corpus_name"
@@ -92,6 +92,15 @@ const {
     onNameInput,
     submit,
 } = useCorporaImport();
+
+const onFormEnter = (e: KeyboardEvent) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const el = e.target as HTMLElement | null;
+    if (!el || el.tagName !== 'INPUT') return;
+    if (el.closest('.el-select')) return;
+    e.preventDefault();
+    void submit();
+};
 </script>
 
 <style scoped>

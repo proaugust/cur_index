@@ -12,3 +12,8 @@ export interface AgentExample {
     question: string;
     tip: string;
 }
+
+export interface AgentLane {
+    agent: string;
+    title: string;
+}
