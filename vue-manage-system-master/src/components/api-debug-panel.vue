@@ -53,7 +53,8 @@
                         </div>
                     </div>
 
-                    <el-form label-width="120px" class="param-form" @submit.prevent>
+                    <el-form label-width="120px" class="param-form" @submit.prevent="sendRequest(ep)">
+                        <div @keyup.enter="onFieldEnter(ep, $event)">
                         <template v-if="ep.pathParams?.length">
                             <div class="param-section-title">{{ t('apiDebug.pathParams') }}</div>
                             <el-form-item
@@ -176,10 +177,9 @@
                                 />
                             </el-form-item>
                         </template>
-                    </el-form>
 
                     <div class="send-row">
-                        <el-button type="primary" :loading="loading[ep.id]" @click="sendRequest(ep)">
+                        <el-button type="primary" native-type="button" :loading="loading[ep.id]" @click="sendRequest(ep)">
                             {{ t('common.send') }}
                         </el-button>
                         <span
@@ -190,6 +190,8 @@
                             {{ statusInfo[ep.id].text }}
                         </span>
                     </div>
+                    </div>
+                    </el-form>
 
                     <div v-if="ep.resultView?.mode === 'table' && tableState[ep.id]?.rows.length" class="result-table-wrap">
                         <template v-for="field in ep.resultView.highlightFields ?? []" :key="field.key">
@@ -1005,7 +1007,15 @@ const validateRequest = (ep: ApiEndpoint): string | null => {
     return null;
 };
 
+const onFieldEnter = (ep: ApiEndpoint, e: Event | KeyboardEvent) => {
+    const ev = e as KeyboardEvent;
+    if (ev.isComposing || ev.keyCode === 229) return;
+    if ((ev.target as HTMLElement).tagName !== 'INPUT') return;
+    void sendRequest(ep);
+};
+
 const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
+    if (loading[ep.id]) return;
     const invalid = validateRequest(ep);
     if (invalid) {
         ElMessage.warning(invalid);

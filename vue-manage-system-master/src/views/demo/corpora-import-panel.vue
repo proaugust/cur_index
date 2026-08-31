@@ -13,7 +13,7 @@
             <el-tag size="small" type="info">.md / .zip</el-tag>
         </div>
         <p class="panel-desc">{{ t('pages.rag.corporaImportPanel.description') }}</p>
-        <el-form label-width="110px" class="param-form" @submit.prevent>
+        <el-form label-width="110px" class="param-form" @submit.prevent="submit">
             <el-form-item :label="t('pages.rag.corporaImportPanel.corpusName')" required>
                 <el-input
                     v-model="form.corpus_name"
@@ -58,7 +58,7 @@
                 <el-input-number v-model="form.chunk_overlap" :min="0" :max="500" />
             </el-form-item>
             <el-form-item>
-                <el-button type="primary" :loading="loading" @click="submit">
+                <el-button type="primary" native-type="submit" :loading="loading">
                     {{ t('pages.rag.corporaImportPanel.submit') }}
                 </el-button>
             </el-form-item>

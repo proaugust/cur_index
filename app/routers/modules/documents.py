@@ -91,7 +91,7 @@ def clear_documents(
 def search(
     q: str | None = Query(default=None, description="查询文本；留空则返回库中前 limit 条切块"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    min_similarity: float = Query(default=0.35, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     retrieve_mode: str = Query(
         default="hybrid_rerank",
         description="vector | hybrid | hybrid_rerank（hybrid_rerank=向量+全文+C1融合重排）",
@@ -118,7 +118,7 @@ def search(
 def search_and_llm(
     q: str | None = Query(default=None, description="查询文本；留空则返回库中前 limit 条切块"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
+    min_similarity: float = Query(default=0.35, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     retrieve_mode: str = Query(
         default="hybrid",
         description="vector | hybrid | hybrid_rerank",

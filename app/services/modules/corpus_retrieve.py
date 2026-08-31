@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, defer
 
 from app.services.modules.chunk_lang import (
-    ChunkLang, DEFAULT_CHUNK_LANG, normalize_lang, prepare_query_text, ts_config,
+    ChunkLang, DEFAULT_CHUNK_LANG, build_fts_tsquery, normalize_lang, ts_config,
 )
 from app.services.modules.chunk_table_ops import (
     BUSINESS_CHUNK_TABLE, GENERAL_CHUNK_TABLE, apply_gin_previews, get_chunk_model,
@@ -22,6 +22,9 @@ from app.services.shared.embedding import embed_query
 _RETRIEVE_MODES = frozenset({"vector", "hybrid", "hybrid_rerank"})
 _DEFAULT_RECALL_K = 30
 _PARENT_MAX_CHARS = 1500
+_DEFAULT_MIN_SIMILARITY = 0.35
+_FALLBACK_FLOOR = 0.35
+_RELATIVE_GAP = 0.08
 _W_VECTOR, _W_FTS, _W_TITLE, _W_PATH = 0.55, 0.35, 0.07, 0.03
 
 @dataclass
@@ -102,7 +105,7 @@ def recall_fts(
     corpus_name: str | None = None,
     corpus_names: list[str] | None = None,
 ) -> list[RetrievedHit]:
-    prepared = prepare_query_text(query, lang)
+    prepared = build_fts_tsquery(query, lang)
     if not prepared:
         return []
     cfg = ts_config(lang)
@@ -125,7 +128,7 @@ def recall_fts(
     sql = text(
         f"""
         SELECT id, ts_rank_cd(search_vector, query) AS rank
-        FROM {table_name}, plainto_tsquery('{cfg}', :q) AS query
+        FROM {table_name}, to_tsquery('{cfg}', :q) AS query
         WHERE search_vector IS NOT NULL AND search_vector @@ query AND lang = :lang {extra}
         ORDER BY rank DESC LIMIT :limit
         """
@@ -235,6 +238,44 @@ def expand_parents(
     return out
 
 
+def _hit_passes(hit: RetrievedHit, min_similarity: float, use_fusion: bool) -> bool:
+    fts_score_gate = min_similarity * 0.6
+    if hit.from_vector and hit.vector_sim >= min_similarity:
+        return True
+    if hit.from_fts and not hit.from_vector:
+        if use_fusion:
+            return hit.fusion_score >= fts_score_gate
+        return True
+    if hit.from_fts and hit.from_vector:
+        if use_fusion:
+            return hit.fusion_score >= min_similarity * 0.8
+        return hit.vector_sim >= min_similarity
+    return False
+
+
+def _filter_hits(
+    hits: list[RetrievedHit],
+    *,
+    min_similarity: float,
+    use_fusion: bool,
+    limit: int,
+) -> list[RetrievedHit]:
+    filtered = [h for h in hits if _hit_passes(h, min_similarity, use_fusion)]
+    if filtered:
+        return filtered[:limit]
+    best = max((h.vector_sim for h in hits if h.from_vector), default=0.0)
+    if best >= _FALLBACK_FLOOR:
+        floor = max(_FALLBACK_FLOOR, best - _RELATIVE_GAP)
+        fallback = [
+            h for h in hits
+            if (h.from_vector and h.vector_sim >= floor) or h.from_fts
+        ]
+        if fallback:
+            return fallback[:limit]
+    fts_only = [h for h in hits if h.from_fts]
+    return fts_only[:limit]
+
+
 def retrieve(
     db: Session,
     query: str,
@@ -243,7 +284,7 @@ def retrieve(
     corpus_name: str | None = None,
     corpus_names: list[str] | None = None,
     limit: int = 5,
-    min_similarity: float = 0.55,
+    min_similarity: float = _DEFAULT_MIN_SIMILARITY,
     source_file: str | None = None,
     retrieve_mode: str = "hybrid",
     recall_k: int = _DEFAULT_RECALL_K,
@@ -275,20 +316,7 @@ def retrieve(
     else:
         hits.sort(key=lambda h: h.vector_sim, reverse=True)
 
-    fts_score_gate = min_similarity * 0.6
-    filtered: list[RetrievedHit] = []
-    for hit in hits:
-        if hit.from_vector and hit.vector_sim >= min_similarity:
-            filtered.append(hit)
-        elif hit.from_fts and not hit.from_vector:
-            if use_fusion and hit.fusion_score >= fts_score_gate:
-                filtered.append(hit)
-            elif not use_fusion:
-                filtered.append(hit)
-        elif hit.from_fts and hit.from_vector:
-            if use_fusion and hit.fusion_score >= min_similarity * 0.8:
-                filtered.append(hit)
-    hits = filtered[:limit]
+    hits = _filter_hits(hits, min_similarity=min_similarity, use_fusion=use_fusion, limit=limit)
     if expand_parent:
         hits = expand_parents(db, hits, table_name=table_name, corpus_names=names)
 

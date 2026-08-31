@@ -8,7 +8,7 @@
     >
         <template #fields>
             <el-form-item label="问题" required>
-                <el-input v-model="question" type="textarea" :rows="2" placeholder="华东销售额前三的产品？" style="max-width: 560px" />
+                <el-input v-model="question" clearable placeholder="华东销售额前三的产品？" style="max-width: 560px" />
             </el-form-item>
         </template>
         <template #extra>

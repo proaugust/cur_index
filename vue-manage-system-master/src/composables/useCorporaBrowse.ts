@@ -43,7 +43,7 @@ export function useCorporaBrowse() {
         source_file: '',
         q: '',
         limit: 5,
-        min_similarity: 0.55,
+        min_similarity: 0.35,
         retrieve_mode: 'hybrid',
         expand_parent: true,
     });
@@ -148,6 +148,7 @@ export function useCorporaBrowse() {
             : undefined;
 
     const runQuery = async () => {
+        if (loading.value) return;
         const sourceFile = form.source_file.trim();
         loading.value = true;
         queried.value = true;

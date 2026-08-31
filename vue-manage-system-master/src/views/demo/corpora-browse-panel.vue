@@ -13,7 +13,7 @@
             <el-tag size="small" type="info">768d · BGE</el-tag>
         </div>
         <p class="panel-desc">{{ t('pages.rag.corporaBrowse.description') }}</p>
-        <el-form label-width="100px" class="param-form" @submit.prevent>
+        <el-form label-width="100px" class="param-form" @submit.prevent="runQuery">
             <el-form-item :label="t('pages.rag.corporaBrowse.mode')" required>
                 <el-radio-group v-model="mode">
                     <el-radio-button v-if="canSearch" value="search">
@@ -28,10 +28,9 @@
                 <el-input
                     v-model="form.q"
                     clearable
-                    type="textarea"
-                    :rows="2"
                     :placeholder="t('pages.rag.corporaBrowse.queryPh')"
                     style="max-width: 560px"
+                    @keyup.enter="runQuery"
                 />
             </el-form-item>
             <el-form-item :label="t('pages.rag.corporaBrowse.category')">
@@ -95,7 +94,7 @@
                 <el-button :loading="suggestLoading" :disabled="!form.q.trim()" @click="suggestFilters">
                     {{ t('pages.rag.corporaBrowse.suggestFilters') }}
                 </el-button>
-                <el-button type="primary" :loading="loading" @click="runQuery">
+                <el-button type="primary" native-type="button" :loading="loading" @click="runQuery">
                     {{ t('pages.rag.corporaBrowse.submit') }}
                 </el-button>
             </el-form-item>

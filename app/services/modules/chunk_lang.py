@@ -14,6 +14,20 @@ _JA_CHAR = re.compile(r"([\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff])")
 _KANA = re.compile(r"[\u3040-\u309f\u30a0-\u30ff]")
 _HAN = re.compile(r"[\u4e00-\u9fff]")
 _LATIN = re.compile(r"[A-Za-z]")
+_LATIN_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9]{1,}")
+_EN_STOP = frozenset({
+    "a", "an", "the", "is", "are", "was", "were", "be", "been",
+    "what", "how", "why", "which", "who", "where", "when",
+    "to", "of", "and", "or", "for", "in", "on", "at", "it",
+    "this", "that", "with", "from", "use", "using", "used",
+    "can", "do", "does", "please",
+})
+_ZH_NOISE_PHRASES = (
+    "是什么意思", "是什么", "什么是", "怎么用", "怎么样", "怎么做",
+    "怎么办", "怎么", "怎样", "如何", "为何", "为什么",
+    "请问", "一下", "哪个", "哪些", "哪里", "什么",
+)
+_ZH_NOISE_CHARS = set("的了呢吗啊呀哇么什是怎和与在有不就也还把被")
 
 
 def normalize_lang(value: str | None) -> ChunkLang:
@@ -76,6 +90,35 @@ def prepare_query_text(text_value: str, lang: ChunkLang) -> str:
     if lang == "ja":
         return space_ja(raw)
     return space_cjk(raw)
+
+
+def build_fts_tsquery(text_value: str, lang: ChunkLang) -> str:
+    """生成 to_tsquery 串：英文词 OR，口语虚词去掉，剩余 CJK 仍 AND。"""
+    raw = (text_value or "").strip()
+    if not raw:
+        return ""
+    seen: set[str] = set()
+    latin: list[str] = []
+    for tok in _LATIN_TOKEN.findall(raw):
+        low = tok.lower()
+        if low in _EN_STOP or low in seen:
+            continue
+        seen.add(low)
+        latin.append(low)
+    rest = _LATIN_TOKEN.sub(" ", raw)
+    if lang != "en":
+        for phrase in _ZH_NOISE_PHRASES:
+            rest = rest.replace(phrase, " ")
+    cjk: list[str] = []
+    if lang == "ja":
+        cjk = [c for c in rest if _JA_CHAR.match(c) and c not in _ZH_NOISE_CHARS]
+    elif lang == "zh":
+        cjk = [c for c in rest if "\u4e00" <= c <= "\u9fff" and c not in _ZH_NOISE_CHARS]
+    latin_part = " | ".join(latin)
+    cjk_part = " & ".join(cjk[:12])
+    if latin_part and cjk_part:
+        return f"({latin_part}) | ({cjk_part})"
+    return latin_part or cjk_part
 
 
 def _spaced_sql(col: str, lang: ChunkLang) -> str:

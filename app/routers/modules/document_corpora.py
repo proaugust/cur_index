@@ -306,7 +306,7 @@ def search_corpus(
     categories: str | None = Query(None, description="多分类，逗号分隔；展开为资料库后与 corpus_names 并集"),
     q: str | None = Query(default=None, description="查询文本"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0),
+    min_similarity: float = Query(default=0.35, ge=0.0, le=1.0),
     source_file: str | None = Query(
         default=None, description="可选：按文件名过滤（子串匹配；含 % / _ 时为 SQL LIKE）"
     ),
@@ -342,7 +342,7 @@ def search_corpus_and_llm(
     categories: str | None = Query(None, description="多分类，逗号分隔"),
     q: str | None = Query(default=None, description="查询文本"),
     limit: int = Query(default=5, ge=1, le=50),
-    min_similarity: float = Query(default=0.55, ge=0.0, le=1.0),
+    min_similarity: float = Query(default=0.35, ge=0.0, le=1.0),
     source_file: str | None = Query(default=None, description="可选文件名过滤"),
     retrieve_mode: str = Query(
         default="hybrid",

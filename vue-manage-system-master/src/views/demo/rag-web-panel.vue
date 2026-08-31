@@ -10,8 +10,7 @@
             <el-form-item label="问题" required>
                 <el-input
                     v-model="question"
-                    type="textarea"
-                    :rows="2"
+                    clearable
                     style="max-width: 560px"
                     placeholder="今天 AI 行业有哪些最新动态？"
                 />

@@ -1,5 +1,6 @@
 ﻿import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 import { usePermissStore } from '../store/permiss';
+import { fetchMe } from '../api';
 import Home from '../views/home.vue';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
@@ -530,14 +531,50 @@ const router = createRouter({
     routes,
 });
 
-router.beforeEach((to, from, next) => {
+let verifiedToken: string | null = null;
+
+function clearClientSession() {
+    verifiedToken = null;
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('vuems_name');
+    usePermissStore().clear();
+}
+
+router.beforeEach(async (to, from, next) => {
     NProgress.start();
     const token = localStorage.getItem('access_token');
     const permiss = usePermissStore();
 
-    if (!token && to.meta.noAuth !== true) {
-        next('/login');
-    } else if (typeof to.meta.permiss == 'string' && !permiss.hasRoutePermiss(to.meta.permiss)) {
+    if (to.meta.noAuth === true) {
+        next();
+        return;
+    }
+
+    if (!token) {
+        next({ path: '/login', replace: true });
+        return;
+    }
+
+    if (token !== verifiedToken) {
+        try {
+            const res = await fetchMe();
+            const data = res.data;
+            if (!data?.user?.username) {
+                throw new Error('not logged in');
+            }
+            verifiedToken = token;
+            localStorage.setItem('vuems_name', data.user.username);
+            if (data.permissions?.length) {
+                permiss.handleSet(data.permissions);
+            }
+        } catch {
+            clearClientSession();
+            next({ path: '/login', replace: true });
+            return;
+        }
+    }
+
+    if (typeof to.meta.permiss == 'string' && !permiss.hasRoutePermiss(to.meta.permiss)) {
         next('/403');
     } else {
         next();

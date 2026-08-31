@@ -2,10 +2,12 @@
     <el-card shadow="hover" class="demo-panel">
         <div class="panel-title">{{ title }}</div>
         <p class="panel-desc">{{ description }}</p>
-        <el-form label-width="100px" class="param-form" @submit.prevent>
-            <slot name="fields" />
+        <el-form label-width="100px" class="param-form" @submit.prevent="onSubmit">
+            <div @keyup.enter="onEnter">
+                <slot name="fields" />
+            </div>
             <el-form-item>
-                <el-button type="primary" :loading="loading" @click="emit('submit')">运行</el-button>
+                <el-button type="primary" native-type="button" :loading="loading" @click="onSubmit">运行</el-button>
             </el-form-item>
         </el-form>
         <div v-if="answer" class="answer-box">
@@ -17,8 +19,20 @@
 </template>
 
 <script setup lang="ts" name="rag-demo-shell">
-defineProps<{ title: string; description: string; loading: boolean; answer?: string }>();
+const props = defineProps<{ title: string; description: string; loading: boolean; answer?: string }>();
 const emit = defineEmits<{ submit: [] }>();
+
+const onSubmit = () => {
+    if (props.loading) return;
+    emit('submit');
+};
+
+const onEnter = (e: KeyboardEvent) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return;
+    onSubmit();
+};
 </script>
 
 <style scoped>

@@ -51,7 +51,7 @@ class DocumentSearchService:
         query: str | None,
         limit: int = 5,
         source_file: str | None = None,
-        min_similarity: float = 0.55,
+        min_similarity: float = 0.35,
         retrieve_mode: str = "hybrid_rerank",
         expand_parent: bool = False,
     ) -> list[schemas.DocumentChunkSearchResult]:
@@ -86,7 +86,7 @@ class DocumentSearchService:
         self,
         query: str | None,
         limit: int = 5,
-        min_similarity: float = 0.55,
+        min_similarity: float = 0.35,
         retrieve_mode: str = "hybrid",
         expand_parent: bool = True,
     ) -> schemas.DocumentSearchPolishedResult:

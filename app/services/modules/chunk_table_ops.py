@@ -288,15 +288,21 @@ def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str |
 def apply_gin_previews(db: Session, table_name: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [int(it["id"]) for it in items if it.get("id") is not None]
     snips: dict[int, str] = {}
+    emb_previews: dict[int, str | None] = {}
     if ids:
         table = _require_chunk_table(table_name)
         stmt = text(
-            f"SELECT id, left(search_vector::text, 72) AS s FROM {table} WHERE id IN :ids"
+            f"SELECT id, left(search_vector::text, 72) AS s, embedding FROM {table} WHERE id IN :ids"
         ).bindparams(bindparam("ids", expanding=True))
-        snips = {int(r.id): (r.s or "") for r in db.execute(stmt, {"ids": ids})}
+        for r in db.execute(stmt, {"ids": ids}):
+            cid = int(r.id)
+            snips[cid] = r.s or ""
+            emb_previews[cid] = embedding_preview(r.embedding)
     for it in items:
         cid = int(it["id"])
         it["gin_preview"] = gin_preview(
             bool(it.get("from_fts")), float(it.get("fts_rank") or 0), sv_text=snips.get(cid)
         )
+        if not it.get("embedding_preview") and cid in emb_previews:
+            it["embedding_preview"] = emb_previews[cid]
     return items

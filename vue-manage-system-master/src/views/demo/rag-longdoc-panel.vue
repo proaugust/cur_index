@@ -22,8 +22,7 @@
             <el-form-item label="问题" required>
                 <el-input
                     v-model="question"
-                    type="textarea"
-                    :rows="2"
+                    clearable
                     style="max-width: 560px"
                     placeholder="这份资料有哪些潜在合规风险？"
                 />
