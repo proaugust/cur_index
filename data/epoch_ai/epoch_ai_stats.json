@@ -1,12 +1,12 @@
 {
   "status": "success",
-  "updated_date": "2026-08-24",
-  "updated_at": "2026-08-24 21:50:57",
+  "updated_date": "2026-09-09",
+  "updated_at": "2026-09-09 21:13:19",
   "counts": {
-    "all_models": 3579,
-    "notable_models": 1076,
+    "all_models": 3596,
+    "notable_models": 1088,
     "frontier_models": 137,
-    "large_scale_models": 623
+    "large_scale_models": 626
   },
   "yearly_countries": [
     {
@@ -487,10 +487,10 @@
     {
       "year": 2022,
       "countries": {
-        "United States": 153,
+        "United States": 154,
         "United Kingdom": 21,
         "China": 25,
-        "Other": 17,
+        "Other": 16,
         "Germany": 10,
         "France": 2,
         "Japan": 5
@@ -500,7 +500,7 @@
       "year": 2023,
       "countries": {
         "Japan": 12,
-        "China": 142,
+        "China": 145,
         "United States": 263,
         "Other": 73,
         "France": 5,
@@ -512,7 +512,7 @@
       "year": 2024,
       "countries": {
         "United States": 397,
-        "China": 326,
+        "China": 323,
         "Other": 124,
         "France": 24,
         "Canada": 9,
@@ -525,8 +525,8 @@
       "year": 2025,
       "countries": {
         "Other": 58,
-        "China": 186,
-        "United States": 283,
+        "China": 187,
+        "United States": 284,
         "France": 26,
         "Germany": 5,
         "United Kingdom": 7,
@@ -537,28 +537,39 @@
     {
       "year": 2026,
       "countries": {
-        "China": 49,
-        "United States": 72,
-        "Other": 7,
+        "United States": 79,
+        "Other": 11,
+        "China": 52,
+        "United Kingdom": 1,
         "Canada": 2,
         "France": 2
       }
     }
   ],
   "domains": {
-    "Language": 2043,
-    "Other": 708,
+    "Vision": 617,
+    "Language": 2059,
+    "Other": 706,
     "Robotics": 46,
     "Speech/Audio": 163,
-    "Vision": 614,
     "Multimodal": 5
   },
   "open_weights": {
-    "Yes": 1370,
-    "No": 1377,
+    "Yes": 1374,
+    "No": 1390,
     "Unknown": 832
   },
   "scatter_data": [
+    {
+      "name": "GLM-5.3-Flash",
+      "date": "2026-08-20",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 320000000000.0,
+      "compute": 3.24e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
     {
       "name": "GLM-5.3",
       "date": "2026-08-14",
@@ -580,16 +591,6 @@
       "is_notable": false
     },
     {
-      "name": "DeepSeek-V4-Pro-0813",
-      "date": "2026-08-13",
-      "org": "DeepSeek",
-      "params": 1600000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": true
-    },
-    {
       "name": "Nemotron 3.5 Lightning",
       "date": "2026-08-11",
       "org": "NVIDIA",
@@ -608,6 +609,16 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
+    },
+    {
+      "name": "Qwen3.8-2.4T-A95B",
+      "date": "2026-08-08",
+      "org": "Alibaba",
+      "params": 2400000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
     },
     {
       "name": "Motif-3",
@@ -710,6 +721,16 @@
       "is_notable": true
     },
     {
+      "name": "LongCat-2.0",
+      "date": "2026-06-29",
+      "org": "Meituan Inc",
+      "params": 1600000000000.0,
+      "compute": 1.008e+25,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
       "name": "Solar Open2 250B",
       "date": "2026-06-28",
       "org": "Upstage",
@@ -734,6 +755,16 @@
       "date": "2026-06-12",
       "org": "Moonshot",
       "params": 1040000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "DiffusionGemma 26B-A4B",
+      "date": "2026-06-10",
+      "org": "DeepMind",
+      "params": 25200000000.0,
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
@@ -778,6 +809,16 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
+    },
+    {
+      "name": "MiniMax-M3",
+      "date": "2026-06-01",
+      "org": "MiniMax",
+      "params": 428000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
     },
     {
       "name": "Step 3.7 Flash",
@@ -1015,7 +1056,7 @@
       "org": "Google DeepMind",
       "params": 25200000000.0,
       "compute": null,
-      "domain": "Other",
+      "domain": "Language",
       "is_frontier": false,
       "is_notable": false
     },
@@ -1068,6 +1109,16 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": true
+    },
+    {
+      "name": "Qwen 3.5 Flash (hosted 35B-A3B)",
+      "date": "2026-02-25",
+      "org": "Alibaba",
+      "params": 35000000000.0,
+      "compute": null,
+      "domain": "Other",
+      "is_frontier": false,
+      "is_notable": false
     },
     {
       "name": "Qwen3.5-122B-A10B",
@@ -1171,10 +1222,20 @@
     },
     {
       "name": "Qwen3.5 397B-A17B",
-      "date": "2026-02-13",
+      "date": "2026-02-15",
       "org": "Alibaba",
       "params": 397000000000.0,
       "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "GLM-5",
+      "date": "2026-02-12",
+      "org": "Z.ai (Zhipu AI)",
+      "params": 744000000000.0,
+      "compute": 6.84e+24,
       "domain": "Language",
       "is_frontier": false,
       "is_notable": true
@@ -1188,16 +1249,6 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
-    },
-    {
-      "name": "GLM-5",
-      "date": "2026-02-11",
-      "org": "Z.ai (Zhipu AI)",
-      "params": 744000000000.0,
-      "compute": 6.84e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": true
     },
     {
       "name": "Kimi K2.5",
@@ -2008,59 +2059,105 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
-    },
-    {
-      "name": "Qwen3-Max",
-      "date": "2025-09-05",
-      "org": "Alibaba",
-      "params": 1000000000000.0,
-      "compute": 1.512e+25,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": true
-    },
-    {
-      "name": "EmbeddingGemma",
-      "date": "2025-09-05",
-      "org": "Google DeepMind",
-      "params": 308000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Apertus 8B",
-      "date": "2025-09-02",
-      "org": "ETH Zurich,Ecole Polytechnique F´ed´erale de Lausanne (EPFL),Swiss National Supercomputing Centre (CSCS),Swisscom",
-      "params": 8000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Apertus 70B",
-      "date": "2025-09-02",
-      "org": "ETH Zurich,Ecole Polytechnique F´ed´erale de Lausanne (EPFL),Swiss National Supercomputing Centre (CSCS),Swisscom",
-      "params": 70000000000.0,
-      "compute": 6.74e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "LongCat-Flash",
-      "date": "2025-09-01",
-      "org": "Meituan Inc",
-      "params": 560000000000.0,
-      "compute": 3.726e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": true
     }
   ],
   "latest_releases": [
+    {
+      "name": "ChatGPT Images 2.5",
+      "org": "OpenAI",
+      "date": "2026-09-08",
+      "domain": "Vision",
+      "parameters": "Unknown",
+      "accessibility": "Hosted access (no API)"
+    },
+    {
+      "name": "GPT-Image-2.5 Flare",
+      "org": "OpenAI",
+      "date": "2026-09-08",
+      "domain": "Vision",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "GPT-Image-2.5 Sunburst",
+      "org": "OpenAI",
+      "date": "2026-09-08",
+      "domain": "Vision",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "GPT-6 Astra",
+      "org": "OpenAI",
+      "date": "2026-09-03",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "OpenEvidence Darwin",
+      "org": "OpenEvidence",
+      "date": "2026-09-03",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "OpenEvidence Osler",
+      "org": "OpenEvidence",
+      "date": "2026-09-03",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Hosted access (no API)"
+    },
+    {
+      "name": "OpenEvidence Sackett",
+      "org": "OpenEvidence",
+      "date": "2026-09-03",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Hosted access (no API)"
+    },
+    {
+      "name": "OpenEvidence Snow",
+      "org": "OpenEvidence",
+      "date": "2026-09-03",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Hosted access (no API)"
+    },
+    {
+      "name": "Gemini 3.8 Flash",
+      "org": "Google DeepMind",
+      "date": "2026-09-02",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "Muse Spark 1.3",
+      "org": "Meta AI",
+      "date": "2026-09-02",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "Claude Fable 5.1",
+      "org": "Anthropic",
+      "date": "2026-09-01",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access"
+    },
+    {
+      "name": "GLM-5.3-Flash",
+      "org": "Z.ai (Zhipu AI)",
+      "date": "2026-08-20",
+      "domain": "Language",
+      "parameters": "320000000000.0",
+      "accessibility": "Open weights (unrestricted)"
+    },
     {
       "name": "GLM-5.3",
       "org": "Z.ai (Zhipu AI)",
@@ -2078,106 +2175,10 @@
       "accessibility": "Open weights (unrestricted)"
     },
     {
-      "name": "DeepSeek-V4-Pro-0813",
-      "org": "DeepSeek",
-      "date": "2026-08-13",
-      "domain": "Language",
-      "parameters": "1600000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
       "name": "Gemini 3.7 Flash",
       "org": "Google DeepMind",
       "date": "2026-08-13",
       "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access"
-    },
-    {
-      "name": "Grok 4.6",
-      "org": "xAI",
-      "date": "2026-08-12",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access"
-    },
-    {
-      "name": "GPT-5.6 Cyber",
-      "org": "OpenAI",
-      "date": "2026-08-11",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access"
-    },
-    {
-      "name": "GPT-5.5 Cyber",
-      "org": "OpenAI",
-      "date": "2026-08-11",
-      "domain": "Other",
-      "parameters": "Unknown",
-      "accessibility": "API access"
-    },
-    {
-      "name": "Nemotron 3.5 Lightning",
-      "org": "NVIDIA",
-      "date": "2026-08-11",
-      "domain": "Language",
-      "parameters": "30000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "Muse Glimmer",
-      "org": "Meta AI",
-      "date": "2026-08-10",
-      "domain": "Language",
-      "parameters": "30000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "Motif-3",
-      "org": "Motif Technologies",
-      "date": "2026-08-07",
-      "domain": "Language",
-      "parameters": "314000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "Muse Spark 1.2",
-      "org": "Meta AI",
-      "date": "2026-08-05",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access"
-    },
-    {
-      "name": "DeepSeek V4 Flash 0731",
-      "org": "DeepSeek",
-      "date": "2026-07-31",
-      "domain": "Language",
-      "parameters": "284000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "K-EXAONE 2.0",
-      "org": "LG AI Research",
-      "date": "2026-07-31",
-      "domain": "Language",
-      "parameters": "750000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "Inkling-Small",
-      "org": "Thinking Machines",
-      "date": "2026-07-30",
-      "domain": "Language",
-      "parameters": "276000000000.0",
-      "accessibility": "Open weights (unrestricted)"
-    },
-    {
-      "name": "Gemini Robotics ER 2",
-      "org": "Google DeepMind",
-      "date": "2026-07-30",
-      "domain": "Robotics",
       "parameters": "Unknown",
       "accessibility": "API access"
     }

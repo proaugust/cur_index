@@ -16,7 +16,7 @@ class DocumentCorpusRead(BaseModel):
     default_chunk_strategy: str
     category: str = "other"
     lang: str = "zh"
-    created_at: datetime | None = None
+    created_at: datetime | None = None 
 
     model_config = {"from_attributes": True}
 

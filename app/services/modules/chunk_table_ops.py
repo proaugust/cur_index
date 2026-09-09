@@ -291,18 +291,28 @@ def get_chunk_model(table_name: str = BUSINESS_CHUNK_TABLE):
         return models.DocumentChunk
     return models.DocumentBusinessChunk
 
-def embedding_preview(embedding: Any, *, head: int = 4) -> str | None:
-    """前几维 + 总维数。"""
+def embedding_preview(embedding: Any, *, head: int = 3, dim: int | None = None) -> str | None:
+    """前几维 + 总维数（短摘要，给表格用）。"""
     if embedding is None:
         return None
-    try:
-        vals = list(embedding)
-    except TypeError:
-        return None
+    if isinstance(embedding, str):
+        raw = embedding.strip().strip("{}[]")
+        if not raw:
+            return None
+        try:
+            vals = [float(x) for x in raw.split(",") if x.strip()]
+        except ValueError:
+            return None
+    else:
+        try:
+            vals = [float(x) for x in list(embedding)]
+        except (TypeError, ValueError):
+            return None
     if not vals:
         return None
-    head_s = ", ".join(f"{float(x):.3f}" for x in vals[:head])
-    return f"[{head_s}, …] ×{len(vals)}"
+    n = dim if dim is not None else len(vals)
+    head_s = ",".join(f"{x:.2f}" for x in vals[:head])
+    return f"[{head_s},…]×{n}"
 
 def chunk_embed_text(*, section_path: str, section_title: str, content: str) -> str:
     prefix = (section_path or section_title or "").strip()
@@ -337,16 +347,24 @@ def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str |
 def apply_gin_previews(db: Session, table_name: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [int(it["id"]) for it in items if it.get("id") is not None]
     snips: dict[int, str] = {}
+    emb_previews: dict[int, str] = {}
     if ids:
         table = _require_chunk_table(table_name)
         stmt = text(
-            f"SELECT id, left(search_vector::text, 72) AS s FROM {table} WHERE id IN :ids"
+            f"SELECT id, left(search_vector::text, 72) AS s, "
+            f"(embedding::real[])[1:3] AS emb_head FROM {table} WHERE id IN :ids"
         ).bindparams(bindparam("ids", expanding=True))
         for r in db.execute(stmt, {"ids": ids}):
-            snips[int(r.id)] = r.s or ""
+            cid = int(r.id)
+            snips[cid] = r.s or ""
+            preview = embedding_preview(r.emb_head, dim=settings.embedding_dim)
+            if preview:
+                emb_previews[cid] = preview
     for it in items:
         cid = int(it["id"])
         it["gin_preview"] = gin_preview(
             bool(it.get("from_fts")), float(it.get("fts_rank") or 0), sv_text=snips.get(cid)
         )
+        if cid in emb_previews:
+            it["embedding_preview"] = emb_previews[cid]
     return items

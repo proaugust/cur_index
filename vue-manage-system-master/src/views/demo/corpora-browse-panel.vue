@@ -109,7 +109,7 @@
             <el-table-column prop="similarity" :label="t('pages.rag.columns.similarity')" min-width="72" />
             <el-table-column prop="chunk_index" :label="t('pages.rag.columns.chunk_index')" min-width="56" />
             <el-table-column prop="lang" :label="t('pages.rag.columns.lang')" min-width="56" />
-            <el-table-column prop="embedding_preview" :label="t('pages.rag.columns.embedding_preview')" min-width="100" show-overflow-tooltip />
+            <el-table-column prop="embedding_preview" :label="t('pages.rag.columns.embedding_preview')" width="88" show-overflow-tooltip class-name="col-embed" />
             <el-table-column prop="gin_preview" :label="t('pages.rag.columns.gin_preview')" min-width="88" show-overflow-tooltip />
         </el-table>
         <el-pagination
@@ -213,6 +213,12 @@ const onFormEnter = (e: KeyboardEvent) => {
 .result-table :deep(td) { white-space: nowrap; }
 .result-table :deep(th .cell),
 .result-table :deep(td .cell) { white-space: nowrap; }
+.result-table :deep(td.col-embed .cell),
+.result-table :deep(th.col-embed .cell) {
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .pager { margin-top: 12px; justify-content: flex-end; }
 </style>
 
