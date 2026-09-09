@@ -99,6 +99,7 @@ class CorpusImportService:
         replace_existing: bool,
         file_langs: dict[str, str] | None = None,
         default_lang: str = DEFAULT_CHUNK_LANG,
+        original_import_paths: dict[str, str | None] | None = None,
     ) -> schemas.CorpusImportResult:
         contents = [
             chunk_embed_text(
@@ -114,8 +115,10 @@ class CorpusImportService:
         details: list[schemas.DocumentImportResult] = []
         idx = 0
         langs = file_langs or {}
+        paths = original_import_paths or {}
         for source_file, section_count, chunks in prepared:
             file_lang = langs.get(source_file) or default_lang
+            orig_path = paths.get(source_file)
             for chunk in chunks:
                 rows.append(
                     {
@@ -127,6 +130,7 @@ class CorpusImportService:
                         "content": chunk.content,
                         "char_count": len(chunk.content),
                         "lang": file_lang,
+                        "original_import_path": orig_path,
                         "embedding": vectors[idx],
                     }
                 )
@@ -184,6 +188,7 @@ class CorpusImportService:
         min_chunk_len: int = DEFAULT_MIN_CHUNK,
         max_chunk_len: int = DEFAULT_MAX_CHUNK,
         chunk_overlap: int = DEFAULT_OVERLAP,
+        original_import_path: str | None = None,
     ) -> schemas.DocumentImportResult:
         self._validate_import(corpus_name, chunk_strategy, min_chunk_len, max_chunk_len)
         resolved_lang = detect_lang(text)
@@ -209,6 +214,7 @@ class CorpusImportService:
             replace_existing=replace_existing,
             file_langs={source_file: resolved_lang},
             default_lang=resolved_lang,
+            original_import_paths={source_file: original_import_path},
         )
         return result.details[0]
 
@@ -223,6 +229,7 @@ class CorpusImportService:
         max_chunk_len: int,
         chunk_overlap: int,
         on_progress: ProgressCb | None,
+        original_import_paths: dict[str, str | None] | None = None,
     ) -> schemas.CorpusImportResult:
         self._validate_import(corpus_name, chunk_strategy, min_chunk_len, max_chunk_len)
         file_langs = {name: detect_lang(body) for name, body in items}
@@ -252,6 +259,7 @@ class CorpusImportService:
             replace_existing=replace_existing,
             file_langs=file_langs,
             default_lang=default_lang,
+            original_import_paths=original_import_paths,
         )
 
     def import_upload_or_folder(
@@ -283,9 +291,15 @@ class CorpusImportService:
             on_progress=on_progress,
         )
         if folder_path and folder_path.strip():
-            return self._import_items(read_folder_texts(folder_path.strip()), **kw)
+            items = read_folder_texts(folder_path.strip())
+            # folder_path 导入：source_file 本身就是绝对路径
+            orig_paths: dict[str, str | None] = {sf: sf for sf, _ in items}
+            return self._import_items(items, **kw, original_import_paths=orig_paths)
         if file_bytes is not None and file_name:
-            return self._import_items(read_zip_texts(file_bytes), **kw)
+            items = read_zip_texts(file_bytes)
+            # zip 导入：记录 zip 文件名，方便日后找到源文件
+            orig_paths = {sf: file_name for sf, _ in items}
+            return self._import_items(items, **kw, original_import_paths=orig_paths)
         if file_text is None or not file_name:
             raise HTTPException(status_code=400, detail="请上传 .md/.txt/.zip，或填写本机 folder_path")
         one = self.import_text(
@@ -297,6 +311,7 @@ class CorpusImportService:
             min_chunk_len=min_chunk_len,
             max_chunk_len=max_chunk_len,
             chunk_overlap=chunk_overlap,
+            original_import_path=None,  # 浏览器上传，无服务端绝对路径
         )
         if on_progress:
             on_progress(1, 1)

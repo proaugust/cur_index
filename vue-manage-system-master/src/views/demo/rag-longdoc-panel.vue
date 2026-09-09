@@ -47,7 +47,7 @@ const loading = ref(false);
 const corporaLoading = ref(false);
 const corpora = ref<{ name: string }[]>([]);
 const corpusName = ref('');
-const question = ref('这份报销资料里，高铁和机票分别有哪些限制？');
+const question = ref('fastapi写一个接口怎么写，怎么定义');
 const answer = ref('');
 const summaries = ref<{ section_path: string; summary: string }[]>([]);
 

@@ -23,6 +23,7 @@ class DocumentImportService:
         min_chunk_len: int = SMALL_PIECE_LEN,
         max_chunk_len: int = CHUNK_LEN,
         chunk_overlap: int = CHUNK_OVERLAP,
+        original_import_path: str | None = None,
     ) -> schemas.DocumentImportResult:
         if min_chunk_len < 5:
             raise HTTPException(status_code=400, detail="min_chunk_len 不能小于 5")
@@ -54,6 +55,7 @@ class DocumentImportService:
                     "content": chunk.content,
                     "char_count": len(chunk.content),
                     "lang": resolved_lang,
+                    "original_import_path": original_import_path,
                     "embedding": vector,
                 }
             )
@@ -74,4 +76,5 @@ class DocumentImportService:
         except UnicodeDecodeError as exc:
             raise HTTPException(status_code=400, detail="文件编码必须是 UTF-8") from exc
 
-        return self.import_text(text, str(path.resolve()), replace_existing=replace_existing)
+        return self.import_text(text, str(path.resolve()), replace_existing=replace_existing,
+                                original_import_path=str(path.resolve()))

@@ -28,6 +28,7 @@ class DocumentChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     char_count: Mapped[int] = mapped_column(Integer)
     lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
+    original_import_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
 
 
@@ -45,6 +46,7 @@ class DocumentBusinessChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     char_count: Mapped[int] = mapped_column(Integer)
     lang: Mapped[str] = mapped_column(String(8), default="zh", server_default=text("'zh'"))
+    original_import_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(settings.embedding_dim), nullable=True)
 
 

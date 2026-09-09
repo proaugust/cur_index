@@ -29,30 +29,6 @@
 
                     <slot v-if="hasPanelSlot(ep.id)" :name="`panel-${ep.id}`" />
                     <template v-else>
-                    <div v-if="ep.queryExamples?.length" class="example-list">
-                        <div class="param-section-title">{{ t('apiDebug.exampleQueries') }}</div>
-                        <div
-                            v-for="item in ep.queryExamples"
-                            :key="item.label"
-                            class="example-item"
-                            :class="{ active: isActiveExample(ep, item) }"
-                        >
-                            <div class="example-item-bar">
-                                <el-tag size="small">{{ item.label }}</el-tag>
-                                <el-button
-                                    size="small"
-                                    link
-                                    type="primary"
-                                    :disabled="loading[ep.id]"
-                                    @click="applyQueryExample(ep, item)"
-                                >
-                                    {{ t('apiDebug.fillExample') }}
-                                </el-button>
-                            </div>
-                            <p class="example-text">{{ item.query.q }}</p>
-                        </div>
-                    </div>
-
                     <el-form label-width="120px" class="param-form" @submit.prevent="sendRequest(ep)">
                         <div @keydown.enter.capture="onFieldEnter(ep, $event)">
                         <template v-if="ep.pathParams?.length">
@@ -99,12 +75,30 @@
                                     v-else-if="param.type === 'boolean'"
                                     v-model="formState[ep.id].query[param.name] as boolean"
                                 />
-                                <el-input
-                                    v-else
-                                    v-model="formState[ep.id].query[param.name] as string"
-                                    :placeholder="param.placeholder"
-                                    clearable
-                                />
+                                <template v-else>
+                                    <el-input
+                                        v-model="formState[ep.id].query[param.name] as string"
+                                        :data-q-input="param.name === 'q' ? ep.id : undefined"
+                                        :placeholder="param.placeholder"
+                                        clearable
+                                    />
+                                    <div
+                                        v-if="param.name === 'q' && ep.queryExamples?.length"
+                                        class="example-tags"
+                                    >
+                                        <el-tag
+                                            v-for="item in ep.queryExamples"
+                                            :key="item.label"
+                                            size="small"
+                                            class="example-tag"
+                                            :effect="isActiveExample(ep, item) ? 'dark' : 'plain'"
+                                            :type="isActiveExample(ep, item) ? 'primary' : 'info'"
+                                            @click="applyQueryExample(ep, item)"
+                                        >
+                                            {{ item.label }}
+                                        </el-tag>
+                                    </div>
+                                </template>
                             </el-form-item>
                         </template>
 
@@ -365,7 +359,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, useSlots, watch } from 'vue';
+import { nextTick, reactive, ref, useSlots, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { UploadFile } from 'element-plus';
@@ -539,6 +533,16 @@ const applyQueryExample = (ep: ApiEndpoint, example: ApiQueryExample) => {
     Object.entries(example.query).forEach(([name, value]) => {
         if (name in formState[ep.id].query) {
             formState[ep.id].query[name] = value;
+        }
+    });
+    void nextTick(() => {
+        const el = document.querySelector(`[data-q-input="${ep.id}"]`);
+        if (el instanceof HTMLInputElement) {
+            el.focus();
+            return;
+        }
+        if (el instanceof HTMLElement) {
+            el.querySelector('input')?.focus();
         }
     });
 };
@@ -1156,39 +1160,20 @@ const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
     font-size: 13px;
 }
 
-.example-list {
-    margin-bottom: 12px;
-}
-
-.example-item {
-    margin-bottom: 10px;
-    padding: 10px 12px;
-    background: #f5f7fa;
-    border: 1px solid #ebeef5;
-    border-radius: 4px;
-}
-
-.example-item.active {
-    border-color: #409eff;
-    background: #ecf5ff;
-}
-
-.example-item-bar {
+.example-tags {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-top: 8px;
 }
 
-.example-text {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.6;
-    color: #303133;
-    white-space: pre-wrap;
-    word-break: break-word;
-    user-select: all;
-    cursor: text;
+.example-tag {
+    cursor: pointer;
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    line-height: 1.4;
+    padding: 4px 8px;
 }
 
 .param-section-title {

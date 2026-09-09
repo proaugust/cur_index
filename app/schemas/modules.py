@@ -61,6 +61,7 @@ class DocumentChunkRead(BaseModel):
     content: str
     char_count: int
     lang: str = Field(default="zh", description="语言：zh / ja / en")
+    original_import_path: str | None = Field(default=None, description="原始导入绝对路径")
     embedding_preview: str | None = Field(default=None, description="向量摘要，如 [0.01, …] ×768")
 
     model_config = {"from_attributes": True}
@@ -79,6 +80,7 @@ class DocumentChunkRead(BaseModel):
                 "content": data.content,
                 "char_count": data.char_count,
                 "lang": getattr(data, "lang", None) or "zh",
+                "original_import_path": getattr(data, "original_import_path", None),
                 "embedding_preview": preview,
                 "similarity": getattr(data, "similarity", None),
             }
@@ -149,6 +151,7 @@ class DocumentSearchPolishedSource(BaseModel):
     similarity: float = Field(description="与查询的向量相似度，越高越相关")
     embedding_preview: str | None = Field(default=None, description="向量摘要")
     lang: str = Field(default="zh", description="语言：zh / ja / en")
+    original_import_path: str | None = Field(default=None, description="原始导入绝对路径")
     from_vector: bool = False
     from_fts: bool = False
     vector_sim: float = 0.0

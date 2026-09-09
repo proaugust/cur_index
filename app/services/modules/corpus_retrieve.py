@@ -81,7 +81,8 @@ def recall_vector(
         db.query(model, distance_expr)
         .options(defer(model.embedding, raiseload=True))
         .filter(model.embedding.isnot(None))
-        .filter(model.lang == lang)
+        # lang filter intentionally removed: vector search is language-agnostic;
+        # multilingual embeddings can match cross-lingual queries to documents.
     )
     q = apply_corpus_name_filter(q, model, names)
     file_pattern = source_file_like_pattern(source_file)
@@ -109,7 +110,7 @@ def recall_fts(
     if not prepared:
         return []
     cfg = ts_config(lang)
-    params: dict[str, Any] = {"q": prepared, "limit": recall_k, "lang": lang}
+    params: dict[str, Any] = {"q": prepared, "limit": recall_k}
     extra = ""
     names = merge_corpus_names(corpus_name, corpus_names)
     if names is not None:
@@ -129,7 +130,7 @@ def recall_fts(
         f"""
         SELECT id, ts_rank_cd(search_vector, query) AS rank
         FROM {table_name}, to_tsquery('{cfg}', :q) AS query
-        WHERE search_vector IS NOT NULL AND search_vector @@ query AND lang = :lang {extra}
+        WHERE search_vector IS NOT NULL AND search_vector @@ query {extra}
         ORDER BY rank DESC LIMIT :limit
         """
     )

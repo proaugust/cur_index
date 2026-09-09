@@ -305,7 +305,13 @@ export const documentEndpoints: ApiEndpoint[] = [
         path: '/documents/search',
         description: '通用文档库 document_chunks 混合检索（向量+全文、C1 重排，默认 top 5）',
         queryParams: [
-            { name: 'q', label: '查询文本', type: 'string', placeholder: '例如：休假规则是什么？' },
+            {
+                name: 'q',
+                label: '查询文本',
+                type: 'string',
+                default: '如何在15个工作日内把机票，多语言都加上',
+                placeholder: '如何在15个工作日内把机票，多语言都加上',
+            },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
             {
                 name: 'min_similarity',
@@ -334,6 +340,7 @@ export const documentEndpoints: ApiEndpoint[] = [
             columns: [
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
                 { prop: 'chunk_index', label: '块序', width: 56 },
                 { prop: 'similarity', label: '相似度', width: 72 },
@@ -387,6 +394,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 { prop: 'snippet_index', label: '片段', width: 56 },
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'source_label', label: '来源', width: 110, showOverflowTooltip: true },
+                { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
@@ -627,6 +635,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
             columns: [
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
+                { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
                 { prop: 'chunk_index', label: '块序', width: 56 },
                 { prop: 'similarity', label: '相似度', width: 72 },
@@ -681,6 +690,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
                 { prop: 'snippet_index', label: '片段', width: 56 },
                 { prop: 'id', label: 'ID', width: 64 },
                 { prop: 'source_label', label: '来源', width: 110, showOverflowTooltip: true },
+                { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'similarity', label: '相似度', width: 72 },
                 { prop: 'lang', label: '语言', width: 56 },
                 { prop: 'embedding_preview', label: '向量', width: 100, showOverflowTooltip: true },
@@ -723,6 +733,7 @@ const CORPORA_EP_I18N_KEY: Record<string, string> = {
 };
 
 const DOCUMENT_QUERY_EXAMPLE_IDS: Record<string, string[]> = {
+    search: ['travelReimburse', 'whatIsLlm'],
     'search-and-llm': ['leave', 'travelExpense'],
 };
 

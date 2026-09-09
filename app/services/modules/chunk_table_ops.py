@@ -101,6 +101,7 @@ def ensure_chunk_table(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> N
                         content TEXT NOT NULL,
                         char_count INTEGER NOT NULL,
                         lang VARCHAR(8) NOT NULL DEFAULT '{DEFAULT_CHUNK_LANG}',
+                        original_import_path VARCHAR(1000),
                         embedding vector({dim}),
                         search_vector tsvector
                     )
@@ -142,6 +143,14 @@ def ensure_chunk_lang(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> No
                 )
             )
             logger.info("已为 %s 添加 lang", BUSINESS_CHUNK_TABLE)
+        if "original_import_path" not in cols:
+            conn.execute(
+                text(
+                    f"ALTER TABLE {BUSINESS_CHUNK_TABLE} "
+                    f"ADD COLUMN original_import_path VARCHAR(1000)"
+                )
+            )
+            logger.info("已为 %s 添加 original_import_path", BUSINESS_CHUNK_TABLE)
 
 
 def ensure_chunk_fts(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:

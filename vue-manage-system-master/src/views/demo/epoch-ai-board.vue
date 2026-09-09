@@ -4,12 +4,14 @@
             <div>
                 <p class="card-header-title">
                     <el-icon class="title-icon"><Histogram /></el-icon>
-                    Epoch AI 全球大模型多维洞察看板
+                    {{ t('pages.aiNews.epoch.title') }}
                 </p>
                 <p class="card-header-desc">
-                    每日自动同步官方全量模型库，追踪 AI 算力与参数膨胀前沿规律（更新时间：{{
-                        epochStats.updated_at || '加载中...'
-                    }}）
+                    {{
+                        t('pages.aiNews.epoch.desc', {
+                            time: epochStats.updated_at || t('pages.aiNews.epoch.loading'),
+                        })
+                    }}
                 </p>
                 <p class="quick-links">
                     <el-link
@@ -23,20 +25,18 @@
                 </p>
             </div>
             <div class="epoch-counts">
-                <span>模型总数: <strong class="c-blue">{{ epochStats.counts.all_models }}</strong></span>
-                <span>显著里程碑: <strong class="c-gold">{{ epochStats.counts.notable_models }}</strong></span>
-                <span>前沿标杆: <strong class="c-red">{{ epochStats.counts.frontier_models }}</strong></span>
-                <span>超大规模: <strong class="c-green">{{ epochStats.counts.large_scale_models }}</strong></span>
+                <span>{{ t('pages.aiNews.epoch.countAll') }}: <strong class="c-blue">{{ epochStats.counts.all_models }}</strong></span>
+                <span>{{ t('pages.aiNews.epoch.countNotable') }}: <strong class="c-gold">{{ epochStats.counts.notable_models }}</strong></span>
+                <span>{{ t('pages.aiNews.epoch.countFrontier') }}: <strong class="c-red">{{ epochStats.counts.frontier_models }}</strong></span>
+                <span>{{ t('pages.aiNews.epoch.countLarge') }}: <strong class="c-green">{{ epochStats.counts.large_scale_models }}</strong></span>
             </div>
         </div>
 
         <el-tabs v-model="activeEpochTab" type="border-card" class="epoch-tabs">
-            <el-tab-pane label="模型参数与算力演进（对数气泡图）" name="evolution">
+            <el-tab-pane :label="t('pages.aiNews.epoch.tabEvolution')" name="evolution">
                 <div class="pane-pad">
                     <p class="pane-desc">
-                        <strong>图表说明：</strong> X 轴为大模型发布时间，Y 轴为<strong>参数规模 (对数 Log10 刻度)</strong>。
-                        气泡的大小代表<strong>训练算力 (Training FLOPs)</strong>，气泡越大表示训练该模型消耗的物理算力越恐怖。
-                        可在上方图例点击筛选不同的技术领域。
+                        <strong>{{ t('pages.aiNews.epoch.chartNote') }}</strong>{{ t('pages.aiNews.epoch.evolutionDesc') }}
                     </p>
                     <component
                         :is="VChart"
@@ -49,13 +49,12 @@
                 </div>
             </el-tab-pane>
 
-            <el-tab-pane label="全球研发格局与开源比例分布" name="global">
+            <el-tab-pane :label="t('pages.aiNews.epoch.tabGlobal')" name="global">
                 <el-row :gutter="20">
                     <el-col :span="16">
                         <div class="pane-pad">
                             <p class="pane-desc">
-                                <strong>全球大模型年度发布趋势 (按国家/地区堆叠)</strong>：展示 2018-2026
-                                年间，全球各大经济体发布主流大模型的数量分布演变。
+                                <strong>{{ t('pages.aiNews.epoch.globalTitle') }}</strong>{{ t('pages.aiNews.epoch.globalDesc') }}
                             </p>
                             <component
                                 :is="VChart"
@@ -70,7 +69,7 @@
                     <el-col :span="8" class="weights-col">
                         <div class="pane-pad">
                             <p class="pane-desc pane-desc--center">
-                                <strong>大模型权重开放度 (开源 vs 闭源比例)</strong>
+                                <strong>{{ t('pages.aiNews.epoch.weightsTitle') }}</strong>
                             </p>
                             <component
                                 :is="VChart"
@@ -85,32 +84,31 @@
                 </el-row>
             </el-tab-pane>
 
-            <el-tab-pane label="全量最新收录大模型库" name="releases">
+            <el-tab-pane :label="t('pages.aiNews.epoch.tabReleases')" name="releases">
                 <div class="pane-pad">
                     <p class="pane-desc">
-                        <strong>最近发布的 15 个代表性大模型一览表</strong
-                        >（数据自动同步自 Epoch AI 官方数据库，按发布日期降序排列）：
+                        <strong>{{ t('pages.aiNews.epoch.releasesTitle') }}</strong>{{ t('pages.aiNews.epoch.releasesDesc') }}
                     </p>
                     <el-table :data="epochStats.latest_releases" style="width: 100%" size="default" border stripe>
-                        <el-table-column prop="name" label="模型名称 (Model)" min-width="150" show-overflow-tooltip>
+                        <el-table-column prop="name" :label="t('pages.aiNews.epoch.colName')" min-width="150" show-overflow-tooltip>
                             <template #default="scope">
                                 <span class="model-name">{{ scope.row.name }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="org" label="开发机构 (Organization)" min-width="150" show-overflow-tooltip />
-                        <el-table-column prop="date" label="发布日期" width="130" sortable />
-                        <el-table-column prop="domain" label="核心领域 (Domain)" width="140" />
-                        <el-table-column prop="parameters" label="参数规模 (Params)" width="150" show-overflow-tooltip>
+                        <el-table-column prop="org" :label="t('pages.aiNews.epoch.colOrg')" min-width="150" show-overflow-tooltip />
+                        <el-table-column prop="date" :label="t('pages.aiNews.epoch.colDate')" width="130" sortable />
+                        <el-table-column prop="domain" :label="t('pages.aiNews.epoch.colDomain')" width="140" />
+                        <el-table-column prop="parameters" :label="t('pages.aiNews.epoch.colParams')" width="150" show-overflow-tooltip>
                             <template #default="scope">
                                 <span>{{ formatParams(parseFloat(scope.row.parameters)) || scope.row.parameters }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="accessibility" label="可获取程度" min-width="150" show-overflow-tooltip />
+                        <el-table-column prop="accessibility" :label="t('pages.aiNews.epoch.colAccess')" min-width="150" show-overflow-tooltip />
                     </el-table>
                 </div>
             </el-tab-pane>
 
-            <el-tab-pane label="职业能力与 AI 应用" name="career-ai" lazy>
+            <el-tab-pane :label="t('pages.aiNews.epoch.tabCareer')" name="career-ai" lazy>
                 <div class="pane-pad insight-image-wrap">
                     <el-image
                         src="/epoch-ai-insight.jpg"
@@ -126,9 +124,11 @@
 
 <script setup lang="ts" name="epoch-ai-board">
 import { computed, onMounted, shallowRef, ref, type Component } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Histogram } from '@element-plus/icons-vue';
 import { fetchEpochStats } from '@/api';
 
+const { t, locale } = useI18n();
 const VChart = shallowRef<Component | null>(null);
 const loading = ref(false);
 const activeEpochTab = ref('evolution');
@@ -187,15 +187,15 @@ async function ensureCharts() {
 }
 
 function formatParams(p: number | null | undefined): string {
-    if (!p) return '未知';
-    if (p >= 1e12) return `${(p / 1e12).toFixed(1)}T (万亿)`;
-    if (p >= 1e9) return `${(p / 1e9).toFixed(1)}B (十亿)`;
-    if (p >= 1e6) return `${(p / 1e6).toFixed(1)}M (百万)`;
+    if (!p) return t('pages.aiNews.epoch.unknown');
+    if (p >= 1e12) return t('pages.aiNews.epoch.paramsT', { n: (p / 1e12).toFixed(1) });
+    if (p >= 1e9) return t('pages.aiNews.epoch.paramsB', { n: (p / 1e9).toFixed(1) });
+    if (p >= 1e6) return t('pages.aiNews.epoch.paramsM', { n: (p / 1e6).toFixed(1) });
     return p.toLocaleString();
 }
 
 function formatCompute(c: number | null | undefined): string {
-    if (!c) return '未知';
+    if (!c) return t('pages.aiNews.epoch.unknown');
     if (c >= 1e26) return `${(c / 1e26).toFixed(1)} YottaFLOPs`;
     if (c >= 1e23) return `${(c / 1e23).toFixed(1)} ZettaFLOPs (10^23)`;
     if (c >= 1e20) return `${(c / 1e20).toFixed(1)} ExaFLOPs (10^20)`;
@@ -204,21 +204,22 @@ function formatCompute(c: number | null | undefined): string {
 }
 
 const epochScatterOption = computed(() => {
+    void locale.value;
     const domains = ['Language', 'Vision', 'Multimodal', 'Speech/Audio', 'Robotics', 'Other'];
-    const domainNamesZh: Record<string, string> = {
-        Language: '语言模型 (Language)',
-        Vision: '计算机视觉 (Vision)',
-        Multimodal: '多模态 (Multimodal)',
-        'Speech/Audio': '语音与音频 (Speech/Audio)',
-        Robotics: '机器人 (Robotics)',
-        Other: '其他领域 (Other)',
+    const domainNames: Record<string, string> = {
+        Language: t('pages.aiNews.epoch.domainLanguage'),
+        Vision: t('pages.aiNews.epoch.domainVision'),
+        Multimodal: t('pages.aiNews.epoch.domainMultimodal'),
+        'Speech/Audio': t('pages.aiNews.epoch.domainSpeech'),
+        Robotics: t('pages.aiNews.epoch.domainRobotics'),
+        Other: t('pages.aiNews.epoch.domainOther'),
     };
     const colors = ['#2d8cf0', '#9b59b6', '#f25e43', '#e9a745', '#00bcd4', '#7f8c8d'];
 
     const series = domains.map((dom, idx) => {
         const filtered = epochStats.value.scatter_data.filter((d) => d.domain === dom && d.params);
         return {
-            name: domainNamesZh[dom],
+            name: domainNames[dom],
             type: 'scatter',
             itemStyle: { color: colors[idx] },
             data: filtered.map((d) => [d.date, d.params, d.compute, d.name, d.org, d.domain, d.is_frontier]),
@@ -233,24 +234,24 @@ const epochScatterOption = computed(() => {
                 const item = params.value;
                 if (!item) return '';
                 const isFront = item[6]
-                    ? '<span style="color:#f25e43;font-weight:bold;margin-left:5px;">★ 前沿</span>'
+                    ? `<span style="color:#f25e43;font-weight:bold;margin-left:5px;">${t('pages.aiNews.epoch.frontier')}</span>`
                     : '';
                 return `<div style="padding: 5px; font-family: sans-serif; line-height: 1.6;">
                     <div style="font-size: 14px; font-weight: bold; color: #2d8cf0; margin-bottom: 5px;">${item[3]}${isFront}</div>
-                    <span style="color: #999;">研发机构:</span> ${item[4]}<br/>
-                    <span style="color: #999;">发布日期:</span> ${item[0]}<br/>
-                    <span style="color: #999;">技术领域:</span> ${domainNamesZh[item[5]] || item[5]}<br/>
-                    <span style="color: #999;">参数规模:</span> ${formatParams(item[1])}<br/>
-                    <span style="color: #999;">训练算力:</span> ${formatCompute(item[2])}
+                    <span style="color: #999;">${t('pages.aiNews.epoch.org')}:</span> ${item[4]}<br/>
+                    <span style="color: #999;">${t('pages.aiNews.epoch.publishDate')}:</span> ${item[0]}<br/>
+                    <span style="color: #999;">${t('pages.aiNews.epoch.techDomain')}:</span> ${domainNames[item[5]] || item[5]}<br/>
+                    <span style="color: #999;">${t('pages.aiNews.epoch.paramScale')}:</span> ${formatParams(item[1])}<br/>
+                    <span style="color: #999;">${t('pages.aiNews.epoch.trainCompute')}:</span> ${formatCompute(item[2])}
                 </div>`;
             },
         },
         legend: { type: 'scroll', top: 0 },
         grid: { top: '15%', left: '3%', right: '4%', bottom: '5%', containLabel: true },
-        xAxis: { type: 'time', name: '发布时间', splitLine: { show: true } },
+        xAxis: { type: 'time', name: t('pages.aiNews.epoch.xPublishTime'), splitLine: { show: true } },
         yAxis: {
             type: 'log',
-            name: '参数规模',
+            name: t('pages.aiNews.epoch.yParamScale'),
             logBase: 10,
             splitLine: { show: true },
             axisLabel: { formatter: (value: number) => formatParams(value) },
@@ -270,22 +271,23 @@ const epochScatterOption = computed(() => {
 });
 
 const epochGlobalOption = computed(() => {
+    void locale.value;
     const years = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const countries = ['United States', 'China', 'United Kingdom', 'France', 'Germany', 'Canada', 'Japan', 'Other'];
-    const countryNamesZh: Record<string, string> = {
-        'United States': '美国',
-        China: '中国',
-        'United Kingdom': '英国',
-        France: '法国',
-        Germany: '德国',
-        Canada: '加拿大',
-        Japan: '日本',
-        Other: '其他国家/地区',
+    const countryNames: Record<string, string> = {
+        'United States': t('pages.aiNews.epoch.countryUS'),
+        China: t('pages.aiNews.epoch.countryCN'),
+        'United Kingdom': t('pages.aiNews.epoch.countryUK'),
+        France: t('pages.aiNews.epoch.countryFR'),
+        Germany: t('pages.aiNews.epoch.countryDE'),
+        Canada: t('pages.aiNews.epoch.countryCA'),
+        Japan: t('pages.aiNews.epoch.countryJP'),
+        Other: t('pages.aiNews.epoch.countryOther'),
     };
     const colors = ['#2d8cf0', '#f25e43', '#64d572', '#e9a745', '#9b59b6', '#00bcd4', '#1abc9c', '#7f8c8d'];
 
     const series = countries.map((country, idx) => ({
-        name: countryNamesZh[country],
+        name: countryNames[country],
         type: 'bar',
         stack: 'total',
         itemStyle: { color: colors[idx] },
@@ -300,21 +302,26 @@ const epochGlobalOption = computed(() => {
         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
         legend: { top: 0 },
         grid: { top: '15%', left: '3%', right: '3%', bottom: '5%', containLabel: true },
-        xAxis: { type: 'category', data: years.map((y) => `${y}年`) },
-        yAxis: { type: 'value', name: '发布大模型数量 (个)' },
+        xAxis: { type: 'category', data: years.map((y) => t('pages.aiNews.epoch.yearLabel', { y })) },
+        yAxis: { type: 'value', name: t('pages.aiNews.epoch.yModelCount') },
         series,
     };
 });
 
 const epochWeightsOption = computed(() => {
+    void locale.value;
     const ow = epochStats.value.open_weights;
     return {
-        tooltip: { trigger: 'item', formatter: '{b}: {c} 个 ({d}%)' },
+        tooltip: {
+            trigger: 'item',
+            formatter: (p: { name: string; value: number; percent: number }) =>
+                t('pages.aiNews.epoch.pieTooltip', { name: p.name, count: p.value, percent: p.percent }),
+        },
         legend: { bottom: '0', left: 'center' },
         color: ['#64d572', '#f25e43', '#909399'],
         series: [
             {
-                name: '权重开放度',
+                name: t('pages.aiNews.epoch.weightsSeries'),
                 type: 'pie',
                 radius: ['45%', '70%'],
                 avoidLabelOverlap: false,
@@ -322,9 +329,9 @@ const epochWeightsOption = computed(() => {
                 label: { show: false },
                 emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
                 data: [
-                    { value: ow.Yes || 0, name: '开源模型 (Open Weights)' },
-                    { value: ow.No || 0, name: '闭源/API模型' },
-                    { value: ow.Unknown || 0, name: '未公开/未知' },
+                    { value: ow.Yes || 0, name: t('pages.aiNews.epoch.openWeights') },
+                    { value: ow.No || 0, name: t('pages.aiNews.epoch.closedWeights') },
+                    { value: ow.Unknown || 0, name: t('pages.aiNews.epoch.unknownWeights') },
                 ],
             },
         ],
