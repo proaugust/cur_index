@@ -566,29 +566,6 @@ export const corporaEndpoints: ApiEndpoint[] = [
         },
     },
     {
-        id: 'corpora-files',
-        name: '资料库文件',
-        method: 'GET',
-        path: '/documents/corpora/files',
-        description: '查询资料库下已导入的文件名（留空查全部资料库）',
-        queryParams: [
-            { name: 'corpus_name', label: '资料名', type: 'string', placeholder: '留空查全部；或填与导入时一致' },
-        ],
-        resultView: {
-            mode: 'table',
-            dataPath: 'files',
-            pageSize: 20,
-            highlightFields: [
-                { key: 'corpus_name', label: '资料名' },
-                { key: 'table_name', label: '物理表' },
-            ],
-            columns: [
-                { prop: 'corpus_name', label: '资料名', width: 120, showOverflowTooltip: true },
-                { prop: 'source_file', label: '文件路径', minWidth: 280, showOverflowTooltip: true },
-            ],
-        },
-    },
-    {
         id: 'corpora-suggest-filters',
         name: '检索过滤建议',
         method: 'GET',
@@ -725,7 +702,6 @@ const CORPORA_EP_I18N_KEY: Record<string, string> = {
     'corpora-import-job': 'corporaImportJob',
     'corpora-list': 'corporaList',
     'corpora-listByFile': 'corporaListByFile',
-    'corpora-files': 'corporaFiles',
     'corpora-suggest-filters': 'corporaSuggestFilters',
     'corpora-search': 'corporaSearch',
     'corpora-search-llm': 'corporaSearchLlm',

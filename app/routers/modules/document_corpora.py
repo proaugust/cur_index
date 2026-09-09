@@ -47,7 +47,7 @@ def suggest_corpus_category(
     q: str = Query(..., min_length=1, description="用户问题"),
     _: User = Depends(require_permission("82.corpora-search", name="资料库检索")),
 ) -> schemas.CorpusCategorySuggestResult:
-    return schemas.CorpusCategorySuggestResult(**suggest_category(q))
+    return schemas.CorpusCategorySuggestResult.model_validate(suggest_category(q))
 
 
 @router.get("", response_model=list[schemas.DocumentCorpusRead], summary="列出业务知识库")
@@ -61,8 +61,10 @@ def list_corpora(
         normalized = normalize_category(raw)
         if normalized != raw:
             return []
-        return corpus_crud.list_corpora(db, category=normalized)
-    return corpus_crud.list_corpora(db)
+        rows = corpus_crud.list_corpora(db, category=normalized)
+    else:
+        rows = corpus_crud.list_corpora(db)
+    return [schemas.DocumentCorpusRead.model_validate(row) for row in rows]
 
 
 @router.get(
@@ -149,15 +151,6 @@ async def import_corpus(
     return schemas.CorpusImportJobAccepted(job_id=job_id)
 
 
-@router.get("/files", response_model=schemas.CorpusFileListResult, summary="资料库内文件名列表")
-def list_corpus_files(
-    corpus_name: str | None = Query(None, description="资料名（留空查全部资料库）"),
-    service: CorpusSearchService = Depends(_search_service),
-    _: User = Depends(require_permission("82.corpora-files", name="资料库文件列表")),
-) -> schemas.CorpusFileListResult:
-    return service.list_files(corpus_name)
-
-
 @router.get(
     "/listByFile",
     response_model=schemas.SourceFileListPage,
@@ -232,7 +225,7 @@ def create_corpus_chunk(
         embedding=embedding,
         lang=lang,
     )
-    return row
+    return schemas.DocumentChunkRead.model_validate(row)
 
 
 @router.put("/chunks/{chunk_id}", response_model=schemas.DocumentChunkRead, summary="资料库更新切块")

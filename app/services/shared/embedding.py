@@ -64,11 +64,16 @@ def embed_text(text: str) -> list[float]:
     return _encode([text])[0]
 
 
+@lru_cache(maxsize=256)
+def _embed_query_cached(payload: str) -> tuple[float, ...]:
+    return tuple(_encode([payload])[0])
+
+
 def embed_query(text: str) -> list[float]:
-    """检索查询；BGE 等模型需在 query 前加 instruction。"""
+    """检索查询；BGE 等模型需在 query 前加 instruction。同一问句复用向量。"""
     instruction = settings.embedding_query_instruction
     payload = f"{instruction}{text}" if instruction else text
-    return _encode([payload])[0]
+    return list(_embed_query_cached(payload))
 
 
 def embed_texts(texts: list[str], *, show_progress: bool = False) -> list[list[float]]:

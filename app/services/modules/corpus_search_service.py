@@ -11,7 +11,6 @@ from app.services.modules.chunk_lang import detect_lang
 from app.services.modules.chunk_table_ops import (
     BUSINESS_CHUNK_TABLE,
     apply_gin_previews,
-    ensure_chunk_table,
     row_to_dict,
 )
 from app.services.modules.corpus_retrieve import retrieve
@@ -26,35 +25,12 @@ from app.services.shared.llm import chat_completion
 _SYSTEM_PROMPT = STRICT_DOC_QA
 _RETRIEVE_MODES = ("vector", "hybrid", "hybrid_rerank")
 
-_REWRITE_SYSTEM = (
-    "你是检索查询优化助手。将用户问题改写为更适合文档检索的关键词组合。"
-    "要求：保留核心意图；补充专业同义词/上下位词；去掉口语化表达；"
-    "输出仅一行改写后的查询，不要解释，不要标点符号开头。"
-)
-
-
-def _rewrite_query(query: str) -> str:
-    """用 LLM 改写查询以提升向量/全文召回率；失败时静默回退到原 query。"""
-    try:
-        rewritten = chat_completion(
-            _REWRITE_SYSTEM,
-            query,
-            temperature=0.0,
-            disable_thinking=True,
-            caller="rag.query_rewrite",
-        )
-        rewritten = rewritten.strip().splitlines()[0].strip()
-        return rewritten if rewritten else query
-    except Exception:
-        return query
-
 
 class CorpusSearchService:
     def __init__(self, db: Session):
         self.db = db
 
     def _require_corpus(self, corpus_name: str):
-        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
         corpus = corpus_crud.get_corpus_by_name(self.db, corpus_name)
         if corpus is None:
             raise HTTPException(status_code=404, detail=f"资料库不存在: {corpus_name}")
@@ -65,11 +41,9 @@ class CorpusSearchService:
         return corpus
 
     def suggest_filters(self, question: str) -> schemas.CorpusSearchFiltersSuggest:
-        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
         return schemas.CorpusSearchFiltersSuggest(**suggest_search_filters(self.db, question))
 
     def list_files(self, corpus_name: str | None) -> schemas.CorpusFileListResult:
-        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
         resolved_name = self._require_corpus(corpus_name).name if corpus_name else None
         rows = corpus_crud.list_source_files(self.db, resolved_name)
         files = [
@@ -93,8 +67,12 @@ class CorpusSearchService:
         page: int = 1,
         page_size: int = 10,
     ) -> schemas.SourceFileListPage:
-        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
-        resolved_name = self._require_corpus(corpus_name).name if corpus_name else None
+        resolved_name = None
+        if corpus_name and corpus_name.strip():
+            row = corpus_crud.get_corpus_by_name(self.db, corpus_name.strip())
+            if row is None:
+                raise HTTPException(status_code=404, detail=f"资料库不存在: {corpus_name}")
+            resolved_name = row.name
         rows, total = corpus_crud.list_source_files_page(
             self.db,
             resolved_name,
@@ -145,7 +123,6 @@ class CorpusSearchService:
                 status_code=400,
                 detail=f"retrieve_mode 仅支持: {', '.join(_RETRIEVE_MODES)}",
             )
-        ensure_chunk_table(self.db, BUSINESS_CHUNK_TABLE)
         scope = resolve_corpus_names(
             self.db,
             corpus_name=corpus_name,
@@ -159,11 +136,10 @@ class CorpusSearchService:
 
         raw_query = query.strip()
         resolved_lang = detect_lang(raw_query)
-        retrieve_query = _rewrite_query(raw_query) if len(raw_query) >= 4 else raw_query
         try:
             items = retrieve(
                 self.db,
-                retrieve_query,
+                raw_query,
                 table_name=BUSINESS_CHUNK_TABLE,
                 corpus_names=scope,
                 limit=limit,

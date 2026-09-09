@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session, defer
 from app import models
 from app.services.modules.chunk_table_ops import (
     BUSINESS_CHUNK_TABLE,
-    ensure_chunk_table,
     name_to_slug,
     source_file_like_pattern,
 )
@@ -37,7 +36,6 @@ def get_or_create_corpus(
     lang: str = "zh",
     category: str = "other",
 ) -> models.DocumentCorpus:
-    ensure_chunk_table(db, BUSINESS_CHUNK_TABLE)
     existing = get_corpus_by_name(db, name)
     if existing is not None:
         dirty = False
@@ -123,15 +121,6 @@ def bulk_insert_chunks(
     if commit:
         db.commit()
     return len(items)
-
-
-def list_source_files(db: Session, corpus_name: str | None = None) -> list[tuple[str, str]]:
-    model = _model()
-    query = db.query(model.corpus_name, model.source_file).distinct()
-    if corpus_name:
-        query = query.filter(model.corpus_name == corpus_name)
-    rows = query.order_by(model.corpus_name, model.source_file).all()
-    return [(row[0], row[1]) for row in rows]
 
 
 def list_source_files_page(

@@ -16,6 +16,7 @@ from app.models import Base
 from app.routers import all_routers
 from app.services.system.rbac_seed import seed_rbac
 from app.services.system.schema_migrate import run_pending_migrations
+from app.services.modules.chunk_table_ops import ensure_chunk_schemas
 
 STATIC_DIR = BASE_DIR / "static"
 # 本地无 static/ 时强制开发模式，避免误设 SERVE_STATIC=1 导致 /api 与 Vite 代理冲突全 404
@@ -77,6 +78,7 @@ async def lifespan(app: FastAPI):
         migrated = run_pending_migrations(engine)
         if migrated:
             logger.info("本次已应用数据库迁移: %s", ", ".join(migrated))
+        ensure_chunk_schemas(engine)
         db = SessionLocal()
         try:
             seed_rbac(db, API_ROUTERS)

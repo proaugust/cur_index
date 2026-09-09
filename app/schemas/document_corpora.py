@@ -64,17 +64,6 @@ class CorpusImportJobStatus(BaseModel):
     result: CorpusImportResult | dict[str, Any] | None = None
 
 
-class CorpusFileItem(BaseModel):
-    source_file: str
-    corpus_name: str | None = None
-
-
-class CorpusFileListResult(BaseModel):
-    corpus_name: str | None = None
-    table_name: str
-    files: list[CorpusFileItem]
-
-
 class CorpusClearResult(BaseModel):
     corpus_name: str
     table_name: str

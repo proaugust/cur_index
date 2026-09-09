@@ -1,4 +1,4 @@
-﻿"""通用文档库检索（document_chunks）：vector / hybrid / hybrid_rerank。"""
+"""通用文档库检索（document_chunks）：vector / hybrid / hybrid_rerank。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from app.services.modules.chunk_lang import DEFAULT_CHUNK_LANG, detect_lang
 from app.services.modules.chunk_table_ops import (
     GENERAL_CHUNK_TABLE,
     apply_gin_previews,
-    ensure_chunk_fts,
     row_to_dict,
 )
 from app.services.modules.corpus_retrieve import retrieve
@@ -61,7 +60,6 @@ class DocumentSearchService:
                 status_code=400,
                 detail=f"retrieve_mode 仅支持: {', '.join(_RETRIEVE_MODES)}",
             )
-        ensure_chunk_fts(self.db, GENERAL_CHUNK_TABLE)
         if not query or not query.strip():
             return self._list_recent_chunks(limit=limit, source_file=source_file)
 

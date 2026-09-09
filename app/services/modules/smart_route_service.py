@@ -53,13 +53,26 @@ def _classify_by_keywords(question: str) -> str:
 
 def _classify_by_llm(question: str) -> str:
     if not settings.openai_api_key:
-        return _classify_by_keywords(question)
+        return "unknown"
     try:
-        answer = chat_completion(_ROUTE_SYSTEM, question, temperature=0.1, caller="smart_route.dispatch")
+        answer = chat_completion(
+            _ROUTE_SYSTEM,
+            question,
+            temperature=0.1,
+            disable_thinking=True,
+            caller="smart_route.dispatch",
+        )
         return _normalize_intent(answer)
     except HTTPException:
-        logger.warning("智能路由 LLM 分类失败，回退关键词规则", exc_info=True)
-        return _classify_by_keywords(question)
+        logger.warning("智能路由 LLM 分类失败，回退 unknown", exc_info=True)
+        return "unknown"
+
+
+def _classify(question: str) -> str:
+    intent = _classify_by_keywords(question)
+    if intent != "unknown":
+        return intent
+    return _classify_by_llm(question)
 
 
 def route_question(question: str, db: Session) -> tuple[str, str, list]:
@@ -68,7 +81,7 @@ def route_question(question: str, db: Session) -> tuple[str, str, list]:
     if not text:
         raise HTTPException(status_code=400, detail="问题不能为空")
 
-    intent = _classify_by_llm(text)
+    intent = _classify(text)
     employees: list = []
     if intent == "weather":
         message = query_weather(text)

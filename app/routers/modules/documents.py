@@ -143,7 +143,7 @@ def create_document_chunk(
     _: User = Depends(require_permission("82.chunks-create", name="新增切块")),
 ) -> schemas.DocumentChunkRead:
     from app.services.modules.chunk_lang import resolve_lang
-    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, ensure_chunk_fts, refresh_search_vectors
+    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, refresh_search_vectors
 
     lang = resolve_lang(payload.lang, payload.content)
     embedding = embed_text(payload.content)
@@ -157,7 +157,6 @@ def create_document_chunk(
         embedding=embedding,
         lang=lang,
     )
-    ensure_chunk_fts(db, GENERAL_CHUNK_TABLE)
     refresh_search_vectors(db, GENERAL_CHUNK_TABLE, source_files=[payload.source_file])
     db.commit()
     return row
@@ -168,7 +167,7 @@ def update_document_chunk(
     chunk_id: int, payload: schemas.DocumentChunkUpdate, db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.chunks-update", name="更新切块")),
 ) -> schemas.DocumentChunkRead:
-    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, ensure_chunk_fts, refresh_search_vectors
+    from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, refresh_search_vectors
 
     chunk = crud.get_document_chunk_by_id(db, chunk_id)
     if chunk is None:
@@ -192,7 +191,6 @@ def update_document_chunk(
         char_count=char_count,
         embedding=embedding,
     )
-    ensure_chunk_fts(db, GENERAL_CHUNK_TABLE)
     refresh_search_vectors(db, GENERAL_CHUNK_TABLE, source_files=[updated.source_file])
     db.commit()
     return updated

@@ -1,13 +1,19 @@
-"""切块表 document_chunks / document_business_chunks 的建表 / FTS / HNSW 辅助。"""
+"""切块表 document_chunks / document_business_chunks 的建表 / FTS / HNSW 辅助。
+
+表结构与索引维护只应在进程启动（或迁移）跑一次；检索路径禁止调用 ensure_*。
+导入/改切块只做 scoped 的 refresh_search_vectors。
+"""
 
 from __future__ import annotations
 
 import hashlib
 import logging
 import re
+import threading
 from typing import Any
 
 from sqlalchemy import bindparam, inspect, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -25,6 +31,9 @@ _CHUNK_TABLES = frozenset({BUSINESS_CHUNK_TABLE, GENERAL_CHUNK_TABLE})
 
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 HNSW_BULK_THRESHOLD = 500
+
+_schema_lock = threading.Lock()
+_schema_ready = False
 
 
 def _require_chunk_table(table_name: str) -> str:
@@ -78,100 +87,160 @@ def table_name_for_slug(_slug: str) -> str:
     """业务库统一物理表（保留函数签名兼容注册逻辑）。"""
     return BUSINESS_CHUNK_TABLE
 
+
+def _create_hnsw_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
+    return (
+        f"CREATE INDEX IF NOT EXISTS {hnsw_index_name(table_name)} "
+        f"ON {table_name} USING hnsw (embedding vector_cosine_ops) "
+        f"WHERE embedding IS NOT NULL"
+    )
+
+
+def _create_fts_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
+    return (
+        f"CREATE INDEX IF NOT EXISTS {fts_index_name(table_name)} "
+        f"ON {table_name} USING gin (search_vector)"
+    )
+
+
+def _src_trgm_index_name(table_name: str) -> str:
+    if table_name == BUSINESS_CHUNK_TABLE:
+        return "ix_dcc_business_src_trgm"
+    return "ix_document_chunks_source_file_trgm"
+
+
+def _ensure_business_table(conn, dim: int) -> None:
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    conn.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS {BUSINESS_CHUNK_TABLE} (
+                id SERIAL PRIMARY KEY,
+                corpus_name VARCHAR(200) NOT NULL,
+                source_file VARCHAR(500) NOT NULL,
+                section_title VARCHAR(500) NOT NULL DEFAULT '',
+                section_path VARCHAR(500) NOT NULL DEFAULT '',
+                chunk_index INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                char_count INTEGER NOT NULL,
+                lang VARCHAR(8) NOT NULL DEFAULT '{DEFAULT_CHUNK_LANG}',
+                original_import_path VARCHAR(1000),
+                embedding vector({dim}),
+                search_vector tsvector
+            )
+            """
+        )
+    )
+    conn.execute(
+        text(
+            f"CREATE INDEX IF NOT EXISTS ix_dcc_business_corpus "
+            f"ON {BUSINESS_CHUNK_TABLE} (corpus_name)"
+        )
+    )
+    conn.execute(
+        text(
+            f"CREATE INDEX IF NOT EXISTS ix_dcc_business_src "
+            f"ON {BUSINESS_CHUNK_TABLE} (source_file)"
+        )
+    )
+
+
+def _patch_chunk_columns(conn, table: str, cols: set[str]) -> None:
+    if table == BUSINESS_CHUNK_TABLE and "corpus_name" not in cols:
+        conn.execute(
+            text(
+                f"ALTER TABLE {table} "
+                f"ADD COLUMN corpus_name VARCHAR(200) NOT NULL DEFAULT ''"
+            )
+        )
+    if "lang" not in cols:
+        conn.execute(
+            text(
+                f"ALTER TABLE {table} "
+                f"ADD COLUMN lang VARCHAR(8) NOT NULL DEFAULT '{DEFAULT_CHUNK_LANG}'"
+            )
+        )
+        logger.info("已为 %s 添加 lang", table)
+    if "original_import_path" not in cols:
+        conn.execute(
+            text(f"ALTER TABLE {table} ADD COLUMN original_import_path VARCHAR(1000)")
+        )
+        logger.info("已为 %s 添加 original_import_path", table)
+    if "search_vector" not in cols:
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN search_vector tsvector"))
+        logger.info("已为 %s 添加 search_vector", table)
+
+
+def _backfill_null_search_vectors(conn, table: str) -> None:
+    for lang in CHUNK_LANGS:
+        expr = search_vector_sql_expr(lang)
+        conn.execute(
+            text(
+                f"UPDATE {table} SET search_vector = {expr} "
+                f"WHERE search_vector IS NULL AND lang = :lang"
+            ),
+            {"lang": lang},
+        )
+
+
+def _ensure_chunk_indexes(conn, table: str) -> None:
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    conn.execute(
+        text(
+            f"CREATE INDEX IF NOT EXISTS {_src_trgm_index_name(table)} "
+            f"ON {table} USING gin (source_file gin_trgm_ops)"
+        )
+    )
+    conn.execute(text(_create_hnsw_sql(table)))
+    conn.execute(text(_create_fts_sql(table)))
+
+
+def ensure_chunk_schemas(engine: Engine) -> None:
+    """进程内只执行一次：补齐两张切块表的列 / 索引，并回填 NULL search_vector。"""
+    global _schema_ready
+    if _schema_ready:
+        return
+    with _schema_lock:
+        if _schema_ready:
+            return
+        dim = settings.embedding_dim
+        if BUSINESS_CHUNK_TABLE not in inspect(engine).get_table_names():
+            with engine.begin() as conn:
+                _ensure_business_table(conn, dim)
+            logger.info("已创建切块表 %s", BUSINESS_CHUNK_TABLE)
+        with engine.begin() as conn:
+            tables = set(inspect(engine).get_table_names())
+            for table in (GENERAL_CHUNK_TABLE, BUSINESS_CHUNK_TABLE):
+                if table not in tables:
+                    continue
+                cols = {c["name"] for c in inspect(engine).get_columns(table)}
+                _patch_chunk_columns(conn, table, cols)
+                _backfill_null_search_vectors(conn, table)
+                _ensure_chunk_indexes(conn, table)
+        _schema_ready = True
+        logger.info("切块表 schema 已就绪（仅本次进程启动）")
+
+
 def ensure_chunk_table(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    """确保业务切块表存在并补齐 FTS / lang / trgm。"""
+    """兼容旧调用：转交进程级一次性 ensure_chunk_schemas。检索路径勿再调用。"""
     if table_name != BUSINESS_CHUNK_TABLE:
         raise ValueError(f"业务切块仅支持固定表 {BUSINESS_CHUNK_TABLE}，收到: {table_name}")
-    engine = db.get_bind()
-    dim = settings.embedding_dim
-    if BUSINESS_CHUNK_TABLE not in inspect(engine).get_table_names():
-        with engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-            conn.execute(
-                text(
-                    f"""
-                    CREATE TABLE {BUSINESS_CHUNK_TABLE} (
-                        id SERIAL PRIMARY KEY,
-                        corpus_name VARCHAR(200) NOT NULL,
-                        source_file VARCHAR(500) NOT NULL,
-                        section_title VARCHAR(500) NOT NULL DEFAULT '',
-                        section_path VARCHAR(500) NOT NULL DEFAULT '',
-                        chunk_index INTEGER NOT NULL,
-                        content TEXT NOT NULL,
-                        char_count INTEGER NOT NULL,
-                        lang VARCHAR(8) NOT NULL DEFAULT '{DEFAULT_CHUNK_LANG}',
-                        original_import_path VARCHAR(1000),
-                        embedding vector({dim}),
-                        search_vector tsvector
-                    )
-                    """
-                )
-            )
-            conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_dcc_business_corpus ON {BUSINESS_CHUNK_TABLE} (corpus_name)"))
-            conn.execute(text(f"CREATE INDEX IF NOT EXISTS ix_dcc_business_src ON {BUSINESS_CHUNK_TABLE} (source_file)"))
-            conn.execute(text(
-                f"CREATE INDEX IF NOT EXISTS ix_dcc_business_src_trgm "
-                f"ON {BUSINESS_CHUNK_TABLE} USING gin (source_file gin_trgm_ops)"
-            ))
-            conn.execute(text(_create_hnsw_sql()))
-            conn.execute(text(_create_fts_sql()))
-        logger.info("已创建切块表 %s", BUSINESS_CHUNK_TABLE)
-        return
-    ensure_chunk_lang(db)
-    ensure_chunk_fts(db)
-    ensure_chunk_source_file_trgm(db)
+    ensure_chunk_schemas(db.get_bind())
+
 
 def ensure_chunk_lang(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    if table_name != BUSINESS_CHUNK_TABLE:
-        return
-    engine = db.get_bind()
-    cols = {c["name"] for c in inspect(engine).get_columns(BUSINESS_CHUNK_TABLE)}
-    with engine.begin() as conn:
-        if "corpus_name" not in cols:
-            conn.execute(
-                text(
-                    f"ALTER TABLE {BUSINESS_CHUNK_TABLE} "
-                    f"ADD COLUMN corpus_name VARCHAR(200) NOT NULL DEFAULT ''"
-                )
-            )
-        if "lang" not in cols:
-            conn.execute(
-                text(
-                    f"ALTER TABLE {BUSINESS_CHUNK_TABLE} "
-                    f"ADD COLUMN lang VARCHAR(8) NOT NULL DEFAULT '{DEFAULT_CHUNK_LANG}'"
-                )
-            )
-            logger.info("已为 %s 添加 lang", BUSINESS_CHUNK_TABLE)
-        if "original_import_path" not in cols:
-            conn.execute(
-                text(
-                    f"ALTER TABLE {BUSINESS_CHUNK_TABLE} "
-                    f"ADD COLUMN original_import_path VARCHAR(1000)"
-                )
-            )
-            logger.info("已为 %s 添加 original_import_path", BUSINESS_CHUNK_TABLE)
+    ensure_chunk_schemas(db.get_bind())
 
 
 def ensure_chunk_fts(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    table = _require_chunk_table(table_name)
-    engine = db.get_bind()
-    if table not in inspect(engine).get_table_names():
-        return
-    cols = {c["name"] for c in inspect(engine).get_columns(table)}
-    with engine.begin() as conn:
-        if "search_vector" not in cols:
-            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN search_vector tsvector"))
-        for lang in CHUNK_LANGS:
-            expr = search_vector_sql_expr(lang)
-            conn.execute(
-                text(
-                    f"UPDATE {table} SET search_vector = {expr} "
-                    f"WHERE search_vector IS NULL AND lang = :lang"
-                ),
-                {"lang": lang},
-            )
-        conn.execute(text(_create_fts_sql(table)))
+    """兼容旧调用：不再在热路径做全表维护，仅保证启动级 schema 已执行。"""
+    _require_chunk_table(table_name)
+    ensure_chunk_schemas(db.get_bind())
+
+
+def ensure_chunk_source_file_trgm(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
+    ensure_chunk_schemas(db.get_bind())
 
 
 def refresh_search_vectors(
@@ -202,35 +271,6 @@ def refresh_search_vectors(
                 text(f"UPDATE {table} SET search_vector = {expr} WHERE {' AND '.join(clauses)}"),
                 params,
             )
-
-
-def _create_hnsw_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
-    return (
-        f"CREATE INDEX IF NOT EXISTS {hnsw_index_name(table_name)} "
-        f"ON {table_name} USING hnsw (embedding vector_cosine_ops) "
-        f"WHERE embedding IS NOT NULL"
-    )
-
-
-def _create_fts_sql(table_name: str = BUSINESS_CHUNK_TABLE) -> str:
-    return (
-        f"CREATE INDEX IF NOT EXISTS {fts_index_name(table_name)} "
-        f"ON {table_name} USING gin (search_vector)"
-    )
-
-
-def ensure_chunk_source_file_trgm(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
-    table = _require_chunk_table(table_name)
-    idx = (
-        "ix_dcc_business_src_trgm"
-        if table == BUSINESS_CHUNK_TABLE
-        else "ix_document_chunks_source_file_trgm"
-    )
-    with db.get_bind().begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-        conn.execute(
-            text(f"CREATE INDEX IF NOT EXISTS {idx} ON {table} USING gin (source_file gin_trgm_ops)")
-        )
 
 
 def drop_hnsw_index(db: Session, table_name: str = BUSINESS_CHUNK_TABLE) -> None:
@@ -297,21 +337,16 @@ def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str |
 def apply_gin_previews(db: Session, table_name: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [int(it["id"]) for it in items if it.get("id") is not None]
     snips: dict[int, str] = {}
-    emb_previews: dict[int, str | None] = {}
     if ids:
         table = _require_chunk_table(table_name)
         stmt = text(
-            f"SELECT id, left(search_vector::text, 72) AS s, embedding FROM {table} WHERE id IN :ids"
+            f"SELECT id, left(search_vector::text, 72) AS s FROM {table} WHERE id IN :ids"
         ).bindparams(bindparam("ids", expanding=True))
         for r in db.execute(stmt, {"ids": ids}):
-            cid = int(r.id)
-            snips[cid] = r.s or ""
-            emb_previews[cid] = embedding_preview(r.embedding)
+            snips[int(r.id)] = r.s or ""
     for it in items:
         cid = int(it["id"])
         it["gin_preview"] = gin_preview(
             bool(it.get("from_fts")), float(it.get("fts_rank") or 0), sv_text=snips.get(cid)
         )
-        if not it.get("embedding_preview") and cid in emb_previews:
-            it["embedding_preview"] = emb_previews[cid]
     return items
