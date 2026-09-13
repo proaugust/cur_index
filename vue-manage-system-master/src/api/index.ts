@@ -60,7 +60,8 @@ export const postInsightSeedSamples = (
     count?: number
 ) => request.post('/insight/seed/samples', null, { params: { preset, ...(count != null ? { count } : {}) } });
 
-export const postInsightSeedPromoteSamples = () => request.post('/insight/seed/promote-samples');
+export const postInsightSeedPromoteSamples = () =>
+    request.post('/insight/seed/promote-samples', null, { timeout: 600_000 });
 
 export const postInsightSeedResetUsers = () => request.post('/insight/seed/reset-users');
 

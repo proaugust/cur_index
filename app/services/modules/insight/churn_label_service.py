@@ -39,20 +39,42 @@ class InsightChurnLabelService:
         self.db.flush()
         return total
 
-    def seed_synthetic(self) -> int:
-        """按样本特征概率采样 churn_90d，供无 CRM 时验证算法（非 weak_label）。"""
-        sample_ids = {uid for (uid,) in self.db.query(FactComplaintSample.user_id).distinct()}
+    def seed_synthetic(self, user_ids: set[str] | None = None) -> int:
+        """按样本特征概率采样 churn_90d，供无 CRM 时验证算法（非 weak_label）。
+
+        user_ids 非空时只为这些客户增量写入，不清空既有 seed 标签。
+        """
+        if user_ids is not None:
+            sample_ids = set(user_ids)
+        else:
+            sample_ids = {uid for (uid,) in self.db.query(FactComplaintSample.user_id).distinct()}
         if not sample_ids:
             return 0
-        users = self.db.query(DimUserProfile).filter(DimUserProfile.user_id.in_(sample_ids)).all()
+        id_list = list(sample_ids)
+        users: list[DimUserProfile] = []
+        for offset in range(0, len(id_list), 2000):
+            chunk = id_list[offset : offset + 2000]
+            users.extend(
+                self.db.query(DimUserProfile).filter(DimUserProfile.user_id.in_(chunk)).all()
+            )
         if not users:
             return 0
-        self.db.query(FactChurnLabel).filter(FactChurnLabel.label_source == LABEL_SOURCE_SEED).delete()
-        self.db.commit()
-        occupied = {
-            (uid, as_of)
-            for uid, as_of in self.db.query(FactChurnLabel.user_id, FactChurnLabel.as_of_date).all()
-        }
+        if user_ids is None:
+            self.db.query(FactChurnLabel).filter(FactChurnLabel.label_source == LABEL_SOURCE_SEED).delete()
+            self.db.commit()
+            occupied = {
+                (uid, as_of)
+                for uid, as_of in self.db.query(FactChurnLabel.user_id, FactChurnLabel.as_of_date).all()
+            }
+        else:
+            occupied: set[tuple[str, date]] = set()
+            for offset in range(0, len(id_list), 2000):
+                chunk = id_list[offset : offset + 2000]
+                occupied.update(
+                    self.db.query(FactChurnLabel.user_id, FactChurnLabel.as_of_date)
+                    .filter(FactChurnLabel.user_id.in_(chunk))
+                    .all()
+                )
         # 观察日锚定样本最大日期；特征不做 as_of 截断，避免小样本被滤光
         max_rd = self.db.query(func.max(FactComplaintSample.record_date)).scalar() or date.today()
         features = InsightFeatureBuilder(self.db).build_batch(users)

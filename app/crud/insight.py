@@ -4,7 +4,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import delete, func, select, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.models.insight import (
     CfgSimulationWeight,
@@ -49,7 +49,7 @@ _USER_ID_BASE = 10_000_000
 
 
 def sync_user_seq(db: Session) -> None:
-    """按客户表 + 样本表最大 user_id 续号，避免先造样本再造客户时撞号。"""
+    """造客户/造样本前调用：取两边 max(user_id) 续号。勿两边同时注入。"""
     from app.services.modules.insight.seed.profile_generator import reset_user_seq
 
     max_profile = db.scalar(select(func.max(DimUserProfile.user_id)))
@@ -160,33 +160,59 @@ def _profile_payload_from_dict(row: dict) -> dict:
     return {k: v for k, v in clean.items() if k in allowed and v is not None}
 
 
-def bulk_upsert_profiles_from_samples(db: Session, rows: list[dict]) -> int:
-    """按 user_id 仅插入尚不存在的客户（已并入则跳过，不覆盖）。"""
+def bulk_insert_profiles_from_samples(db: Session, rows: list[dict]) -> dict:
+    """按 user_id 合并：不存在则 insert，已存在则跳过。返回 inserted_ids / skipped。"""
+    empty = {"inserted_ids": [], "skipped": 0}
     if not rows:
-        return 0
-    inserted = 0
+        return empty
+    payloads: list[dict] = []
     for row in rows:
         payload = _profile_payload_from_dict(row)
-        user_id = payload.get("user_id")
-        if not user_id:
-            continue
-        existing = db.get(DimUserProfile, user_id)
-        if existing is not None:
-            continue
-        db.add(DimUserProfile(**payload))
-        inserted += 1
-    db.commit()
-    return inserted
+        if payload.get("user_id"):
+            payloads.append(payload)
+    if not payloads:
+        return empty
+    user_ids = [p["user_id"] for p in payloads]
+    existing: set[str] = set()
+    for offset in range(0, len(user_ids), 2000):
+        chunk = user_ids[offset : offset + 2000]
+        existing.update(
+            db.scalars(select(DimUserProfile.user_id).where(DimUserProfile.user_id.in_(chunk))).all()
+        )
+    to_insert = [p for p in payloads if p["user_id"] not in existing]
+    skipped = len(payloads) - len(to_insert)
+    for offset in range(0, len(to_insert), 1000):
+        db.bulk_insert_mappings(DimUserProfile, to_insert[offset : offset + 1000])
+        db.commit()
+    return {
+        "inserted_ids": [p["user_id"] for p in to_insert],
+        "skipped": skipped,
+    }
 
 
-def promote_samples_to_customers(db: Session) -> dict[str, int]:
-    """将尚未并入的样本升成客户：保留样本自身 user_id；已存在的客户跳过。
+def promote_samples_to_customers(db: Session) -> dict:
+    """将样本按自身 user_id 升成客户：仅 insert 尚不存在的；已存在跳过。
 
-    新造数 1 样本 = 1 user_id；若历史数据多人共用同一 user_id，则满意度取均值。
+    依赖造数时 sync_user_seq 保证样本/客户不撞号；1 样本 = 1 user_id。
     """
-    samples = db.query(FactComplaintSample).order_by(FactComplaintSample.sample_id).all()
+    # 不拉 complaint_vector / survey JSON / raw_text，远程 PG 往返体积极大
+    samples = (
+        db.query(FactComplaintSample)
+        .options(
+            load_only(
+                FactComplaintSample.sample_id,
+                FactComplaintSample.user_id,
+                FactComplaintSample.satisfaction_score,
+                FactComplaintSample.satisfaction_net,
+                FactComplaintSample.satisfaction_srv,
+                *[getattr(FactComplaintSample, f) for f in _SAMPLE_PROFILE_ALIGN_FIELDS],
+            )
+        )
+        .order_by(FactComplaintSample.sample_id)
+        .all()
+    )
     if not samples:
-        return {"promoted": 0, "profiles_upserted": 0, "skipped": 0}
+        return {"promoted": 0, "profiles_upserted": 0, "skipped": 0, "user_ids": []}
 
     by_user: dict[str, list[FactComplaintSample]] = defaultdict(list)
     for sample in samples:
@@ -209,9 +235,15 @@ def promote_samples_to_customers(db: Session) -> dict[str, int]:
             row["satisfaction_srv"] = int(round(sum(srvs) / len(srvs)))
         rows.append(row)
 
-    inserted = bulk_upsert_profiles_from_samples(db, rows)
-    skipped = len(rows) - inserted
-    return {"promoted": inserted, "profiles_upserted": inserted, "skipped": skipped}
+    incomplete = len(by_user) - len(rows)
+    result = bulk_insert_profiles_from_samples(db, rows)
+    inserted_ids = result["inserted_ids"]
+    return {
+        "promoted": len(inserted_ids),
+        "profiles_upserted": len(inserted_ids),
+        "skipped": result["skipped"] + incomplete,
+        "user_ids": inserted_ids,
+    }
 
 
 def bulk_insert_profiles(db: Session, rows: list[dict]) -> int:

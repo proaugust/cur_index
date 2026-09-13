@@ -8,7 +8,7 @@
             class="mgb20"
         />
         <el-alert
-            title="只追加指定数量的客户。样本需点「合并样本到客户」才会并入（1 样本 = 1 客户，带真值）；准确率只评有 sample_satisfaction 的客户"
+            title="只追加客户。user_id 按客户/样本两边最大值续号；勿与「注入样本」同时进行。合并样本 = 插入尚未存在的 user_id（1 样本 = 1 客户，带真值）"
             type="success"
             show-icon
             :closable="false"
@@ -164,8 +164,16 @@ async function handlePromote() {
         customerTableKey.value += 1;
         emit('refresh');
     } catch (error: unknown) {
-        const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-        ElMessage.error(detail || '合并样本到客户失败');
+        const err = error as {
+            code?: string;
+            message?: string;
+            response?: { data?: { detail?: string } };
+        };
+        const detail = err?.response?.data?.detail;
+        const timedOut = err?.code === 'ECONNABORTED' || /timeout/i.test(err?.message || '');
+        ElMessage.error(
+            detail || (timedOut ? '合并样本超时（请到「AI 洞察」批处理运行日志查看是否已完成）' : '合并样本到客户失败')
+        );
     } finally {
         promoting.value = false;
     }

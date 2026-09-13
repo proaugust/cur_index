@@ -17,7 +17,44 @@ from app.services.ops.error_log_service import record_app_error
 logger = logging.getLogger(__name__)
 
 _JOB_QUESTION = "insight-nightly-risk-pipeline"
+_PROMOTE_QUESTION = "insight-seed-promote-samples"
 InsightRunMode = Literal["incremental", "full"]
+
+# 批处理运行日志列表可见的 question
+ANALYSIS_LOG_QUESTIONS = (_JOB_QUESTION, _PROMOTE_QUESTION)
+
+
+def record_seed_promote_log(
+    *,
+    status: str,
+    answer: str,
+    latency_ms: int,
+    tools_trace: dict | None = None,
+    exc: BaseException | None = None,
+) -> int:
+    """合并样本结果写入批处理运行日志（独立 session，失败不影响主异常）。"""
+    trace = dict(tools_trace or {})
+    if exc is not None:
+        trace["error"] = str(exc)[:2000]
+        trace["error_type"] = exc.__class__.__name__
+    db = SessionLocal()
+    try:
+        log = InsightAnalysisLog(
+            question=_PROMOTE_QUESTION,
+            answer=answer[:2000] if answer else None,
+            status=status,
+            tools_trace=trace,
+            latency_ms=latency_ms,
+        )
+        db.add(log)
+        db.commit()
+        return int(log.id)
+    except Exception:
+        logger.exception("写入合并样本批处理日志失败")
+        db.rollback()
+        return 0
+    finally:
+        db.close()
 
 
 def begin_analysis_log(

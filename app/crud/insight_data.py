@@ -636,7 +636,9 @@ def list_analysis_logs(
     page: int = 1,
     page_size: int = 10,
 ) -> InsightAnalysisLogListResponse:
-    query = db.query(InsightAnalysisLog).filter(InsightAnalysisLog.question == "insight-nightly-risk-pipeline")
+    from app.services.modules.insight.analysis_log_writer import ANALYSIS_LOG_QUESTIONS
+
+    query = db.query(InsightAnalysisLog).filter(InsightAnalysisLog.question.in_(ANALYSIS_LOG_QUESTIONS))
     rows, total = _page(query.order_by(InsightAnalysisLog.created_at.desc()), page, page_size)
     return InsightAnalysisLogListResponse(
         list=[InsightAnalysisLogRead.model_validate(row) for row in rows],

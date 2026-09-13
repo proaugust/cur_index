@@ -57,7 +57,7 @@ class InsightSeedService:
     def seed_users(
         self, preset: InsightPreset = "demo", count: int | None = None
     ) -> InsightSeedUsersResult:
-        """仅追加指定数量的独立客户（不自动合并样本）。"""
+        """仅追加独立客户。起号前 sync_user_seq（取客户+样本 max）；勿与造样本同时跑。"""
         from app.models.insight import DimUserProfile
 
         crud_insight.sync_user_seq(self.db)
@@ -89,7 +89,7 @@ class InsightSeedService:
     def seed_samples(
         self, preset: InsightPreset = "demo", count: int | None = None
     ) -> InsightSeedSamplesResult:
-        """仅追加样本（不自动升成客户；合并走 promote_samples）。"""
+        """仅追加样本。起号前 sync_user_seq；勿与造客户同时跑。合并走 promote_samples。"""
         plan = SEED_PRESETS[preset]
         if count is not None:
             sample_count = count
@@ -116,25 +116,58 @@ class InsightSeedService:
 
     def promote_samples(self) -> InsightSeedPromoteSamplesResult:
         """将库内样本按自身 user_id 升成客户（1 样本 = 1 客户，与已有客户并存）。"""
+        from app.services.modules.insight.analysis_log_writer import record_seed_promote_log
+
         started = time.perf_counter()
-        promote_stats = crud_insight.promote_samples_to_customers(self.db)
+        promote_stats: dict = {"promoted": 0, "profiles_upserted": 0, "skipped": 0, "user_ids": []}
         churn_labels = 0
-        if promote_stats["profiles_upserted"] > 0:
-            churn_labels = InsightChurnLabelService(self.db).seed_synthetic()
-            logger.info(
-                "Insight 样本合并客户 promoted=%s profiles=%s churn_labels=%s",
-                promote_stats["promoted"],
-                promote_stats["profiles_upserted"],
-                churn_labels,
+        try:
+            promote_stats = crud_insight.promote_samples_to_customers(self.db)
+            new_ids = set(promote_stats.get("user_ids") or [])
+            if new_ids:
+                churn_labels = InsightChurnLabelService(self.db).seed_synthetic(user_ids=new_ids)
+                logger.info(
+                    "Insight 样本合并客户 promoted=%s profiles=%s churn_labels=%s",
+                    promote_stats["promoted"],
+                    promote_stats["profiles_upserted"],
+                    churn_labels,
+                )
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            invalidate_insight_stats_cache()
+            record_seed_promote_log(
+                status="completed",
+                answer=(
+                    f"合并样本完成：升客户 {promote_stats['profiles_upserted']} 名"
+                    f"（跳过 {promote_stats.get('skipped', 0)}），合成标签 {churn_labels} 条"
+                ),
+                latency_ms=elapsed_ms,
+                tools_trace={
+                    "samples_merged": promote_stats["promoted"],
+                    "profiles_upserted": promote_stats["profiles_upserted"],
+                    "skipped": promote_stats.get("skipped", 0),
+                    "churn_labels_inserted": churn_labels,
+                },
             )
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        invalidate_insight_stats_cache()
-        return InsightSeedPromoteSamplesResult(
-            samples_merged=promote_stats["promoted"],
-            profiles_upserted=promote_stats["profiles_upserted"],
-            churn_labels_inserted=churn_labels,
-            elapsed_ms=elapsed_ms,
-        )
+            return InsightSeedPromoteSamplesResult(
+                samples_merged=promote_stats["promoted"],
+                profiles_upserted=promote_stats["profiles_upserted"],
+                churn_labels_inserted=churn_labels,
+                elapsed_ms=elapsed_ms,
+            )
+        except Exception as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            logger.exception("Insight 合并样本失败")
+            record_seed_promote_log(
+                status="failed",
+                answer=f"合并样本失败：{exc}",
+                latency_ms=elapsed_ms,
+                tools_trace={
+                    "samples_merged": promote_stats.get("promoted", 0),
+                    "profiles_upserted": promote_stats.get("profiles_upserted", 0),
+                },
+                exc=exc,
+            )
+            raise
 
     def reset_users(self) -> InsightSeedResetResult:
         """仅清空客户主表；样本/快照独立，不强制先清。"""

@@ -8,7 +8,7 @@
             class="mgb20"
         />
         <el-alert
-            title="只追加样本，不自动升成客户。请到「注入客户数据」页点「合并样本到客户」后再训练/预测对照准确率"
+            title="只追加样本（user_id 按客户/样本两边最大值续号；勿与「注入客户」同时进行）。合并请到客户页点「合并样本到客户」"
             type="success"
             show-icon
             :closable="false"
