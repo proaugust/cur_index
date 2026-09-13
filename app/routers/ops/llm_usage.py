@@ -14,10 +14,13 @@ router = APIRouter(prefix="/llm-usage", tags=["llm-usage"])
 def read_usage_stats(
     days: int | None = Query(default=None, ge=1, le=90),
     exclude_warmup: bool = Query(True),
+    refresh: bool = Query(default=False, description="跳过缓存重新统计，结果写回 Redis"),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("90.stats", name="用量统计")),
 ) -> schemas.LlmUsageStatsResponse:
-    return schemas.LlmUsageStatsResponse(**get_usage_stats(db, days=days, exclude_warmup=exclude_warmup))
+    return schemas.LlmUsageStatsResponse(
+        **get_usage_stats(db, days=days, exclude_warmup=exclude_warmup, refresh=refresh)
+    )
 
 
 @router.get("/recent", response_model=schemas.LlmUsageRecentResponse)

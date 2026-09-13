@@ -77,12 +77,18 @@
                                         <el-descriptions :column="1" border size="small">
                                             <el-descriptions-item label="ID">{{ profile.profile.user_id }}</el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.name')">{{ profile.profile.name }}</el-descriptions-item>
+                                            <el-descriptions-item label="性别">{{ profile.profile.gender || '-' }}</el-descriptions-item>
+                                            <el-descriptions-item label="手机号">{{ profile.profile.msisdn || '-' }}</el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.age')">
                                                 {{ profile.profile.age }} ({{ profile.profile.age_group }})
                                             </el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.region')">{{ profile.profile.region }}</el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.package')">{{ profile.profile.plan_id }}</el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.vip')">{{ profile.profile.vip_level }}</el-descriptions-item>
+                                            <el-descriptions-item label="入网渠道">{{ profile.profile.channel || '-' }}</el-descriptions-item>
+                                            <el-descriptions-item label="终端">{{ profile.profile.device_brand || '-' }}</el-descriptions-item>
+                                            <el-descriptions-item label="网络">{{ profile.profile.network_type || '-' }}</el-descriptions-item>
+                                            <el-descriptions-item label="合约到期">{{ profile.profile.contract_end || '-' }}</el-descriptions-item>
                                             <el-descriptions-item :label="t('pages.insight.profile.tags')">
                                                 <el-tag v-for="tag in profile.profile.tags || []" :key="tag" size="small" class="tag-item">{{ tag }}</el-tag>
                                                 <span v-if="!profile.profile.tags?.length">-</span>

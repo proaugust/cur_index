@@ -840,9 +840,10 @@ export default {
                 logs: 'AI Logs',
             },
             seed: {
-                customersHint: 'Each run appends customer profiles at the selected scale. You can seed multiple times without clearing first. Before clearing customers, go to "Seed Sample Data" and clear the samples and snapshots first.',
-                samplesHint: 'Each run appends complaint and survey samples at the selected scale. You can seed multiple times. Clearing samples will not delete customer data.',
+                customersHint: 'Append only the specified number of independent customer profiles. Use Merge samples to customers to promote samples. Clear samples/snapshots on the Samples page before clearing customers.',
+                samplesHint: 'Append samples only (does not auto-promote to customers). Merge on the Customers page. Clearing samples does not delete customers.',
                 preset: 'Batch Size',
+                count: 'Append Count',
                 startCustomers: 'Add Customer Data',
                 startSamples: 'Add Sample Data',
                 resetCustomers: 'Clear Customer Data',

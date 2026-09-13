@@ -3,7 +3,7 @@
 import random
 from datetime import datetime, timedelta
 
-from app.services.modules.insight.seed.complaint_templates import render_complaint_text
+from app.services.modules.insight.seed.complaint_templates import render_complaint_text, render_complaint_with_key
 
 _RANDOM = random.Random(77)
 _COMPLAINT_SEQ = 0
@@ -29,22 +29,40 @@ def build_complaint_row(pair: dict, user: dict) -> dict:
         "package_type": user["plan_id"],
         "monthly_fee": user["monthly_fee"],
         "vip_level": user["vip_level"],
-        "network_type": user.get("_network_type", "5G"),
-        "device": user.get("_device", "iPhone 15"),
+        "network_type": user.get("network_type", user.get("_network_type", "5G")),
+        "device": user.get("device_brand", user.get("_device", "iPhone 15")),
     }
+    text, template_key = render_complaint_with_key(
+        {"complaint_type": pair["main_category"], "sub_type": pair["sub_category"]},
+        customer_ctx,
+    )
     return {
         "complaint_id": _next_complaint_id(sample_time),
         "user_id": user["user_id"],
         "sample_time": sample_time,
         "record_date": sample_time.date(),
+        "name": user.get("name"),
+        "age": user.get("age"),
+        "age_group": user.get("age_group"),
+        "region_l1": user.get("region_l1") or customer_ctx["province"],
+        "region_l2": user.get("region_l2") or customer_ctx["city"],
+        "region": user.get("region") or f"{customer_ctx['province']}·{customer_ctx['city']}",
+        "plan_id": user.get("plan_id"),
+        "vip_level": user.get("vip_level"),
+        "monthly_fee": user.get("monthly_fee"),
+        "join_date": user.get("join_date"),
+        "fee_drift_rate": user.get("fee_drift_rate"),
+        "gender": user.get("gender"),
+        "msisdn": user.get("msisdn"),
+        "channel": user.get("channel"),
+        "device_brand": user.get("device_brand"),
+        "network_type": user.get("network_type"),
+        "contract_end": user.get("contract_end"),
         "complaint_type": pair["main_category"],
         "sub_category": pair["sub_category"],
-        "raw_text": render_complaint_text(
-            {"complaint_type": pair["main_category"], "sub_type": pair["sub_category"]},
-            customer_ctx,
-        ),
+        "raw_text": text,
+        "_template_key": template_key,
     }
-
 
 def build_preview_row(pair: dict, user: dict) -> dict:
     customer_ctx = {
@@ -53,8 +71,8 @@ def build_preview_row(pair: dict, user: dict) -> dict:
         "package_type": user.get("plan_id", "199元套餐"),
         "monthly_fee": user.get("monthly_fee", 199),
         "vip_level": user.get("vip_level", "普通"),
-        "network_type": user.get("_network_type", "5G"),
-        "device": user.get("_device", "iPhone 15"),
+        "network_type": user.get("network_type", user.get("_network_type", "5G")),
+        "device": user.get("device_brand", user.get("_device", "iPhone 15")),
     }
     return {
         "main_category": pair["main_category"],

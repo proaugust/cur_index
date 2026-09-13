@@ -8,10 +8,21 @@ from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, FactComplaintSample
 from app.services.modules.insight.ml.feature_labels import (
+    AGE_GROUP_ORDINAL,
+    CHANNEL_ORDINAL,
     COMPLAINT_TYPE_KEYS,
+    DEVICE_ORDINAL,
     FEATURE_NAMES,
+    GENDER_ORDINAL,
+    NETWORK_ORDINAL,
+    PLAN_ORDINAL,
+    REGION_L1_ORDINAL,
+    REGION_L2_ORDINAL,
+    REGION_ORDINAL,
     SURVEY_KEYS,
     VIP_ORDINAL,
+    _ord,
+    msisdn_num,
 )
 from app.services.modules.insight.ml.types import UserFeatureRow
 
@@ -44,6 +55,10 @@ class InsightFeatureBuilder:
 
     def _build_vector(self, user: DimUserProfile, stat: dict, today: date) -> list[float]:
         tenure = max(0.0, (today - user.join_date).days / 365.25)
+        if user.contract_end is not None:
+            contract_remain = round((user.contract_end - today).days / 365.25, 2)
+        else:
+            contract_remain = 0.0
         ctype_counts = stat["ctype_counts"]
         survey_scores = stat["survey_scores"]
         avg_sat = stat["avg_satisfaction"] if stat["avg_satisfaction"] is not None else 3.0
@@ -52,13 +67,22 @@ class InsightFeatureBuilder:
         sat_gap = 3.0 - float(avg_sat)
         complaint_cnt = float(stat["complaint_cnt"])
         values: list[float] = [
+            _ord(GENDER_ORDINAL, user.gender),
+            msisdn_num(user.msisdn),
             float(user.age),
+            _ord(AGE_GROUP_ORDINAL, user.age_group),
+            _ord(REGION_L1_ORDINAL, user.region_l1),
+            _ord(REGION_L2_ORDINAL, user.region_l2),
+            _ord(REGION_ORDINAL, user.region),
+            _ord(PLAN_ORDINAL, user.plan_id),
+            _ord(VIP_ORDINAL, user.vip_level, default=0.0),
+            _ord(CHANNEL_ORDINAL, user.channel),
+            _ord(DEVICE_ORDINAL, user.device_brand),
+            _ord(NETWORK_ORDINAL, user.network_type),
+            round(tenure, 2),
+            contract_remain,
             float(user.monthly_fee or 0),
             fee,
-            float(user.satisfaction_net or 3),
-            float(user.satisfaction_srv or 3),
-            float(VIP_ORDINAL.get(user.vip_level, 0)),
-            round(tenure, 2),
             float(stat["sample_cnt"]),
             complaint_cnt,
             float(avg_sat),

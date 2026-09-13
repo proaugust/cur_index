@@ -55,14 +55,19 @@ def _user_brief(user: User) -> UserBrief:
     )
 
 
-def _permission_codes(user: User) -> list[str]:
-    return sorted({p.code for p in user.role.permissions})
+def _permission_codes(db: Session, user: User) -> list[str]:
+    from app.services.system.role_permissions_cache import get_role_permission_codes, permission_codes_from_user
+
+    cached = permission_codes_from_user(user)
+    if cached is not None:
+        return sorted(cached)
+    return sorted(get_role_permission_codes(db, user.role_id))
 
 
 def _get_user_by_username(db: Session, username: str) -> User | None:
     return (
         db.query(User)
-        .options(joinedload(User.role).joinedload(Role.permissions))
+        .options(joinedload(User.role))
         .filter(User.username == username)
         .first()
     )
@@ -71,7 +76,7 @@ def _get_user_by_username(db: Session, username: str) -> User | None:
 def _get_user_by_id(db: Session, user_id: int) -> User | None:
     return (
         db.query(User)
-        .options(joinedload(User.role).joinedload(Role.permissions))
+        .options(joinedload(User.role))
         .filter(User.id == user_id)
         .first()
     )
@@ -130,12 +135,16 @@ def login(db: Session, payload: LoginRequest) -> LoginResponse:
     return LoginResponse(
         access_token=token,
         user=_user_brief(user),
-        permissions=_permission_codes(user),
+        permissions=_permission_codes(db, user),
     )
 
 
 def get_me(user: User) -> MeResponse:
-    return MeResponse(user=_user_brief(user), permissions=_permission_codes(user))
+    from app.services.system.role_permissions_cache import permission_codes_from_user
+
+    cached = permission_codes_from_user(user)
+    permissions = sorted(cached) if cached is not None else sorted({p.code for p in user.role.permissions})
+    return MeResponse(user=_user_brief(user), permissions=permissions)
 
 
 def change_password(db: Session, user: User, payload: ChangePasswordRequest) -> None:
@@ -284,6 +293,9 @@ def delete_role(db: Session, actor: User, role_id: int) -> None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="角色下仍有用户，无法删除")
     db.delete(role)
     db.commit()
+    from app.services.system.role_permissions_cache import invalidate_role_permissions_cache
+
+    invalidate_role_permissions_cache(role_id)
 
 
 def update_role_permissions(db: Session, actor: User, role_id: int, payload: RolePermissionsUpdate) -> RoleRead:
@@ -300,4 +312,7 @@ def update_role_permissions(db: Session, actor: User, role_id: int, payload: Rol
     db.commit()
     role = _get_role_by_id(db, role_id)
     assert role is not None
+    from app.services.system.role_permissions_cache import set_role_permission_codes
+
+    set_role_permission_codes(role_id, [p.code for p in role.permissions])
     return _role_to_read(role)

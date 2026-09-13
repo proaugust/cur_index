@@ -46,8 +46,14 @@ class InsightSeedSamplesResult(BaseModel):
     complaints_inserted: int
     touchpoints_inserted: int
     samples_inserted: int
-    churn_labels_inserted: int = 0
     elapsed_ms: int
+
+
+class InsightSeedPromoteSamplesResult(BaseModel):
+    samples_merged: int = 0
+    profiles_upserted: int = 0
+    churn_labels_inserted: int = 0
+    elapsed_ms: int = 0
 
 
 class InsightSeedResetResult(BaseModel):
@@ -76,12 +82,20 @@ class InsightUserProfileBase(BaseModel):
     join_date: date
     monthly_fee: Decimal = Field(default=Decimal("0"), ge=0)
     fee_drift_rate: Decimal = Field(default=Decimal("0"))
+    gender: str | None = Field(default=None, max_length=10)
+    msisdn: str | None = Field(default=None, max_length=20)
+    channel: str | None = Field(default=None, max_length=30)
+    device_brand: str | None = Field(default=None, max_length=50)
+    network_type: str | None = Field(default=None, max_length=10)
+    contract_end: date | None = None
     satisfaction_net: int | None = Field(default=None, ge=1, le=5)
     satisfaction_srv: int | None = Field(default=None, ge=1, le=5)
     risk_score: Decimal | None = Field(default=None, ge=0, le=1)
     risk_level: str | None = Field(default=None, max_length=10)
     tags: list[str] | None = None
     shap_values: dict[str, Any] | None = None
+    sample_satisfaction: Decimal | None = Field(default=None, ge=0, le=5, description="样本真值满意度")
+    pred_satisfaction: Decimal | None = Field(default=None, ge=0, le=5, description="模型预测满意度")
 
 
 class InsightUserProfileCreate(InsightUserProfileBase):
@@ -100,12 +114,20 @@ class InsightUserProfileUpdate(BaseModel):
     join_date: date | None = None
     monthly_fee: Decimal | None = Field(default=None, ge=0)
     fee_drift_rate: Decimal | None = None
+    gender: str | None = Field(default=None, max_length=10)
+    msisdn: str | None = Field(default=None, max_length=20)
+    channel: str | None = Field(default=None, max_length=30)
+    device_brand: str | None = Field(default=None, max_length=50)
+    network_type: str | None = Field(default=None, max_length=10)
+    contract_end: date | None = None
     satisfaction_net: int | None = Field(default=None, ge=1, le=5)
     satisfaction_srv: int | None = Field(default=None, ge=1, le=5)
     risk_score: Decimal | None = Field(default=None, ge=0, le=1)
     risk_level: str | None = Field(default=None, max_length=10)
     tags: list[str] | None = None
     shap_values: dict[str, Any] | None = None
+    sample_satisfaction: Decimal | None = Field(default=None, ge=0, le=5)
+    pred_satisfaction: Decimal | None = Field(default=None, ge=0, le=5)
 
 
 class InsightUserProfileRead(InsightUserProfileBase):
@@ -131,6 +153,25 @@ class InsightComplaintBase(BaseModel):
     sub_category: str = Field(min_length=1, max_length=50)
     raw_text: str = Field(min_length=1)
     record_date: date | None = None
+    name: str | None = None
+    age: int | None = None
+    age_group: str | None = None
+    region_l1: str | None = None
+    region_l2: str | None = None
+    region: str | None = None
+    plan_id: str | None = None
+    vip_level: str | None = None
+    monthly_fee: Decimal | None = None
+    join_date: date | None = None
+    fee_drift_rate: Decimal | None = None
+    gender: str | None = None
+    msisdn: str | None = None
+    channel: str | None = None
+    device_brand: str | None = None
+    network_type: str | None = None
+    contract_end: date | None = None
+    satisfaction_net: int | None = Field(default=None, ge=1, le=5)
+    satisfaction_srv: int | None = Field(default=None, ge=1, le=5)
     survey_answers: list[dict[str, Any]] | None = None
     survey_category_scores: dict[str, Any] | None = None
     satisfaction_score: Decimal | None = Field(default=None, ge=0, le=5)
@@ -155,7 +196,6 @@ class InsightComplaintUpdate(BaseModel):
 class InsightComplaintRead(InsightComplaintBase):
     complaint_id: str
     complaint_vector: list[float] | None = None
-    region: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -175,6 +215,25 @@ class InsightComplaintSampleRead(BaseModel):
     user_id: str
     sample_time: datetime
     record_date: date
+    name: str | None = None
+    age: int | None = None
+    age_group: str | None = None
+    region_l1: str | None = None
+    region_l2: str | None = None
+    region: str | None = None
+    plan_id: str | None = None
+    vip_level: str | None = None
+    monthly_fee: Decimal | None = None
+    join_date: date | None = None
+    fee_drift_rate: Decimal | None = None
+    gender: str | None = None
+    msisdn: str | None = None
+    channel: str | None = None
+    device_brand: str | None = None
+    network_type: str | None = None
+    contract_end: date | None = None
+    satisfaction_net: int | None = None
+    satisfaction_srv: int | None = None
     survey_answers: list[dict[str, Any]]
     survey_category_scores: dict[str, Any]
     satisfaction_score: Decimal
@@ -209,6 +268,22 @@ class InsightProfileSnapshotRead(BaseModel):
     risk_score: Decimal
     tags: list[str] | None = None
     shap_values: dict[str, Any] | None = None
+    name: str | None = None
+    gender: str | None = None
+    msisdn: str | None = None
+    age: int | None = None
+    region: str | None = None
+    channel: str | None = None
+    device_brand: str | None = None
+    network_type: str | None = None
+    join_date: date | None = None
+    contract_end: date | None = None
+    monthly_fee: Decimal | None = None
+    fee_drift_rate: Decimal | None = None
+    satisfaction_net: int | None = None
+    satisfaction_srv: int | None = None
+    sample_satisfaction: Decimal | None = None
+    pred_satisfaction: Decimal | None = None
 
     model_config = {"from_attributes": True}
 
@@ -378,3 +453,19 @@ class InsightUserProfileResponse(BaseModel):
     recent_samples: list[InsightComplaintSampleRead]
     snapshot: InsightProfileSnapshotRead | None = None
     cache: InsightProfileCacheMeta = Field(default_factory=InsightProfileCacheMeta)
+
+
+class InsightSatisfactionEvalItem(BaseModel):
+    user_id: str
+    sample_satisfaction: float
+    pred_satisfaction: float
+    abs_error: float
+
+
+class InsightSatisfactionEvalResponse(BaseModel):
+    n: int = 0
+    mae: float | None = None
+    rmse: float | None = None
+    pearson: float | None = None
+    examples: list[InsightSatisfactionEvalItem] = Field(default_factory=list)
+    message: str = ""

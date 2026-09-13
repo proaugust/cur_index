@@ -145,10 +145,13 @@ def _apply_log_filters(
     return query
 
 
-def get_usage_stats(db: Session, *, days: int | None = None, exclude_warmup: bool = True) -> dict:
-    cached = get_cached_usage_stats(days=days, exclude_warmup=exclude_warmup)
-    if cached is not None:
-        return cached.model_dump()
+def get_usage_stats(
+    db: Session, *, days: int | None = None, exclude_warmup: bool = True, refresh: bool = False
+) -> dict:
+    if not refresh:
+        cached = get_cached_usage_stats(days=days, exclude_warmup=exclude_warmup)
+        if cached is not None:
+            return cached.model_dump()
 
     base = db.query(LlmUsageLog)
     base = _apply_log_filters(base, db, days=days, exclude_warmup=exclude_warmup)

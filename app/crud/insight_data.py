@@ -3,7 +3,7 @@
 from datetime import date, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, inspect as sa_inspect
+from sqlalchemy import func, inspect as sa_inspect, or_
 from sqlalchemy.orm import Session, defer
 
 from app.crud import insight as crud_insight
@@ -64,98 +64,165 @@ def _get_or_404(db: Session, model, pk, label: str):
     return row
 
 
+def _sample_counts_for_users(db: Session, user_ids: list[str]) -> dict[str, tuple[int, int]]:
+    if not user_ids:
+        return {}
+    rows = (
+        db.query(
+            FactComplaintSample.user_id,
+            func.count(FactComplaintSample.sample_id),
+            func.count(FactComplaintSample.complaint_id),
+        )
+        .filter(FactComplaintSample.user_id.in_(user_ids))
+        .group_by(FactComplaintSample.user_id)
+        .all()
+    )
+    return {uid: (int(sc), int(cc)) for uid, sc, cc in rows}
+
+
+def _latest_snaps_for_users(db: Session, user_ids: list[str]) -> dict[str, DimUserProfileSnapshot]:
+    if not user_ids:
+        return {}
+    max_dates = (
+        db.query(
+            DimUserProfileSnapshot.user_id.label("user_id"),
+            func.max(DimUserProfileSnapshot.snapshot_date).label("max_date"),
+        )
+        .filter(DimUserProfileSnapshot.user_id.in_(user_ids))
+        .group_by(DimUserProfileSnapshot.user_id)
+        .subquery()
+    )
+    rows = (
+        db.query(DimUserProfileSnapshot)
+        .join(
+            max_dates,
+            (DimUserProfileSnapshot.user_id == max_dates.c.user_id)
+            & (DimUserProfileSnapshot.snapshot_date == max_dates.c.max_date),
+        )
+        .all()
+    )
+    return {row.user_id: row for row in rows}
+
+
 def list_users(
     db: Session,
     *,
     user_id: str | None = None,
+    name: str | None = None,
+    gender: str | None = None,
+    msisdn: str | None = None,
     region: str | None = None,
     region_l1: str | None = None,
     region_l2: str | None = None,
     age_group: str | None = None,
     plan_id: str | None = None,
     vip_level: str | None = None,
+    channel: str | None = None,
+    device_brand: str | None = None,
+    network_type: str | None = None,
     risk_level: str | None = None,
+    age: int | None = None,
     age_min: int | None = None,
     age_max: int | None = None,
+    join_date: date | None = None,
+    contract_end: date | None = None,
+    monthly_fee: float | None = None,
+    fee_drift_rate: float | None = None,
+    sample_id: int | None = None,
+    satisfaction_net: int | None = None,
+    satisfaction_srv: int | None = None,
+    sample_satisfaction: float | None = None,
+    pred_satisfaction: float | None = None,
     has_sample: bool | None = None,
     page: int = 1,
     page_size: int = 10,
 ) -> InsightUserProfileListResponse:
-    sample_stats = (
-        db.query(
-            FactComplaintSample.user_id.label("user_id"),
-            func.count(FactComplaintSample.sample_id).label("sample_count"),
-            func.count(FactComplaintSample.complaint_id).label("complaint_count"),
-        )
-        .group_by(FactComplaintSample.user_id)
-        .subquery()
-    )
-    # 风险分在快照表；取每个用户最新一天快照覆盖列表展示
-    ranked_snap = (
-        db.query(
-            DimUserProfileSnapshot.user_id.label("user_id"),
-            DimUserProfileSnapshot.risk_score.label("risk_score"),
-            DimUserProfileSnapshot.churn_risk_level.label("risk_level"),
-            DimUserProfileSnapshot.tags.label("tags"),
-            DimUserProfileSnapshot.shap_values.label("shap_values"),
-            func.row_number()
-            .over(
-                partition_by=DimUserProfileSnapshot.user_id,
-                order_by=DimUserProfileSnapshot.snapshot_date.desc(),
-            )
-            .label("rn"),
-        )
-    ).subquery()
-    latest_snap = db.query(ranked_snap).filter(ranked_snap.c.rn == 1).subquery()
-
-    query = (
-        db.query(
-            DimUserProfile,
-            func.coalesce(sample_stats.c.sample_count, 0).label("sample_count"),
-            func.coalesce(sample_stats.c.complaint_count, 0).label("complaint_count"),
-            latest_snap.c.risk_score.label("snap_risk_score"),
-            latest_snap.c.risk_level.label("snap_risk_level"),
-            latest_snap.c.tags.label("snap_tags"),
-            latest_snap.c.shap_values.label("snap_shap_values"),
-        )
-        .outerjoin(sample_stats, DimUserProfile.user_id == sample_stats.c.user_id)
-        .outerjoin(latest_snap, DimUserProfile.user_id == latest_snap.c.user_id)
-    )
+    # 先对主表过滤分页，再仅对当前页聚合样本/最新快照（避免全表 GROUP BY + 窗口）
+    query = db.query(DimUserProfile)
     if user_id:
         query = query.filter(DimUserProfile.user_id == user_id)
+    if name:
+        query = query.filter(DimUserProfile.name.ilike(f"%{name}%"))
+    if msisdn:
+        query = query.filter(DimUserProfile.msisdn.ilike(f"%{msisdn}%"))
+    if device_brand:
+        query = query.filter(DimUserProfile.device_brand.ilike(f"%{device_brand}%"))
     for column, value in (
         (DimUserProfile.region, region),
         (DimUserProfile.region_l1, region_l1),
         (DimUserProfile.region_l2, region_l2),
+    ):
+        if value:
+            query = query.filter(column.ilike(f"{value}%"))
+    for column, value in (
+        (DimUserProfile.gender, gender),
         (DimUserProfile.age_group, age_group),
         (DimUserProfile.plan_id, plan_id),
         (DimUserProfile.vip_level, vip_level),
+        (DimUserProfile.channel, channel),
+        (DimUserProfile.network_type, network_type),
     ):
         if value:
-            query = query.filter(column.ilike(f"%{value}%"))
-    if risk_level:
-        query = query.filter(
-            func.coalesce(latest_snap.c.risk_level, DimUserProfile.risk_level).ilike(f"%{risk_level}%")
-        )
+            query = query.filter(column == value)
+    if age is not None:
+        query = query.filter(DimUserProfile.age == age)
     if age_min is not None:
         query = query.filter(DimUserProfile.age >= age_min)
     if age_max is not None:
         query = query.filter(DimUserProfile.age <= age_max)
+    if join_date is not None:
+        query = query.filter(DimUserProfile.join_date == join_date)
+    if contract_end is not None:
+        query = query.filter(DimUserProfile.contract_end == contract_end)
+    if monthly_fee is not None:
+        query = query.filter(DimUserProfile.monthly_fee == monthly_fee)
+    if fee_drift_rate is not None:
+        query = query.filter(DimUserProfile.fee_drift_rate == fee_drift_rate)
+    if sample_id is not None:
+        query = query.filter(
+            db.query(FactComplaintSample.sample_id)
+            .filter(
+                FactComplaintSample.user_id == DimUserProfile.user_id,
+                FactComplaintSample.sample_id == sample_id,
+            )
+            .exists()
+        )
+    if satisfaction_net is not None:
+        query = query.filter(DimUserProfile.satisfaction_net == satisfaction_net)
+    if satisfaction_srv is not None:
+        query = query.filter(DimUserProfile.satisfaction_srv == satisfaction_srv)
+    if sample_satisfaction is not None:
+        query = query.filter(DimUserProfile.sample_satisfaction == sample_satisfaction)
+    if pred_satisfaction is not None:
+        query = query.filter(DimUserProfile.pred_satisfaction == pred_satisfaction)
+    sample_exists = (
+        db.query(FactComplaintSample.sample_id)
+        .filter(FactComplaintSample.user_id == DimUserProfile.user_id)
+        .exists()
+    )
     if has_sample is True:
-        query = query.filter(func.coalesce(sample_stats.c.sample_count, 0) > 0)
+        query = query.filter(sample_exists)
     elif has_sample is False:
-        query = query.filter(func.coalesce(sample_stats.c.sample_count, 0) == 0)
-    rows, total = _page(query.order_by(DimUserProfile.user_id.desc()), page, page_size)
+        query = query.filter(~sample_exists)
+    # 夜间快照会回写 profile.risk_level；按主表等值过滤，避免全表窗口 join
+    if risk_level:
+        query = query.filter(DimUserProfile.risk_level == risk_level)
+    profiles, total = _page(query.order_by(DimUserProfile.user_id.desc()), page, page_size)
+    page_ids = [p.user_id for p in profiles]
+    counts = _sample_counts_for_users(db, page_ids)
+    snaps = _latest_snaps_for_users(db, page_ids)
     items = []
-    for profile, sample_count, complaint_count, snap_risk, snap_level, snap_tags, snap_shap in rows:
+    for profile in profiles:
+        sample_count, complaint_count = counts.get(profile.user_id, (0, 0))
+        snap = snaps.get(profile.user_id)
         item = InsightUserProfileListItem.model_validate(profile).model_copy(
             update={
-                "sample_count": int(sample_count),
-                "complaint_count": int(complaint_count),
-                "risk_score": snap_risk if snap_risk is not None else profile.risk_score,
-                "risk_level": snap_level if snap_level is not None else profile.risk_level,
-                "tags": snap_tags if snap_tags is not None else profile.tags,
-                "shap_values": snap_shap if snap_shap is not None else profile.shap_values,
+                "sample_count": sample_count,
+                "complaint_count": complaint_count,
+                "risk_score": snap.risk_score if snap is not None else profile.risk_score,
+                "risk_level": snap.churn_risk_level if snap is not None else profile.risk_level,
+                "tags": snap.tags if snap is not None else profile.tags,
+                "shap_values": snap.shap_values if snap is not None else profile.shap_values,
             }
         )
         items.append(item)
@@ -190,15 +257,68 @@ def delete_user(db: Session, user_id: str) -> None:
 def list_complaint_samples(
     db: Session,
     *,
+    sample_id: int | None = None,
     user_id: str | None = None,
+    name: str | None = None,
+    gender: str | None = None,
+    msisdn: str | None = None,
+    age: int | None = None,
+    region: str | None = None,
+    plan_id: str | None = None,
+    vip_level: str | None = None,
+    channel: str | None = None,
+    device_brand: str | None = None,
+    network_type: str | None = None,
+    monthly_fee: float | None = None,
+    join_date: date | None = None,
+    contract_end: date | None = None,
+    fee_drift_rate: float | None = None,
+    satisfaction_net: int | None = None,
+    satisfaction_srv: int | None = None,
+    satisfaction_score: float | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     page: int = 1,
     page_size: int = 10,
 ) -> InsightComplaintSampleListResponse:
     query = db.query(FactComplaintSample).options(_DEFER_COMPLAINT_VECTOR)
+    if sample_id is not None:
+        query = query.filter(FactComplaintSample.sample_id == sample_id)
     if user_id:
         query = query.filter(FactComplaintSample.user_id == user_id)
+    if name:
+        query = query.filter(FactComplaintSample.name.ilike(f"%{name}%"))
+    if msisdn:
+        query = query.filter(FactComplaintSample.msisdn.ilike(f"%{msisdn}%"))
+    if region:
+        query = query.filter(FactComplaintSample.region.ilike(f"%{region}%"))
+    if device_brand:
+        query = query.filter(FactComplaintSample.device_brand.ilike(f"%{device_brand}%"))
+    for column, value in (
+        (FactComplaintSample.gender, gender),
+        (FactComplaintSample.plan_id, plan_id),
+        (FactComplaintSample.vip_level, vip_level),
+        (FactComplaintSample.channel, channel),
+        (FactComplaintSample.network_type, network_type),
+    ):
+        if value:
+            query = query.filter(column == value)
+    if age is not None:
+        query = query.filter(FactComplaintSample.age == age)
+    if monthly_fee is not None:
+        query = query.filter(FactComplaintSample.monthly_fee == monthly_fee)
+    if join_date is not None:
+        query = query.filter(FactComplaintSample.join_date == join_date)
+    if contract_end is not None:
+        query = query.filter(FactComplaintSample.contract_end == contract_end)
+    if fee_drift_rate is not None:
+        query = query.filter(FactComplaintSample.fee_drift_rate == fee_drift_rate)
+    if satisfaction_net is not None:
+        query = query.filter(FactComplaintSample.satisfaction_net == satisfaction_net)
+    if satisfaction_srv is not None:
+        query = query.filter(FactComplaintSample.satisfaction_srv == satisfaction_srv)
+    if satisfaction_score is not None:
+        query = query.filter(FactComplaintSample.satisfaction_score == satisfaction_score)
     if date_from:
         query = query.filter(FactComplaintSample.record_date >= date_from)
     if date_to:
@@ -218,13 +338,52 @@ def list_touchpoints(
     db: Session,
     *,
     user_id: str | None = None,
+    name: str | None = None,
+    gender: str | None = None,
+    msisdn: str | None = None,
+    age: int | None = None,
+    region: str | None = None,
+    plan_id: str | None = None,
+    vip_level: str | None = None,
+    channel: str | None = None,
+    device_brand: str | None = None,
+    network_type: str | None = None,
+    monthly_fee: float | None = None,
+    join_date: date | None = None,
+    contract_end: date | None = None,
+    fee_drift_rate: float | None = None,
+    satisfaction_net: int | None = None,
+    satisfaction_srv: int | None = None,
+    satisfaction_score: float | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     page: int = 1,
     page_size: int = 10,
 ) -> InsightTouchpointListResponse:
     return list_complaint_samples(
-        db, user_id=user_id, date_from=date_from, date_to=date_to, page=page, page_size=page_size
+        db,
+        user_id=user_id,
+        name=name,
+        gender=gender,
+        msisdn=msisdn,
+        age=age,
+        region=region,
+        plan_id=plan_id,
+        vip_level=vip_level,
+        channel=channel,
+        device_brand=device_brand,
+        network_type=network_type,
+        monthly_fee=monthly_fee,
+        join_date=join_date,
+        contract_end=contract_end,
+        fee_drift_rate=fee_drift_rate,
+        satisfaction_net=satisfaction_net,
+        satisfaction_srv=satisfaction_srv,
+        satisfaction_score=satisfaction_score,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -234,7 +393,8 @@ def list_category_pairs(db: Session) -> list[dict]:
 
 def _complaint_read(row: FactComplaintSample, region: str | None = None) -> InsightComplaintRead:
     data = InsightComplaintRead.model_validate(_orm_columns_dict(row)).model_dump()
-    data["region"] = region
+    if not data.get("region") and region:
+        data["region"] = region
     return InsightComplaintRead(**data)
 
 
@@ -261,7 +421,12 @@ def list_complaints(
     if user_id:
         query = query.filter(FactComplaintSample.user_id == user_id)
     if region:
-        query = query.filter(DimUserProfile.region.ilike(f"%{region}%"))
+        query = query.filter(
+            or_(
+                FactComplaintSample.region.ilike(f"%{region}%"),
+                DimUserProfile.region.ilike(f"{region}%"),
+            )
+        )
     type_filter = complaint_type or main_category
     for column, value in (
         (FactComplaintSample.complaint_type, type_filter),
@@ -295,6 +460,31 @@ def create_complaint(db: Session, payload: InsightComplaintCreate) -> InsightCom
     data["survey_answers"] = data.get("survey_answers") or []
     data["survey_category_scores"] = data.get("survey_category_scores") or {}
     data["satisfaction_score"] = data.get("satisfaction_score") or 0
+    profile = db.get(DimUserProfile, data["user_id"])
+    if profile is not None:
+        for key in (
+            "name",
+            "age",
+            "age_group",
+            "region_l1",
+            "region_l2",
+            "region",
+            "plan_id",
+            "vip_level",
+            "monthly_fee",
+            "join_date",
+            "fee_drift_rate",
+            "gender",
+            "msisdn",
+            "channel",
+            "device_brand",
+            "network_type",
+            "contract_end",
+            "satisfaction_net",
+            "satisfaction_srv",
+        ):
+            if data.get(key) is None:
+                data[key] = getattr(profile, key)
     data["complaint_vector"] = embed_complaint_text(data["raw_text"])
     row = FactComplaintSample(**data)
     db.add(row)
@@ -354,11 +544,12 @@ def list_snapshots(
     for column, value in (
         (DimUserProfileSnapshot.region_l1, region_l1),
         (DimUserProfileSnapshot.region_l2, region_l2),
-        (DimUserProfileSnapshot.churn_risk_level, churn_risk_level),
     ):
         if value:
-            query = query.filter(column.ilike(f"%{value}%"))
-    rows, total = _page(
+            query = query.filter(column.ilike(f"{value}%"))
+    if churn_risk_level:
+        query = query.filter(DimUserProfileSnapshot.churn_risk_level == churn_risk_level)
+    snaps, total = _page(
         query.order_by(
             DimUserProfileSnapshot.snapshot_date.desc(),
             DimUserProfileSnapshot.risk_score.desc(),
@@ -366,10 +557,45 @@ def list_snapshots(
         page,
         page_size,
     )
-    return InsightProfileSnapshotListResponse(
-        list=[InsightProfileSnapshotRead.model_validate(row) for row in rows],
-        pageTotal=total,
-    )
+    page_ids = [row.user_id for row in snaps]
+    profiles: dict[str, DimUserProfile] = {}
+    if page_ids:
+        profiles = {
+            row.user_id: row
+            for row in db.query(DimUserProfile).filter(DimUserProfile.user_id.in_(page_ids)).all()
+        }
+    items = []
+    for snap in snaps:
+        item = InsightProfileSnapshotRead.model_validate(snap)
+        profile = profiles.get(snap.user_id)
+        if profile is not None:
+            item = item.model_copy(
+                update={
+                    "name": profile.name,
+                    "gender": profile.gender,
+                    "msisdn": profile.msisdn,
+                    "age": profile.age,
+                    "age_group": profile.age_group,
+                    "region_l1": profile.region_l1,
+                    "region_l2": profile.region_l2,
+                    "region": profile.region,
+                    "plan_id": profile.plan_id,
+                    "vip_level": profile.vip_level,
+                    "channel": profile.channel,
+                    "device_brand": profile.device_brand,
+                    "network_type": profile.network_type,
+                    "join_date": profile.join_date,
+                    "contract_end": profile.contract_end,
+                    "monthly_fee": profile.monthly_fee,
+                    "fee_drift_rate": profile.fee_drift_rate,
+                    "satisfaction_net": profile.satisfaction_net,
+                    "satisfaction_srv": profile.satisfaction_srv,
+                    "sample_satisfaction": profile.sample_satisfaction,
+                    "pred_satisfaction": profile.pred_satisfaction,
+                }
+            )
+        items.append(item)
+    return InsightProfileSnapshotListResponse(list=items, pageTotal=total)
 
 
 def list_region_metrics(
@@ -389,7 +615,7 @@ def list_region_metrics(
         (FactRegionRiskMetrics.region_l2, region_l2),
     ):
         if value:
-            query = query.filter(column.ilike(f"%{value}%"))
+            query = query.filter(column.ilike(f"{value}%"))
     rows, total = _page(
         query.order_by(
             FactRegionRiskMetrics.snapshot_date.desc(),

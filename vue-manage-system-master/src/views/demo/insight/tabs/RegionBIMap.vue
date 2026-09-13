@@ -15,7 +15,7 @@
             <el-button :loading="buildingFull" @click="handleBuild('full')">
                 {{ t('pages.insight.bi.buildFull') }}
             </el-button>
-            <el-button @click="reloadAll">{{ t('common.refresh') }}</el-button>
+            <el-button @click="reloadAll(true)">{{ t('common.refresh') }}</el-button>
             <span v-if="buildResult" class="build-result">
                 {{ t('pages.insight.bi.buildDone', {
                     date: buildResult.snapshot_date,
@@ -269,25 +269,44 @@ async function ensureMapChart() {
     VChart.value = vueEcharts.default;
 }
 
-async function loadMapMetrics() {
+async function loadMapMetrics(refresh = false) {
     mapLoading.value = true;
     try {
-        const { data } = await getInsightRegionMetrics({ page: 1, page_size: 200 });
+        const { data } = await getInsightRegionMetrics({
+            page: 1,
+            page_size: 200,
+            ...(refresh ? { refresh: true } : {}),
+        });
         mapRows.value = data.list;
         syncRegisteredMap();
         const active = aggregateByL1(mapRows.value);
         if (!selectedL1.value || !active.some((item) => item.region_l1 === selectedL1.value)) {
             selectedL1.value = active[0]?.region_l1 ?? null;
         }
+        // 首页表格复用地图同一次响应，避免双请求
+        if (page.index === 1) {
+            rows.value = data.list.slice(0, page.size);
+            page.total = data.pageTotal;
+        }
+        return data.pageTotal as number;
     } finally {
         mapLoading.value = false;
     }
 }
 
-async function loadTableMetrics() {
+async function loadTableMetrics(refresh = false) {
+    // 第 1 页且地图已加载：直接切片，跳过二次请求
+    if (page.index === 1 && mapRows.value.length && !refresh) {
+        rows.value = mapRows.value.slice(0, page.size);
+        return;
+    }
     loading.value = true;
     try {
-        const { data } = await getInsightRegionMetrics({ page: page.index, page_size: page.size });
+        const { data } = await getInsightRegionMetrics({
+            page: page.index,
+            page_size: page.size,
+            ...(refresh ? { refresh: true } : {}),
+        });
         rows.value = data.list;
         page.total = data.pageTotal;
     } finally {
@@ -295,8 +314,11 @@ async function loadTableMetrics() {
     }
 }
 
-async function reloadAll() {
-    await Promise.all([loadMapMetrics(), loadTableMetrics()]);
+async function reloadAll(refresh = false) {
+    await loadMapMetrics(refresh);
+    if (page.index !== 1) {
+        await loadTableMetrics(refresh);
+    }
 }
 
 async function handleBuild(mode: 'incremental' | 'full' = 'incremental') {
@@ -334,7 +356,7 @@ async function handleBuild(mode: 'incremental' | 'full' = 'incremental') {
             selectedL1.value = null;
             ElMessage.success(t('pages.insight.bi.buildSuccess'));
             page.index = 1;
-            await reloadAll();
+            await reloadAll(true);
         }
     } catch (error: unknown) {
         const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;

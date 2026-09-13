@@ -34,6 +34,8 @@ GIVEN_NAMES = ("伟", "芳", "娜", "敏", "静", "强", "磊", "洋", "勇", "�
 
 VIP_LEVELS = ("普通", "银卡", "金卡", "钻石")
 NETWORK_TYPES = ("4G", "5G")
+CHANNELS = ("营业厅", "线上APP", "代理商", "携号转入")
+GENDERS = ("男", "女")
 DEVICES = (
     "iPhone 15",
     "iPhone 14",

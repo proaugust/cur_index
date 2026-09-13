@@ -7,14 +7,30 @@
             :closable="false"
             class="mgb20"
         />
+        <el-alert
+            title="只追加样本，不自动升成客户。请到「注入客户数据」页点「合并样本到客户」后再训练/预测对照准确率"
+            type="success"
+            show-icon
+            :closable="false"
+            class="mgb20"
+        />
 
         <el-form label-width="120px" class="seed-form">
             <el-form-item :label="t('pages.insight.seed.preset')">
-                <el-radio-group v-model="preset">
-                    <el-radio-button v-for="item in presets" :key="item.key" :value="item.key">
-                        {{ item.key }} ({{ formatBatch(item.complaints) }})
-                    </el-radio-button>
-                </el-radio-group>
+                <div class="preset-row">
+                    <el-radio-group v-model="preset">
+                        <el-radio-button v-for="item in presets" :key="item.key" :value="item.key">
+                            {{ item.key }} ({{ formatBatch(item.complaints) }})
+                        </el-radio-button>
+                    </el-radio-group>
+                    <span class="count-label">{{ t('pages.insight.seed.count') }}</span>
+                    <el-input
+                        v-model="countText"
+                        clearable
+                        style="width: 220px"
+                        :placeholder="countPlaceholder"
+                    />
+                </div>
             </el-form-item>
             <el-form-item>
                 <el-button type="primary" :loading="loading" @click="handleSeed">
@@ -61,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { getInsightSeedPresets, getInsightSeedPreview, postInsightSeedResetSamples, postInsightSeedSamples } from '@/api';
@@ -86,13 +102,23 @@ interface PreviewItem {
 }
 
 const preset = ref<Preset>('demo');
+const countText = ref('');
 const loading = ref(false);
 const previewing = ref(false);
 const resetting = ref(false);
 const presets = ref<PresetInfo[]>([]);
-const result = ref<{ complaints_inserted: number; touchpoints_inserted: number; elapsed_ms: number } | null>(null);
+const result = ref<{
+    complaints_inserted: number;
+    touchpoints_inserted: number;
+    elapsed_ms: number;
+} | null>(null);
 const previews = ref<PreviewItem[]>([]);
 const sampleTableKey = ref(0);
+
+const countPlaceholder = computed(() => {
+    const found = presets.value.find((item) => item.key === preset.value);
+    return found ? `可空，空则用 ${found.key}（${found.complaints}）` : '可空，空则用上方规模';
+});
 
 function formatBatch(n: number) {
     const value = n >= 10000 ? `${Math.round(n / 10000)}万` : String(n);
@@ -105,10 +131,20 @@ async function loadPresets() {
 }
 
 async function handleSeed() {
+    const raw = countText.value.trim();
+    let count: number | undefined;
+    if (raw) {
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < 1 || n > 20000) {
+            ElMessage.warning('追加条数须为 1～20000 的整数');
+            return;
+        }
+        count = n;
+    }
     loading.value = true;
     result.value = null;
     try {
-        const { data } = await postInsightSeedSamples(preset.value);
+        const { data } = await postInsightSeedSamples(preset.value, count);
         result.value = data as typeof result.value;
         ElMessage.success(t('pages.insight.seed.done'));
         sampleTableKey.value += 1;
@@ -151,7 +187,17 @@ onMounted(loadPresets);
 
 <style scoped>
 .seed-form {
-    max-width: 720px;
+    max-width: 960px;
+}
+.preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+.count-label {
+    color: var(--el-text-color-regular);
+    white-space: nowrap;
 }
 .mgb20 {
     margin-bottom: 20px;

@@ -23,6 +23,11 @@ from app.services.modules.insight.ml.lgbm_scorer import LgbmRiskScorer
 from app.services.modules.insight.ml.mock_scorer import mock_score, risk_level
 from app.services.modules.insight.ml.model_registry import InsightModelRegistry
 from app.services.modules.insight.ml.trainer import InsightModelTrainer
+from app.services.modules.insight.stats_cache import (
+    get_cached_decision_dashboard,
+    invalidate_insight_stats_cache,
+    set_cached_decision_dashboard,
+)
 
 
 class InsightDecisionService:
@@ -30,7 +35,11 @@ class InsightDecisionService:
         self.db = db
         self.registry = InsightModelRegistry()
 
-    def dashboard(self) -> InsightDecisionDashboard:
+    def dashboard(self, *, refresh: bool = False) -> InsightDecisionDashboard:
+        if not refresh:
+            cached = get_cached_decision_dashboard()
+            if cached is not None:
+                return cached
         latest_date = self.db.query(func.max(DimUserProfileSnapshot.snapshot_date)).scalar()
         high_risk = 0
         total_snapshots = 0
@@ -52,7 +61,7 @@ class InsightDecisionService:
             )
         weights = [InsightSimulationWeightRead.model_validate(row) for row in self.db.query(CfgSimulationWeight).all()]
         metrics = self._load_train_metrics()
-        return InsightDecisionDashboard(
+        result = InsightDecisionDashboard(
             model_version=self.registry.resolve_version(),
             has_trained_model=self.registry.has_model(),
             latest_snapshot_date=latest_date,
@@ -62,6 +71,8 @@ class InsightDecisionService:
             churn_label_total=InsightChurnLabelService(self.db).count(),
             **metrics,
         )
+        set_cached_decision_dashboard(result)
+        return result
 
     def recommendations(self, *, limit: int = 20) -> list[InsightDecisionRecommendation]:
         latest_date = self.db.query(func.max(DimUserProfileSnapshot.snapshot_date)).scalar()
@@ -118,6 +129,7 @@ class InsightDecisionService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         self.db.commit()
         msg = _train_message(result)
+        invalidate_insight_stats_cache()
         return InsightModelTrainResult(
             model_version=result.model_version,
             message=msg,
@@ -132,6 +144,7 @@ class InsightDecisionService:
     def import_churn_labels(self, raw: bytes, *, as_of_date: date | None = None) -> InsightChurnLabelImportResult:
         result = InsightChurnLabelService(self.db).import_csv(raw, as_of_date=as_of_date)
         self.db.commit()
+        invalidate_insight_stats_cache()
         return InsightChurnLabelImportResult(
             upserted=result["upserted"],
             skipped=result["skipped"],
@@ -142,6 +155,7 @@ class InsightDecisionService:
     def clear_churn_labels(self) -> dict[str, int]:
         cleared = InsightChurnLabelService(self.db).clear()
         self.db.commit()
+        invalidate_insight_stats_cache()
         return {"churn_labels": cleared}
 
     def _load_train_metrics(self) -> dict:

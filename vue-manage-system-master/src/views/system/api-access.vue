@@ -4,7 +4,7 @@
             <template #header>
                 <div class="page-header">
                     <span class="page-title">{{ t('pages.apiAccess.title') }}</span>
-                    <el-button type="primary" :loading="loading" @click="loadStats">{{ t('common.refresh') }}</el-button>
+                    <el-button type="primary" :loading="loading" @click="loadStats(true)">{{ t('common.refresh') }}</el-button>
                 </div>
             </template>
 
@@ -75,7 +75,7 @@ const query = reactive({
     days: 30 as number | null,
 });
 
-async function loadStats() {
+async function loadStats(refresh = false) {
     loading.value = true;
     try {
         const { data } = await fetchApiAccessStats({
@@ -83,6 +83,7 @@ async function loadStats() {
             page_size: page.size,
             username: query.username || undefined,
             days: query.days,
+            refresh: refresh || undefined,
         });
         items.value = data.items;
         page.total = data.total;
@@ -105,7 +106,7 @@ function changePage(val: number) {
     loadStats();
 }
 
-onMounted(loadStats);
+onMounted(() => loadStats());
 </script>
 
 <style scoped>

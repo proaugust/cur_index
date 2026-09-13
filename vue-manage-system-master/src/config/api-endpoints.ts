@@ -197,6 +197,7 @@ export const complaintEndpoints: ApiEndpoint[] = [
             { name: 'min_similarity', label: '最低相似度', type: 'number', min: 0, max: 1, placeholder: '有正文时过滤检索分' },
             { name: 'page', label: '页码', type: 'number', default: 1, min: 1 },
             { name: 'page_size', label: '每页条数', type: 'number', default: 10, min: 1, max: 100 },
+            { name: 'refresh', label: '强制刷新缓存', type: 'boolean' },
         ],
         resultView: {
             mode: 'table',

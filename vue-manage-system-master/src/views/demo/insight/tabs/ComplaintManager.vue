@@ -3,38 +3,65 @@
         <template #header>
             <div class="card-header">
                 <span>投诉样本管理 (insight_complaint_sample)</span>
-                <el-button type="primary" @click="openCreate">新增投诉</el-button>
+                <div class="header-actions">
+                    <el-button type="primary" @click="search">查询</el-button>
+                    <el-button @click="resetQuery">重置</el-button>
+                    <el-button type="primary" @click="openCreate">新增投诉</el-button>
+                </div>
             </div>
         </template>
 
-        <el-form :model="query" inline class="query-form">
-            <el-form-item label="用户ID"><el-input v-model="query.user_id" clearable /></el-form-item>
-            <el-form-item label="区域"><el-input v-model="query.region" clearable /></el-form-item>
-            <el-form-item label="分类">
-                <el-select v-model="query.category_key" clearable filterable>
-                    <el-option v-for="item in categories" :key="item.key" :label="item.label" :value="item.key" />
-                </el-select>
-            </el-form-item>
-            <el-form-item label="正文"><el-input v-model="query.text" clearable /></el-form-item>
-            <el-form-item>
-                <el-button type="primary" @click="search">查询</el-button>
-                <el-button @click="resetQuery">重置</el-button>
-            </el-form-item>
-        </el-form>
-
-        <el-table :data="rows" v-loading="loading" border stripe>
+        <el-table :data="rows" v-loading="loading" border stripe class="filter-table">
             <el-table-column prop="complaint_id" label="流水号" width="150" />
-            <el-table-column prop="user_id" label="用户ID" width="110" />
-            <el-table-column prop="region" label="区域" width="140" show-overflow-tooltip />
+            <el-table-column prop="user_id" width="120">
+                <template #header>
+                    <div class="th-filter">
+                        <el-input v-model="query.user_id" size="small" clearable @keyup.enter="search" />
+                        <span>用户ID</span>
+                    </div>
+                </template>
+            </el-table-column>
+            <el-table-column prop="name" label="姓名" width="90" show-overflow-tooltip />
+            <el-table-column prop="gender" label="性别" width="70" />
+            <el-table-column prop="msisdn" label="手机号" width="120" show-overflow-tooltip />
+            <el-table-column prop="age" label="年龄" width="70" />
+            <el-table-column prop="region" width="150" show-overflow-tooltip>
+                <template #header>
+                    <div class="th-filter">
+                        <el-input v-model="query.region" size="small" clearable @keyup.enter="search" />
+                        <span>区域</span>
+                    </div>
+                </template>
+            </el-table-column>
+            <el-table-column prop="plan_id" label="套餐" width="110" show-overflow-tooltip />
+            <el-table-column prop="vip_level" label="VIP" width="80" />
+            <el-table-column prop="channel" label="渠道" width="90" />
+            <el-table-column prop="device_brand" label="终端" width="120" show-overflow-tooltip />
+            <el-table-column prop="network_type" label="网络" width="70" />
+            <el-table-column prop="monthly_fee" label="话费" width="80" />
+            <el-table-column prop="join_date" label="入网日" width="110" />
+            <el-table-column prop="contract_end" label="合约到期" width="110" />
+            <el-table-column prop="fee_drift_rate" label="资费漂移" width="90" />
             <el-table-column label="时间" width="170" show-overflow-tooltip>
                 <template #default="{ row }">{{ formatDateTime(row.sample_time) }}</template>
             </el-table-column>
-            <el-table-column prop="complaint_type" label="大类" width="100" />
+            <el-table-column prop="complaint_type" width="200">
+                <template #header>
+                    <div class="th-filter">
+                        <el-select v-model="query.category_key" size="small" clearable filterable class="th-select">
+                            <el-option v-for="item in categories" :key="item.key" :label="item.label" :value="item.key" />
+                        </el-select>
+                        <span>分类</span>
+                    </div>
+                </template>
+            </el-table-column>
             <el-table-column prop="sub_category" label="小类" width="120" />
-            <el-table-column prop="raw_text" label="投诉正文" min-width="260" show-overflow-tooltip />
-            <el-table-column label="向量" min-width="220" show-overflow-tooltip>
-                <template #default="{ row }">
-                    <span>{{ formatVector(row.complaint_vector) }}</span>
+            <el-table-column prop="raw_text" min-width="200" show-overflow-tooltip>
+                <template #header>
+                    <div class="th-filter">
+                        <el-input v-model="query.text" size="small" clearable @keyup.enter="search" />
+                        <span>投诉正文</span>
+                    </div>
                 </template>
             </el-table-column>
             <el-table-column label="操作" width="140" fixed="right">
@@ -85,12 +112,23 @@ import { formatDateTime } from '@/utils';
 interface ComplaintRow {
     complaint_id: string;
     user_id: string;
+    name?: string | null;
+    gender?: string | null;
+    msisdn?: string | null;
+    age?: number | null;
     sample_time: string;
     complaint_type: string;
     sub_category: string;
     raw_text: string;
     complaint_vector?: number[] | null;
-    region?: string;
+    region?: string | null;
+    plan_id?: string | null;
+    vip_level?: string | null;
+    channel?: string | null;
+    device_brand?: string | null;
+    network_type?: string | null;
+    monthly_fee?: number | null;
+    contract_end?: string | null;
 }
 interface CategoryOption {
     key: string;
@@ -238,12 +276,32 @@ onMounted(async () => {
     align-items: center;
     justify-content: space-between;
 }
-.query-form {
-    margin-bottom: 8px;
+.header-actions {
+    display: flex;
+    gap: 8px;
 }
-.query-form :deep(.el-input),
-.query-form :deep(.el-select) {
-    width: 130px;
+.th-filter {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 6px;
+    line-height: 1.2;
+    min-height: 52px;
+}
+.th-filter span {
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+    white-space: nowrap;
+}
+.th-filter :deep(.el-input),
+.th-select {
+    width: 100%;
+}
+.filter-table :deep(.el-table__header th) {
+    vertical-align: bottom;
+}
+.filter-table :deep(.el-table__header .cell) {
+    padding: 6px 4px;
 }
 .pager {
     justify-content: flex-end;

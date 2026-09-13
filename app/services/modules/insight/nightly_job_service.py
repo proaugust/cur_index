@@ -22,6 +22,7 @@ from app.services.modules.insight.ai_risk_engine import InsightAiRiskEngine
 from app.services.modules.insight.constants import RISK_ENGINE_BATCH_SIZE, SHAP_TOP_N_CAP
 from app.services.modules.insight.region_aggregator import InsightRegionAggregator
 from app.services.modules.insight.snapshot_writer import InsightSnapshotWriter
+from app.services.modules.insight.stats_cache import invalidate_insight_stats_cache
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,9 @@ class InsightNightlyJobService:
                 )
             except Exception:
                 logger.exception("批处理日志收尾失败 id=%s status=%s", log_id, outcome_status)
+
+        if outcome_status == "completed":
+            invalidate_insight_stats_cache()
 
         return InsightNightlyRunResult(
             snapshot_date=target_date,

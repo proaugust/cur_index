@@ -123,6 +123,7 @@
             <div class="samples-toolbar">
                 <el-button type="success" @click="openCreateDialog">{{ t('pages.complaints.createBtn') }}</el-button>
                 <el-button type="primary" :loading="samplesLoading" @click="searchSamples">{{ t('common.query') }}</el-button>
+                <el-checkbox v-model="samplesRefresh">{{ t('pages.complaints.nlQueryRefresh') }}</el-checkbox>
             </div>
 
             <el-table :data="sampleRows" stripe size="small" :empty-text="t('pages.complaints.tableEmpty')">
@@ -152,7 +153,7 @@
                 :page-sizes="[10, 20, 50]"
                 v-model:current-page="samplePage.page"
                 @size-change="onSamplePageSizeChange"
-                @current-change="loadSamples"
+                @current-change="() => loadSamples()"
             />
         </el-card>
 
@@ -297,7 +298,7 @@
                                 @change="onThresholdChange"
                             />
                         </div>
-                        <el-button type="primary" :loading="loading" @click="loadStats">{{ t('pages.complaints.refreshStats') }}</el-button>
+                        <el-button type="primary" :loading="loading" @click="loadStats(true)">{{ t('pages.complaints.refreshStats') }}</el-button>
                     </div>
                 </div>
                 <div class="threshold-hint">{{ t('pages.complaints.classifyThresholdHint') }}</div>
@@ -596,6 +597,7 @@ const samplePage = ref({ page: 1, page_size: 10 });
 
 const nlQueryText = ref('');
 const nlQueryRefresh = ref(false);
+const samplesRefresh = ref(false);
 const nlQueryLoading = ref(false);
 const nlQueryResult = ref<ComplaintStatsReport | null>(null);
 const nlQueryError = ref('');
@@ -978,11 +980,11 @@ const activeDimensionSection = computed(() => {
     };
 });
 
-async function loadStats() {
+async function loadStats(refresh = false) {
     loading.value = true;
     try {
         const [{ data: statsData }, { data: settingsData }] = await Promise.all([
-            getComplaintStats(),
+            getComplaintStats(refresh ? { refresh: true } : undefined),
             getComplaintSettings(),
         ]);
         await ensureCharts();
@@ -1010,6 +1012,7 @@ async function onThresholdChange(value: number | undefined) {
 
 onMounted(() => {
     loadStats();
+    loadSamples();
 });
 
 function formatComplaintTime(value: string | null) {
@@ -1017,7 +1020,7 @@ function formatComplaintTime(value: string | null) {
     return value.replace('T', ' ').slice(0, 19);
 }
 
-async function loadSamples() {
+async function loadSamples(refresh = false) {
     samplesLoading.value = true;
     try {
         const [time_from, time_to] = sampleQuery.value.dateRange ?? [undefined, undefined];
@@ -1033,6 +1036,7 @@ async function loadSamples() {
             time_to,
             page: samplePage.value.page,
             page_size: samplePage.value.page_size,
+            refresh: refresh || undefined,
         });
         const page = data as ComplaintSamplesPage;
         sampleRows.value = page.items;
@@ -1046,7 +1050,7 @@ async function loadSamples() {
 
 function searchSamples() {
     samplePage.value.page = 1;
-    loadSamples();
+    loadSamples(samplesRefresh.value);
 }
 
 function useNlExample(example: string) {
@@ -1348,6 +1352,7 @@ function viewCategorySamples(categoryName: string) {
 .samples-toolbar {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 12px;
     margin-bottom: 12px;
 }

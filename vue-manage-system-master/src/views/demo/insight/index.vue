@@ -19,11 +19,11 @@
 
         <el-card shadow="hover">
             <el-tabs v-model="activeTab" type="border-card">
-                <el-tab-pane :label="t('pages.insight.tabs.seedCustomers')" name="seedCustomers" lazy>
-                    <DataSeedCustomers :status="status" @refresh="loadStatus" />
-                </el-tab-pane>
                 <el-tab-pane :label="t('pages.insight.tabs.seedSamples')" name="seedSamples" lazy>
-                    <DataSeedSamples :status="status" @refresh="loadStatus" />
+                    <DataSeedSamples :status="status" @refresh="() => loadStatus(true)" />
+                </el-tab-pane>
+                <el-tab-pane :label="t('pages.insight.tabs.seedCustomers')" name="seedCustomers" lazy>
+                    <DataSeedCustomers :status="status" @refresh="() => loadStatus(true)" />
                 </el-tab-pane>
                 <el-tab-pane :label="t('pages.insight.tabs.profile')" name="profile" lazy>
                     <CustomerProfile :initial-user-id="profileUserId" />
@@ -35,7 +35,7 @@
                     <RiskAnalysis @open-profile="openProfile" />
                 </el-tab-pane>
                 <el-tab-pane :label="t('pages.insight.tabs.aiInsight')" name="aiInsight" lazy>
-                    <AiInsightPanel @refreshed="loadStatus" />
+                    <AiInsightPanel @refreshed="() => loadStatus(true)" />
                 </el-tab-pane>
                 <el-tab-pane :label="t('pages.insight.tabs.action')" name="action" lazy>
                     <ActionCenter />
@@ -58,7 +58,7 @@ import AiInsightPanel from './tabs/AiInsightPanel.vue';
 import ActionCenter from './tabs/ActionCenter.vue';
 
 const { t } = useI18n();
-const activeTab = ref('seedCustomers');
+const activeTab = ref('seedSamples');
 const profileUserId = ref('');
 
 function openProfile(userId: string) {
@@ -87,8 +87,8 @@ const statusCards = computed(() => [
     { key: 'analysis_logs' as const, label: t('pages.insight.status.logs') },
 ]);
 
-async function loadStatus() {
-    const { data } = await getInsightSeedStatus();
+async function loadStatus(refresh = false) {
+    const { data } = await getInsightSeedStatus(refresh ? { refresh: true } : undefined);
     Object.assign(status, data);
 }
 

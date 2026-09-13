@@ -41,11 +41,61 @@
         </el-form>
 
         <el-table :data="rows" v-loading="loading" border stripe>
-            <el-table-column prop="snapshot_date" :label="t('pages.insight.bi.snapshotDate')" width="120" />
-            <el-table-column prop="user_id" :label="t('pages.insight.profile.userId')" width="110" />
-            <el-table-column prop="region_l1" :label="t('pages.insight.bi.regionL1')" width="110" />
-            <el-table-column prop="region_l2" :label="t('pages.insight.bi.regionL2')" width="120" />
-            <el-table-column prop="vip_level" :label="t('pages.insight.profile.vip')" width="90" />
+            <el-table-column prop="snapshot_date" :label="t('pages.insight.bi.snapshotDate')" width="120" fixed />
+            <el-table-column prop="user_id" :label="t('pages.insight.profile.userId')" width="110" fixed />
+            <el-table-column prop="name" label="姓名" width="90">
+                <template #default="{ row }">{{ row.name || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="gender" label="性别" width="70">
+                <template #default="{ row }">{{ row.gender || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="msisdn" label="手机号" width="120" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.msisdn || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="age" label="年龄" width="70">
+                <template #default="{ row }">{{ row.age ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="age_group" label="年龄段" width="90" />
+            <el-table-column prop="region_l1" :label="t('pages.insight.bi.regionL1')" width="110" show-overflow-tooltip />
+            <el-table-column prop="region_l2" :label="t('pages.insight.bi.regionL2')" width="120" show-overflow-tooltip />
+            <el-table-column prop="region" label="区域" min-width="140" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.region || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="plan_id" label="套餐" width="110" show-overflow-tooltip />
+            <el-table-column prop="vip_level" :label="t('pages.insight.profile.vip')" width="80" />
+            <el-table-column prop="channel" label="入网渠道" width="100">
+                <template #default="{ row }">{{ row.channel || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="device_brand" label="终端" width="120" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.device_brand || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="network_type" label="网络" width="70">
+                <template #default="{ row }">{{ row.network_type || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="join_date" label="入网日" width="110">
+                <template #default="{ row }">{{ row.join_date || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="contract_end" label="合约到期" width="110">
+                <template #default="{ row }">{{ row.contract_end || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="monthly_fee" label="月消费" width="90">
+                <template #default="{ row }">{{ row.monthly_fee ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="fee_drift_rate" label="资费漂移" width="90">
+                <template #default="{ row }">{{ row.fee_drift_rate ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="satisfaction_net" label="网络满意" width="90">
+                <template #default="{ row }">{{ row.satisfaction_net ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="satisfaction_srv" label="服务满意" width="90">
+                <template #default="{ row }">{{ row.satisfaction_srv ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="sample_satisfaction" label="样本满意度" width="100">
+                <template #default="{ row }">{{ row.sample_satisfaction ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="pred_satisfaction" label="预测满意度" width="100">
+                <template #default="{ row }">{{ row.pred_satisfaction ?? '-' }}</template>
+            </el-table-column>
             <el-table-column :label="t('pages.insight.profile.riskScore')" width="150">
                 <template #default="{ row }">
                     <span :class="riskClass(row.churn_risk_level)">

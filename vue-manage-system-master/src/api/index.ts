@@ -16,7 +16,7 @@ export const classifyComplaints = () =>
 export const getComplaintStats = (params?: { q?: string; refresh?: boolean }) =>
     request.get('/complaints/stats', { params });
 
-export const getComplaintCategories = (params?: { name?: string }) =>
+export const getComplaintCategories = (params?: { name?: string; refresh?: boolean }) =>
     request.get('/complaints/categories', { params });
 
 export const getComplaintSettings = () =>
@@ -35,6 +35,7 @@ export const getComplaintSamples = (params?: {
     min_similarity?: number;
     page?: number;
     page_size?: number;
+    refresh?: boolean;
 }) => request.get('/complaints/samples', { params });
 
 export const createComplaint = (data: {
@@ -44,15 +45,22 @@ export const createComplaint = (data: {
 }) => request.post('/complaints', data);
 
 // --- insight ---
-export const getInsightSeedStatus = () => request.get('/insight/seed/status');
+export const getInsightSeedStatus = (params?: { refresh?: boolean }) =>
+    request.get('/insight/seed/status', { params });
 
 export const getInsightSeedPresets = () => request.get('/insight/seed/presets');
 
-export const postInsightSeedUsers = (preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo') =>
-    request.post('/insight/seed/users', null, { params: { preset } });
+export const postInsightSeedUsers = (
+    preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo',
+    count?: number
+) => request.post('/insight/seed/users', null, { params: { preset, ...(count != null ? { count } : {}) } });
 
-export const postInsightSeedSamples = (preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo') =>
-    request.post('/insight/seed/samples', null, { params: { preset } });
+export const postInsightSeedSamples = (
+    preset: 'mini' | 'dev' | 'demo' | 'full' = 'demo',
+    count?: number
+) => request.post('/insight/seed/samples', null, { params: { preset, ...(count != null ? { count } : {}) } });
+
+export const postInsightSeedPromoteSamples = () => request.post('/insight/seed/promote-samples');
 
 export const postInsightSeedResetUsers = () => request.post('/insight/seed/reset-users');
 
@@ -122,8 +130,11 @@ export const getInsightRegionMetrics = (params?: Record<string, unknown>) =>
 export const getInsightSimulationWeights = () =>
     request.get('/insight/simulation-weights');
 
-export const getInsightDecisionDashboard = () =>
-    request.get('/insight/decision/dashboard');
+export const getInsightDecisionDashboard = (params?: { refresh?: boolean }) =>
+    request.get('/insight/decision/dashboard', { params });
+
+export const getInsightSatisfactionEval = (params?: { limit_examples?: number }) =>
+    request.get('/insight/eval/satisfaction', { params });
 
 export const getInsightDecisionRecommendations = (params?: Record<string, unknown>) =>
     request.get('/insight/decision/recommendations', { params });
@@ -637,7 +648,7 @@ export const deleteMenu = (code: string) => request.delete(`/menus/${code}`);
 
 export const fetchPermissionTree = () => request.get('/permissions/tree');
 
-export const fetchLlmUsageStats = (params?: { days?: number | null; exclude_warmup?: boolean }) =>
+export const fetchLlmUsageStats = (params?: { days?: number | null; exclude_warmup?: boolean; refresh?: boolean }) =>
     request.get('/llm-usage/stats', { params });
 
 export interface LlmUsageRecentQuery {
@@ -688,6 +699,7 @@ export interface ApiAccessStatQuery {
     page_size?: number;
     username?: string;
     days?: number | null;
+    refresh?: boolean;
 }
 
 export const fetchApiAccessStats = (params?: ApiAccessStatQuery) =>

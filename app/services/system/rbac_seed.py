@@ -187,3 +187,7 @@ def seed_rbac(db: Session, routers: tuple[APIRouter, ...] = ()) -> None:
         )
         db.add(admin_user)
         db.commit()
+
+    from app.services.system.role_permissions_cache import refresh_all_role_permission_caches
+
+    refresh_all_role_permission_caches(db)

@@ -6,13 +6,13 @@
                     <span class="page-title">{{ t('pages.llmUsage.title') }}</span>
                     <div class="page-toolbar">
                         <span class="toolbar-label">{{ t('pages.llmUsage.rangeLabel') }}</span>
-                        <el-select v-model="days" style="width: 120px" @change="loadStats">
+                        <el-select v-model="days" style="width: 120px" @change="() => loadStats()">
                             <el-option :label="t('pages.llmUsage.daysAll')" :value="null" />
                             <el-option :label="t('pages.llmUsage.days7')" :value="7" />
                             <el-option :label="t('pages.llmUsage.days30')" :value="30" />
                             <el-option :label="t('pages.llmUsage.days90')" :value="90" />
                         </el-select>
-                        <el-button type="primary" :loading="loading" @click="loadAll">{{ t('common.refresh') }}</el-button>
+                        <el-button type="primary" :loading="loading" @click="loadAll(true)">{{ t('common.refresh') }}</el-button>
                     </div>
                 </div>
             </template>
@@ -244,11 +244,12 @@ const buildRecentParams = () => {
     return params;
 };
 
-const loadStats = async () => {
+const loadStats = async (refresh = false) => {
     loading.value = true;
     try {
-        const params: { exclude_warmup: boolean; days?: number } = { exclude_warmup: true };
+        const params: { exclude_warmup: boolean; days?: number; refresh?: boolean } = { exclude_warmup: true };
         if (days.value !== null) params.days = days.value;
+        if (refresh) params.refresh = true;
         const res = await fetchLlmUsageStats(params);
         Object.assign(stats, res.data);
     } catch {
@@ -291,8 +292,8 @@ const resetRecentQuery = () => {
     handleRecentSearch();
 };
 
-const loadAll = async () => {
-    await Promise.all([loadStats(), loadRecent()]);
+const loadAll = async (refresh = false) => {
+    await Promise.all([loadStats(refresh), loadRecent()]);
 };
 
 onMounted(() => {

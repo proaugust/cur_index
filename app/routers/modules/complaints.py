@@ -13,7 +13,7 @@ from app.services.modules.complaint_service import ComplaintService
 router = APIRouter(prefix="/complaints", tags=["complaints"])
 
 
-@router.post("", response_model=schemas.ComplaintCreateResult)
+@router.post("/new", response_model=schemas.ComplaintCreateResult)
 def create_complaint(
     payload: schemas.ComplaintCreate,
     service: ComplaintService = Depends(get_complaint_service),
@@ -75,16 +75,17 @@ def update_complaint_settings(
 @router.get("/categories", response_model=list[schemas.ComplaintCategoryDetail])
 def list_complaint_categories(
     name: str | None = Query(default=None, description="分类名称模糊搜索"),
+    refresh: bool = Query(default=False, description="跳过缓存重新查询"),
     service: ComplaintService = Depends(get_complaint_service),
     _: User = Depends(require_permission("81.categories", name="分类列表")),
 ) -> list[schemas.ComplaintCategoryDetail]:
-    return service.list_categories(name=name)
+    return service.list_categories(name=name, refresh=refresh)
 
 
 @router.get("/stats", response_model=schemas.ComplaintStatsReport)
 def complaint_stats(
     q: str | None = Query(default=None, description="自然语言聚合查询，由 LLM 解析后统计"),
-    refresh: bool = Query(default=False, description="跳过缓存重新计算，结果写回缓存（24h 有效）"),
+    refresh: bool = Query(default=False, description="跳过缓存重新计算，结果写回 Redis（数据变更或主动刷新才失效）"),
     service: ComplaintService = Depends(get_complaint_service),
     _rl: None = Depends(rate_limit("complaints:stats", limit=settings.rate_limit_complaints_stats)),
     _: User = Depends(require_permission("81.stats", name="多维统计")),
@@ -108,6 +109,7 @@ def complaint_samples(
     ),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
+    refresh: bool = Query(default=False, description="跳过缓存重新查询，结果写回 Redis"),
     service: ComplaintService = Depends(get_complaint_service),
     _rl: None = Depends(rate_limit("complaints:samples", limit=settings.rate_limit_complaints_samples)),
     _: User = Depends(require_permission("81.samples", name="样本列表")),
@@ -122,4 +124,5 @@ def complaint_samples(
         min_similarity=min_similarity,
         page=page,
         page_size=page_size,
+        refresh=refresh,
     )

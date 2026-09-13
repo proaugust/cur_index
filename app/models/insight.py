@@ -29,16 +29,25 @@ class DimUserProfile(Base):
     join_date: Mapped[date] = mapped_column(Date)
     monthly_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
     fee_drift_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    msisdn: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    device_brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    network_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    contract_end: Mapped[date | None] = mapped_column(Date, nullable=True)
     satisfaction_net: Mapped[int | None] = mapped_column(Integer, nullable=True)
     satisfaction_srv: Mapped[int | None] = mapped_column(Integer, nullable=True)
     risk_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True, index=True)
     risk_level: Mapped[str | None] = mapped_column(String(10), nullable=True)
     tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     shap_values: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # 样本真值满意度（造数时从样本写入）；pred_satisfaction 为模型预测写回
+    sample_satisfaction: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    pred_satisfaction: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
 
 
 class FactComplaintSample(Base):
-    """问卷 + 投诉原始样本事实表。"""
+    """问卷 + 投诉原始样本事实表（含与客户对齐的人属性，便于对照评估）。"""
 
     __tablename__ = "insight_complaint_sample"
     __table_args__ = (
@@ -55,6 +64,26 @@ class FactComplaintSample(Base):
     user_id: Mapped[str] = mapped_column(String(32), index=True)
     sample_time: Mapped[datetime] = mapped_column(DateTime, index=True)
     record_date: Mapped[date] = mapped_column(Date, index=True)
+    # 与 insight_user_profile 对齐的人属性（样本侧冗余，评估时对照）
+    name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    age_group: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    region_l1: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    region_l2: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    region: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    plan_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    vip_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    monthly_fee: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    join_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    fee_drift_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    msisdn: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    channel: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    device_brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    network_type: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    contract_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    satisfaction_net: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    satisfaction_srv: Mapped[int | None] = mapped_column(Integer, nullable=True)
     complaint_type: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     sub_category: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     satisfaction_score: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)

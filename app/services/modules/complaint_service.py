@@ -12,6 +12,16 @@ from app.services.modules.complaint_category_namer import suggest_complaint_cate
 from app.services.modules.complaint_query_parser import parse_complaint_query
 from app.services.modules.complaint_generator import generate_complaints
 from app.services.modules.complaint_settings import get_classify_threshold, set_classify_threshold
+from app.services.modules.complaint_categories_cache import (
+    get_cached_categories,
+    invalidate_complaint_categories_cache,
+    set_cached_categories,
+)
+from app.services.modules.complaint_samples_cache import (
+    get_cached_samples,
+    invalidate_complaint_samples_cache,
+    set_cached_samples,
+)
 from app.services.modules.complaint_stats_cache import get_cached_stats, invalidate_complaint_stats_cache, set_cached_stats
 from app.services.shared.embedding import cosine_similarity, embed_query, embed_text, embed_texts, mean_vector
 
@@ -21,6 +31,12 @@ logger = logging.getLogger(__name__)
 class ComplaintService:
     def __init__(self, db: Session):
         self.db = db
+
+    def _invalidate_query_caches(self, *, samples_only: bool = False) -> None:
+        invalidate_complaint_samples_cache()
+        invalidate_complaint_categories_cache()
+        if not samples_only:
+            invalidate_complaint_stats_cache()
 
     def init_categories(self) -> list[schemas.ComplaintCategoryRead]:
         logger.info("初始化投诉分类：清空旧数据")
@@ -46,8 +62,8 @@ class ComplaintService:
         for item in created:
             self.db.refresh(item)
         logger.info("分类初始化完成")
-        invalidate_complaint_stats_cache()
-        return created
+        self._invalidate_query_caches()
+        return [schemas.ComplaintCategoryRead.model_validate(item) for item in created]
 
     def seed_complaints(self, count: int = 500) -> schemas.ComplaintSeedResult:
         logger.info("生成 %s 条投诉文本", count)
@@ -65,16 +81,10 @@ class ComplaintService:
             category_id = None
             similarity = None
             if categories:
-                best_category = None
-                best_score = -1.0
-                for category in categories:
-                    score = cosine_similarity(vector, category.embedding)
-                    if score > best_score:
-                        best_score = score
-                        best_category = category
-                if best_category is not None and best_score >= get_classify_threshold():
-                    category_id = best_category.id
-                    similarity = best_score
+                scored = self._score_categories(vector, categories)
+                if scored and scored[0][1] >= get_classify_threshold():
+                    category_id = scored[0][0].id
+                    similarity = scored[0][1]
 
             rows.append(
                 models.Complaint(
@@ -92,7 +102,7 @@ class ComplaintService:
         self.db.commit()
         classified = sum(1 for row in rows if row.category_id is not None)
         logger.info("投诉造数完成，插入 %s 条（已归类 %s 条）", len(rows), classified)
-        invalidate_complaint_stats_cache()
+        self._invalidate_query_caches()
         return schemas.ComplaintSeedResult(inserted=len(rows))
 
     def embed_complaints(self) -> schemas.ComplaintEmbedResult:
@@ -113,6 +123,7 @@ class ComplaintService:
 
         self.db.commit()
         logger.info("向量化完成，写入 %s 条 vector embedding", total)
+        self._invalidate_query_caches(samples_only=True)
         return schemas.ComplaintEmbedResult(embedded=total, skipped=skipped)
 
     def classify_all(self) -> schemas.ComplaintClassifyResult:
@@ -162,7 +173,7 @@ class ComplaintService:
             for name, count in category_counts.items()
         ]
         logger.info("归类完成：共 %s 条，分布 %s", classified, {item.category_name: item.count for item in by_category})
-        invalidate_complaint_stats_cache()
+        self._invalidate_query_caches()
         return schemas.ComplaintClassifyResult(classified=classified, by_category=by_category)
 
     def _filters_from_schema(self, filters: schemas.ComplaintStatsFilters | None) -> crud.ComplaintFilterParams | None:
@@ -271,7 +282,23 @@ class ComplaintService:
         min_similarity: float | None = None,
         page: int = 1,
         page_size: int = 10,
+        refresh: bool = False,
     ) -> schemas.ComplaintSamplesPage:
+        if not refresh:
+            cached = get_cached_samples(
+                address=address,
+                text=text,
+                time_from=time_from,
+                time_to=time_to,
+                category_name=category_name,
+                classified=classified,
+                min_similarity=min_similarity,
+                page=page,
+                page_size=page_size,
+            )
+            if cached is not None:
+                return cached
+
         query_text = text.strip() if text else ""
         query_vector = embed_query(query_text) if query_text else None
         scored_rows, total = crud.search_complaints(
@@ -299,7 +326,20 @@ class ComplaintService:
             )
             for row, score in scored_rows
         ]
-        return schemas.ComplaintSamplesPage(items=items, total=total, page=page, page_size=page_size)
+        result = schemas.ComplaintSamplesPage(items=items, total=total, page=page, page_size=page_size)
+        set_cached_samples(
+            address=address,
+            text=text,
+            time_from=time_from,
+            time_to=time_to,
+            category_name=category_name,
+            classified=classified,
+            min_similarity=min_similarity,
+            page=page,
+            page_size=page_size,
+            result=result,
+        )
+        return result
 
     def _score_categories(
         self, vector: list[float], categories: list[models.ComplaintCategory]
@@ -362,7 +402,7 @@ class ComplaintService:
                 complaint_text, existing_names=[category.name for category in categories]
             )
             merge_target = self._find_category_by_name_similarity(suggested_name, categories)
-            if merge_target is not None:
+            if merge_target is not None and merge_target.embedding is not None:
                 assigned_category = merge_target
                 similarity = round(cosine_similarity(vector, merge_target.embedding), 4)
             else:
@@ -410,7 +450,7 @@ class ComplaintService:
             category_created,
             similarity,
         )
-        invalidate_complaint_stats_cache()
+        self._invalidate_query_caches()
         return schemas.ComplaintCreateResult(
             complaint=self._to_complaint_read(complaint),
             category_created=category_created,
@@ -420,7 +460,11 @@ class ComplaintService:
             category_scores=category_scores,
         )
 
-    def list_categories(self, *, name: str | None = None) -> list[schemas.ComplaintCategoryDetail]:
+    def list_categories(self, *, name: str | None = None, refresh: bool = False) -> list[schemas.ComplaintCategoryDetail]:
+        if not refresh:
+            cached = get_cached_categories(name=name)
+            if cached is not None:
+                return cached
         rows = crud.list_complaint_categories(self.db, name=name)
         items: list[schemas.ComplaintCategoryDetail] = []
         for category, complaint_count in rows:
@@ -440,6 +484,7 @@ class ComplaintService:
                     has_embedding=category.embedding is not None,
                 )
             )
+        set_cached_categories(name=name, items=items)
         return items
 
     def get_settings(self) -> schemas.ComplaintSettings:

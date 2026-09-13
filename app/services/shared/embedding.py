@@ -29,7 +29,8 @@ def resolve_embedding_batch_size(device: str | None = None) -> int:
     if settings.embedding_batch_size and settings.embedding_batch_size > 0:
         return int(settings.embedding_batch_size)
     dev = device or resolve_embedding_device()
-    return 64 if str(dev).startswith("cuda") else 32
+    # 无 GPU 时 64 通常优于 32；有 CUDA 默认 128（可用 EMBEDDING_BATCH_SIZE 覆盖）
+    return 128 if str(dev).startswith("cuda") else 64
 
 
 @lru_cache(maxsize=1)
@@ -55,8 +56,10 @@ def _encode(texts: list[str], *, show_progress: bool = False) -> list[list[float
         normalize_embeddings=True,
         batch_size=batch_size,
         show_progress_bar=show_progress and len(texts) > 1,
+        convert_to_numpy=True,
     )
-    return [vector.tolist() for vector in vectors]
+    # 整块 2D ndarray 一次 tolist，避免逐行 Python 循环
+    return vectors.tolist()
 
 
 def embed_text(text: str) -> list[float]:

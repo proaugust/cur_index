@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     embedding_model_name: str = "BAAI/bge-base-zh-v1.5"
     embedding_dim: int = 768
     embedding_query_instruction: str = "为这个句子生成表示以用于检索相关文章："
-    # auto：有 CUDA 用 gpu；也可强制 cpu / cuda。batch_size=0 按设备自适应
+    # auto：有 CUDA 用 gpu；无 GPU 设 cpu。batch_size=0 自适应（CPU=64 / CUDA=128）
+    # 环境变量：EMBEDDING_DEVICE / EMBEDDING_BATCH_SIZE（无 GPU 建议 64，可试 32~96）
     embedding_device: str = "auto"
     embedding_batch_size: int = 0
     complaint_classify_threshold: float = 0.65
@@ -53,14 +54,18 @@ class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/0"
     redis_enabled: bool = True
     redis_socket_timeout: float = 2.0
-    complaint_stats_cache_ttl: int = 3600  # 多维统计默认缓存 1 小时
-    complaint_stats_nl_cache_ttl: int = 86400  # 自然语言查询缓存 24 小时
+    complaint_stats_cache_ttl: int = 2592000  # 多维统计：30 天，refresh 或数据变更才失效
+    complaint_stats_nl_cache_ttl: int = 2592000  # 自然语言统计：30 天，勾选刷新才重算
+    complaint_samples_cache_ttl: int = 2592000  # 样本查询：30 天，refresh 或数据变更才失效
     complaint_stats_memory_cache_enabled: bool = True
-    complaint_stats_memory_cache_maxsize: int = 32
-    llm_usage_stats_cache_ttl: int = 90
+    complaint_stats_memory_cache_maxsize: int = 256
+    llm_usage_stats_cache_ttl: int = 2592000  # LLM 用量统计：30 天，点刷新才重算
+    api_access_stats_cache_ttl: int = 2592000  # 接口访问统计：30 天，点刷新才重算
+    insight_stats_cache_ttl: int = 2592000  # Insight 状态/看板/区域统计：30 天，点刷新或造数才失效
     insight_profile_cache_ttl: int = 86400
     epoch_ai_cache_ttl: int = 259200  # Epoch 看板 Redis TTL：3 天，避免日切空窗
     ai_trends_cache_ttl: int = 259200  # 首页 AI Trends Redis TTL：3 天
+    rbac_role_perms_cache_ttl: int = 604800  # 角色权限码：7 天，改权限/seed 时主动失效
     insight_model_dir: Path = BASE_DIR / "data" / "insight" / "models"
     insight_auto_train: bool = True
     insight_model_backend: str = "auto"

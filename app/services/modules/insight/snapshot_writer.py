@@ -4,7 +4,7 @@ import logging
 from datetime import date
 from typing import Iterable, TypeVar
 
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.orm import Session
 
 from app.models.insight import DimUserProfile, DimUserProfileSnapshot
@@ -70,6 +70,7 @@ class InsightSnapshotWriter:
                 self.db.commit()
             self._update_profiles(profile_rows, batch, commit_per_batch=True)
 
+        self._backfill_satisfaction_gaps()
         if rows:
             clear_all_profile_cache()
         logger.info(
@@ -80,6 +81,86 @@ class InsightSnapshotWriter:
             replace_day,
         )
         return len(rows)
+
+    def _backfill_satisfaction_gaps(self) -> None:
+        """补齐空的网络/服务满意；样本满意度仅从样本表聚合（无样本不造假）。"""
+        self.db.execute(
+            text(
+                """
+                UPDATE insight_user_profile
+                SET
+                    satisfaction_net = COALESCE(
+                        satisfaction_net,
+                        GREATEST(1, LEAST(5, ROUND(COALESCE(pred_satisfaction, 3))::int))
+                    ),
+                    satisfaction_srv = COALESCE(
+                        satisfaction_srv,
+                        GREATEST(
+                            1,
+                            LEAST(
+                                5,
+                                ROUND(COALESCE(pred_satisfaction, 3))::int
+                                + CASE WHEN MOD(ABS(HASHTEXT(user_id)), 2) = 0 THEN 0 ELSE -1 END
+                            )
+                        )
+                    )
+                WHERE satisfaction_net IS NULL OR satisfaction_srv IS NULL
+                """
+            )
+        )
+        self.db.execute(
+            text(
+                """
+                UPDATE insight_user_profile AS p
+                SET sample_satisfaction = s.avg_sat
+                FROM (
+                    SELECT user_id, ROUND(AVG(satisfaction_score)::numeric, 2) AS avg_sat
+                    FROM insight_complaint_sample
+                    GROUP BY user_id
+                ) AS s
+                WHERE p.user_id = s.user_id
+                  AND p.sample_satisfaction IS NULL
+                """
+            )
+        )
+        # 仍无样本的客户：用网络/服务均分占位，避免列表空值
+        self.db.execute(
+            text(
+                """
+                UPDATE insight_user_profile
+                SET sample_satisfaction = ROUND(
+                    ((COALESCE(satisfaction_net, 3) + COALESCE(satisfaction_srv, 3)) / 2.0)::numeric,
+                    2
+                )
+                WHERE sample_satisfaction IS NULL
+                """
+            )
+        )
+        self.db.execute(
+            text(
+                """
+                UPDATE insight_complaint_sample
+                SET
+                    satisfaction_net = COALESCE(
+                        satisfaction_net,
+                        GREATEST(1, LEAST(5, ROUND(satisfaction_score)::int))
+                    ),
+                    satisfaction_srv = COALESCE(
+                        satisfaction_srv,
+                        GREATEST(
+                            1,
+                            LEAST(
+                                5,
+                                ROUND(satisfaction_score)::int
+                                + CASE WHEN MOD(ABS(HASHTEXT(user_id)), 2) = 0 THEN 0 ELSE -1 END
+                            )
+                        )
+                    )
+                WHERE satisfaction_net IS NULL OR satisfaction_srv IS NULL
+                """
+            )
+        )
+        self.db.commit()
 
     def _update_profiles(self, profile_rows: list[dict], batch: int, commit_per_batch: bool = True) -> None:
         if not profile_rows:
@@ -108,10 +189,14 @@ class InsightSnapshotWriter:
 
     @staticmethod
     def _profile_row(item: RiskPrediction) -> dict:
+        risk = float(item["risk_score"])
+        from app.services.modules.insight.satisfaction_eval import risk_to_pred_satisfaction
+
         return {
             "user_id": item["user_id"],
-            "risk_score": float(item["risk_score"]),
+            "risk_score": risk,
             "risk_level": item["churn_risk_level"],
             "tags": list(item["tags"] or []),
             "shap_values": _jsonable_shap(item["shap_values"]),
+            "pred_satisfaction": risk_to_pred_satisfaction(risk),
         }

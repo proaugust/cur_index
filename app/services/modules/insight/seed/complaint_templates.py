@@ -158,13 +158,45 @@ _DEFAULT_TEMPLATE = (
     "近期遇到{complaint_type}-{sub_type}相关问题，请尽快核实并回复处理进度。"
 )
 
+# 种子向量预计算用固定槽位（真 BGE 向量，按模板复用）
+_CANONICAL_CUSTOMER: dict[str, Any] = {
+    "package_type": "199元套餐",
+    "monthly_fee": 199,
+    "province": "东京都",
+    "city": "千代田区",
+    "vip_level": "普通",
+    "network_type": "5G",
+    "device": "iPhone 15",
+}
+_CANONICAL_SLOTS: dict[str, Any] = {
+    "extra_fee": 38,
+    "wait_minutes": 35,
+    "follow_days": 5,
+    "transfer_times": 3,
+    "drop_times": 5,
+    "speed_mbps": 20,
+    "latency_ms": 180,
+    "building": "小区",
+    "day": 12,
+    "agent_no": "2048",
+    "refund_days": 7,
+    "value_added": "视频会员",
+    "duplicate_times": 2,
+    "contract_months": 24,
+    "used_gb": 60,
+    "use_months": 6,
+    "repair_days": 10,
+    "store_name": "中心营业厅",
+    "window_count": 2,
+    "try_times": 5,
+}
 
-def _base_context(customer: dict[str, Any], pair: dict[str, str]) -> dict[str, Any]:
+TemplateEmbedKey = tuple[str, str, int]
+
+
+def _base_context(customer: dict[str, Any], pair: dict[str, str], *, canonical: bool = False) -> dict[str, Any]:
     monthly = float(customer.get("monthly_fee") or 199)
-    return {
-        **customer,
-        **pair,
-        "monthly_fee": int(monthly) if monthly == int(monthly) else monthly,
+    slots = dict(_CANONICAL_SLOTS) if canonical else {
         "extra_fee": _RANDOM.choice([18, 28, 38, 58, 68, 88]),
         "wait_minutes": _RANDOM.choice([15, 25, 35, 45, 60, 90]),
         "follow_days": _RANDOM.choice([3, 5, 7, 10]),
@@ -186,15 +218,16 @@ def _base_context(customer: dict[str, Any], pair: dict[str, str]) -> dict[str, A
         "window_count": _RANDOM.choice([2, 3]),
         "try_times": _RANDOM.choice([3, 5, 7]),
     }
+    return {
+        **customer,
+        **pair,
+        "monthly_fee": int(monthly) if monthly == int(monthly) else monthly,
+        **slots,
+    }
 
 
-def render_complaint_text(pair: dict[str, str], customer: dict[str, Any]) -> str:
-    key = (pair["complaint_type"], pair["sub_type"])
-    templates = TEMPLATES.get(key) or [_DEFAULT_TEMPLATE]
-    template = _RANDOM.choice(templates)
-    ctx = _base_context(customer, pair)
+def _format_and_trim(template: str, ctx: dict[str, Any]) -> str:
     text = template.format(**ctx)
-    # 控制在 80~150 字左右；过长则截断到完整句
     if len(text) > 150:
         text = text[:150]
         for sep in ("。", "，", "；"):
@@ -202,4 +235,38 @@ def render_complaint_text(pair: dict[str, str], customer: dict[str, Any]) -> str
             if idx >= 80:
                 text = text[: idx + 1]
                 break
+    return text
+
+
+def list_canonical_template_texts() -> list[tuple[TemplateEmbedKey, str]]:
+    """每个 (一级, 二级, 模板下标) 一条代表性正文，供种子预嵌入。"""
+    out: list[tuple[TemplateEmbedKey, str]] = []
+    for (ctype, stype), templates in TEMPLATES.items():
+        pair = {"complaint_type": ctype, "sub_type": stype}
+        ctx = _base_context(_CANONICAL_CUSTOMER, pair, canonical=True)
+        for idx, template in enumerate(templates):
+            out.append(((ctype, stype, idx), _format_and_trim(template, ctx)))
+    pair = {"complaint_type": "其它", "sub_type": "其他问题"}
+    ctx = _base_context(_CANONICAL_CUSTOMER, pair, canonical=True)
+    out.append((("其它", "其他问题", -1), _format_and_trim(_DEFAULT_TEMPLATE, ctx)))
+    return out
+
+
+def render_complaint_with_key(
+    pair: dict[str, str], customer: dict[str, Any]
+) -> tuple[str, TemplateEmbedKey]:
+    key = (pair["complaint_type"], pair["sub_type"])
+    templates = TEMPLATES.get(key)
+    if not templates:
+        template = _DEFAULT_TEMPLATE
+        idx = -1
+    else:
+        idx = _RANDOM.randrange(len(templates))
+        template = templates[idx]
+    ctx = _base_context(customer, pair)
+    return _format_and_trim(template, ctx), (key[0], key[1], idx)
+
+
+def render_complaint_text(pair: dict[str, str], customer: dict[str, Any]) -> str:
+    text, _ = render_complaint_with_key(pair, customer)
     return text

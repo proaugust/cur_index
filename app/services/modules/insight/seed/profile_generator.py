@@ -4,7 +4,9 @@ import random
 from datetime import date, timedelta
 
 from app.services.modules.insight.constants import (
+    CHANNELS,
     DEVICES,
+    GENDERS,
     GIVEN_NAMES,
     NETWORK_TYPES,
     PLAN_FEES,
@@ -62,6 +64,11 @@ def _pick_plan(vip_level: str) -> tuple[str, float]:
     return name, max(59.0, fee + jitter)
 
 
+def _fake_msisdn() -> str:
+    prefix = _RANDOM.choice(("130", "131", "135", "138", "150", "151", "186", "188"))
+    return f"{prefix}{_RANDOM.randint(0, 99999999):08d}"
+
+
 def generate_profile_row() -> dict:
     province, city = _pick_region()
     age = _RANDOM.randint(18, 72)
@@ -70,6 +77,10 @@ def generate_profile_row() -> dict:
     fee_drift = round(_RANDOM.uniform(-0.05, 0.35), 2)
     network_type = "5G" if age < 55 and _RANDOM.random() < 0.78 else _RANDOM.choice(NETWORK_TYPES)
     join_date = date.today() - timedelta(days=_RANDOM.randint(30, 3650))
+    contract_end = join_date + timedelta(days=_RANDOM.choice((365, 730, 1095)))
+    # 问卷维度满意分（1～5）；样本真值 sample_satisfaction 仅由样本合并写入
+    satisfaction_net = _RANDOM.choices([1, 2, 3, 4, 5], weights=[5, 12, 35, 30, 18])[0]
+    satisfaction_srv = _RANDOM.choices([1, 2, 3, 4, 5], weights=[5, 12, 35, 30, 18])[0]
     return {
         "user_id": _next_user_id(),
         "name": _RANDOM.choice(SURNAMES) + _RANDOM.choice(GIVEN_NAMES),
@@ -83,8 +94,14 @@ def generate_profile_row() -> dict:
         "join_date": join_date,
         "monthly_fee": monthly_fee,
         "fee_drift_rate": fee_drift,
-        "_network_type": network_type,
-        "_device": _RANDOM.choice(DEVICES),
+        "gender": _RANDOM.choice(GENDERS),
+        "msisdn": _fake_msisdn(),
+        "channel": _RANDOM.choice(CHANNELS),
+        "device_brand": _RANDOM.choice(DEVICES),
+        "network_type": network_type,
+        "contract_end": contract_end,
+        "satisfaction_net": satisfaction_net,
+        "satisfaction_srv": satisfaction_srv,
         "_province": province,
         "_city": city,
     }

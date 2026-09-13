@@ -15,6 +15,11 @@ def is_super_admin(user: User) -> bool:
 
 
 def user_permission_codes(user: User) -> set[str]:
+    from app.services.system.role_permissions_cache import permission_codes_from_user
+
+    cached = permission_codes_from_user(user)
+    if cached is not None:
+        return cached
     return {p.code for p in user.role.permissions}
 
 

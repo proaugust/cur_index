@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import decode_access_token
 from app.database import SessionLocal
-from app.models import Role, User
+from app.models import User
 
 _bearer = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录已失效")
     user = (
         db.query(User)
-        .options(joinedload(User.role).joinedload(Role.permissions))
+        .options(joinedload(User.role))
         .filter(User.id == user_id)
         .first()
     )
@@ -49,6 +49,9 @@ def get_current_user(
     if not user.role.status:
         logger.warning("鉴权失败: 角色已禁用 user_id=%s username=%s role=%s", user.id, user.username, user.role.name)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="角色已禁用")
+    from app.services.system.role_permissions_cache import attach_permission_codes, get_role_permission_codes
+
+    attach_permission_codes(user, get_role_permission_codes(db, user.role_id))
     return user
 
 

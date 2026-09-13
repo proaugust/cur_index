@@ -70,7 +70,8 @@
             <el-button :disabled="!dashboard?.churn_label_total" @click="handleClearLabels">
                 {{ t('pages.insight.action.clearLabels') }}
             </el-button>
-            <el-button @click="loadAll">{{ t('common.refresh') }}</el-button>
+            <el-button @click="loadAll(true)">{{ t('common.refresh') }}</el-button>
+            <el-button type="warning" :loading="evalLoading" @click="loadEval">满意度误差评估</el-button>
             <el-tag v-if="dashboard?.has_trained_model" type="success" size="small">{{ t('pages.insight.action.trained') }}</el-tag>
             <el-tag v-if="dashboard?.label_source" size="small" :type="dashboard.label_source === 'real_churn' ? 'success' : 'warning'">
                 {{ dashboard.label_source }}
@@ -82,6 +83,23 @@
                 {{ t('pages.insight.action.holdoutRows', { train: dashboard.train_rows, val: dashboard.val_rows }) }}
             </span>
         </div>
+
+        <el-card v-if="evalResult" shadow="never" class="mgb20" v-loading="evalLoading">
+            <template #header>样本真值满意度 vs 客户预测满意度</template>
+            <el-alert :title="evalResult.message" type="info" show-icon :closable="false" class="mgb20" />
+            <el-row :gutter="16" class="mgb20">
+                <el-col :xs="12" :sm="6"><el-statistic title="重叠用户数 n" :value="evalResult.n" /></el-col>
+                <el-col :xs="12" :sm="6"><el-statistic title="MAE" :value="evalResult.mae ?? 0" :precision="4" /></el-col>
+                <el-col :xs="12" :sm="6"><el-statistic title="RMSE" :value="evalResult.rmse ?? 0" :precision="4" /></el-col>
+                <el-col :xs="12" :sm="6"><el-statistic title="Pearson" :value="evalResult.pearson ?? 0" :precision="4" /></el-col>
+            </el-row>
+            <el-table :data="evalResult.examples" border stripe size="small" empty-text="暂无对比样本">
+                <el-table-column prop="user_id" label="user_id" width="120" />
+                <el-table-column prop="sample_satisfaction" label="样本真值" width="100" />
+                <el-table-column prop="pred_satisfaction" label="预测值" width="100" />
+                <el-table-column prop="abs_error" label="|误差|" width="100" />
+            </el-table>
+        </el-card>
 
         <el-row :gutter="16">
             <el-col :xs="24" :lg="14">
@@ -147,6 +165,7 @@ import {
     deleteInsightChurnLabels,
     getInsightDecisionDashboard,
     getInsightDecisionRecommendations,
+    getInsightSatisfactionEval,
     postInsightChurnLabelsImport,
     postInsightDecisionSimulate,
     postInsightTrainModel,
@@ -157,13 +176,34 @@ const loadingRec = ref(false);
 const training = ref(false);
 const importing = ref(false);
 const simulating = ref(false);
+const evalLoading = ref(false);
 const dashboard = ref<Record<string, any> | null>(null);
 const recommendations = ref<Record<string, unknown>[]>([]);
 const simulateResult = ref<Record<string, any> | null>(null);
+const evalResult = ref<{
+    n: number;
+    mae: number | null;
+    rmse: number | null;
+    pearson: number | null;
+    examples: { user_id: string; sample_satisfaction: number; pred_satisfaction: number; abs_error: number }[];
+    message: string;
+} | null>(null);
 const simulate = reactive({ user_id: '10000001', satisfaction: 4, complaints: 0 });
 
-async function loadDashboard() {
-    const { data } = await getInsightDecisionDashboard();
+async function loadEval() {
+    evalLoading.value = true;
+    try {
+        const { data } = await getInsightSatisfactionEval({ limit_examples: 20 });
+        evalResult.value = data;
+        if (!data.n) {
+            ElMessage.warning(data.message || '暂无评估数据');
+        }
+    } finally {
+        evalLoading.value = false;
+    }
+}
+async function loadDashboard(refresh = false) {
+    const { data } = await getInsightDecisionDashboard(refresh ? { refresh: true } : undefined);
     dashboard.value = data;
 }
 
@@ -177,8 +217,8 @@ async function loadRecommendations() {
     }
 }
 
-async function loadAll() {
-    await Promise.all([loadDashboard(), loadRecommendations()]);
+async function loadAll(refresh = false) {
+    await Promise.all([loadDashboard(refresh), loadRecommendations()]);
 }
 
 async function handleTrain() {
@@ -186,7 +226,7 @@ async function handleTrain() {
     try {
         const { data } = await postInsightTrainModel();
         ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
-        await loadAll();
+        await loadAll(true);
     } finally {
         training.value = false;
     }
@@ -197,7 +237,7 @@ async function handleImportLabels(file: File) {
     try {
         const { data } = await postInsightChurnLabelsImport(file);
         ElMessage.success(data.message || t('pages.insight.action.importDone'));
-        await loadDashboard();
+        await loadDashboard(true);
     } finally {
         importing.value = false;
     }
@@ -207,7 +247,7 @@ async function handleImportLabels(file: File) {
 async function handleClearLabels() {
     const { data } = await deleteInsightChurnLabels();
     ElMessage.success(t('pages.insight.action.clearLabelsDone', { count: data.churn_labels ?? 0 }));
-    await loadDashboard();
+    await loadDashboard(true);
 }
 
 async function handleSimulate() {
