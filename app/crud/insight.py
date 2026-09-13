@@ -49,12 +49,14 @@ _USER_ID_BASE = 10_000_000
 
 
 def sync_user_seq(db: Session) -> None:
-    """按库内最大 user_id 续号，支持多次追加注入。"""
+    """按客户表 + 样本表最大 user_id 续号，避免先造样本再造客户时撞号。"""
     from app.services.modules.insight.seed.profile_generator import reset_user_seq
 
-    max_user_id = db.scalar(select(func.max(DimUserProfile.user_id)))
-    if max_user_id and str(max_user_id).isdigit():
-        reset_user_seq(int(max_user_id) - _USER_ID_BASE)
+    max_profile = db.scalar(select(func.max(DimUserProfile.user_id)))
+    max_sample = db.scalar(select(func.max(FactComplaintSample.user_id)))
+    candidates = [int(uid) for uid in (max_profile, max_sample) if uid and str(uid).isdigit()]
+    if candidates:
+        reset_user_seq(max(candidates) - _USER_ID_BASE)
     else:
         reset_user_seq(0)
 
