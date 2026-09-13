@@ -17,6 +17,42 @@
             </el-steps>
         </el-card>
 
+        <el-card v-if="trainResult" shadow="never" class="mgb20">
+            <template #header>{{ t('pages.insight.action.trainModel') }} · {{ trainResult.model_version }}</template>
+            <el-alert :title="trainResult.message" type="success" show-icon :closable="false" class="mgb20" />
+            <el-row :gutter="16">
+                <el-col :xs="12" :sm="8">
+                    <el-statistic
+                        :title="t('pages.insight.action.valAccuracy')"
+                        :value="trainResult.val_accuracy ?? 0"
+                        :formatter="() => formatPct(trainResult?.val_accuracy)"
+                    />
+                </el-col>
+                <el-col :xs="12" :sm="8">
+                    <el-statistic
+                        :title="t('pages.insight.action.valAuc')"
+                        :value="trainResult.val_auc ?? 0"
+                        :formatter="() => formatMetric(trainResult?.val_auc)"
+                    />
+                </el-col>
+                <el-col :xs="12" :sm="8">
+                    <el-statistic
+                        :title="t('pages.insight.action.valPrAuc')"
+                        :value="trainResult.val_pr_auc ?? 0"
+                        :formatter="() => formatMetric(trainResult?.val_pr_auc)"
+                    />
+                </el-col>
+            </el-row>
+            <div class="train-meta">
+                <el-tag size="small" :type="trainResult.label_source === 'real_churn' ? 'success' : 'warning'">
+                    {{ trainResult.label_source }}
+                </el-tag>
+                <span v-if="trainResult.val_rows" class="run-result">
+                    {{ t('pages.insight.action.holdoutRows', { train: trainResult.train_rows, val: trainResult.val_rows }) }}
+                </span>
+            </div>
+        </el-card>
+
         <div class="toolbar mgb20">
             <el-button type="primary" :loading="running" @click="handleRun('incremental')">
                 {{ t('pages.insight.ai.runIncremental') }}
@@ -75,6 +111,17 @@ interface NightlyAccepted {
     message?: string;
 }
 
+interface TrainResult {
+    model_version: string;
+    message: string;
+    val_auc: number | null;
+    val_accuracy: number | null;
+    val_pr_auc: number | null;
+    train_rows: number;
+    val_rows: number;
+    label_source: string;
+}
+
 interface LogRow {
     id: number;
     answer: string;
@@ -90,6 +137,7 @@ const runningFull = ref(false);
 const training = ref(false);
 const loading = ref(false);
 const lastAccepted = ref<NightlyAccepted | null>(null);
+const trainResult = ref<TrainResult | null>(null);
 const logs = ref<LogRow[]>([]);
 const page = reactive({ index: 1, size: 10, total: 0 });
 
@@ -114,10 +162,23 @@ async function handleTrain() {
     training.value = true;
     try {
         const { data } = await postInsightTrainModel();
+        trainResult.value = data;
         ElMessage.success(data.message || t('pages.insight.action.trainDone', { version: data.model_version }));
     } finally {
         training.value = false;
     }
+}
+
+function formatPct(value: unknown) {
+    if (value === null || value === undefined || value === '') return '-';
+    const num = Number(value);
+    return Number.isFinite(num) ? `${(num * 100).toFixed(1)}%` : '-';
+}
+
+function formatMetric(value: unknown) {
+    if (value === null || value === undefined || value === '') return '-';
+    const num = Number(value);
+    return Number.isFinite(num) ? num.toFixed(4) : '-';
 }
 
 async function handleRun(mode: 'incremental' | 'full' = 'incremental') {
@@ -183,6 +244,13 @@ onMounted(loadLogs);
 .run-result {
     color: var(--el-text-color-secondary);
     font-size: 13px;
+}
+.train-meta {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 .pager {
     justify-content: flex-end;
