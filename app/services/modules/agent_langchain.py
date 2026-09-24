@@ -5,6 +5,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from app.core.config import settings
 from app.services.modules.agent_common import AgentStepData
@@ -20,7 +21,7 @@ def _make_llm(*, temperature: float) -> ChatOpenAI:
         raise HTTPException(status_code=503, detail="未配置 OPENAI_API_KEY，无法调用大模型")
     return ChatOpenAI(
         model=settings.llm_model,
-        api_key=settings.openai_api_key,
+        api_key=SecretStr(settings.openai_api_key),
         base_url=settings.llm_api_base.rstrip("/"),
         temperature=temperature,
     )

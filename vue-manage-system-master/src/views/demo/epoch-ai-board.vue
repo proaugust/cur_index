@@ -92,7 +92,14 @@
                     <el-table :data="epochStats.latest_releases" style="width: 100%" size="default" border stripe>
                         <el-table-column prop="name" :label="t('pages.aiNews.epoch.colName')" min-width="150" show-overflow-tooltip>
                             <template #default="scope">
-                                <span class="model-name">{{ scope.row.name }}</span>
+                                <a
+                                    v-if="scope.row.link"
+                                    class="model-name"
+                                    :href="scope.row.link"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >{{ scope.row.name }}</a>
+                                <span v-else class="model-name">{{ scope.row.name }}</span>
                             </template>
                         </el-table-column>
                         <el-table-column prop="org" :label="t('pages.aiNews.epoch.colOrg')" min-width="150" show-overflow-tooltip />
@@ -162,6 +169,7 @@ const epochStats = ref({
         domain: string;
         parameters: string;
         accessibility: string;
+        link?: string;
     }>,
 });
 
@@ -490,6 +498,10 @@ onMounted(async () => {
 .model-name {
     font-weight: bold;
     color: #2d8cf0;
+    text-decoration: none;
+}
+a.model-name:hover {
+    text-decoration: underline;
 }
 
 .chart {

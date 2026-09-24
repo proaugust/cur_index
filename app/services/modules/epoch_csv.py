@@ -51,6 +51,16 @@ def _parse_float(raw: str | None) -> float | None:
         return None
 
 
+def _first_link(raw: str | None) -> str:
+    """CSV Link 可能含多个空格分隔 URL，取第一个 http(s) 链接。"""
+    if not raw:
+        return ""
+    for part in raw.replace("\n", " ").split():
+        if part.startswith(("http://", "https://")):
+            return part
+    return ""
+
+
 def build_stats_from_csv(csv_path: Path) -> dict | None:
     """解析 Epoch CSV，返回看板用聚合 JSON；失败返回 None。"""
     if not csv_path.exists():
@@ -151,6 +161,7 @@ def build_stats_from_csv(csv_path: Path) -> dict | None:
                         "domain": main_domain,
                         "parameters": row.get("Parameters") or "Unknown",
                         "accessibility": row.get("Model accessibility") or "Unknown",
+                        "link": _first_link(row.get("Link")),
                     }
                 )
 
