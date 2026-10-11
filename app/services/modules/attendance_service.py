@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import func, inspect, text
+from sqlalchemy import Table, func, inspect, text
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -85,8 +85,9 @@ def _ensure_person_columns(bind) -> None:
 
 def ensure_attendance_tables(db: Session) -> None:
     bind = db.get_bind()
-    models.AttendancePerson.__table__.create(bind=bind, checkfirst=True)
-    models.AttendancePunch.__table__.create(bind=bind, checkfirst=True)
+    for table in (models.AttendancePerson.__table__, models.AttendancePunch.__table__):
+        if isinstance(table, Table):
+            table.create(bind=bind, checkfirst=True)
     _ensure_person_columns(bind)
     settings.attendance_faces_dir.mkdir(parents=True, exist_ok=True)
 

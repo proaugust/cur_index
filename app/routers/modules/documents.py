@@ -5,7 +5,7 @@ from app import schemas
 from app.crud import modules as crud
 from app.core.deps import get_db, get_document_import_service, get_document_search_service
 from app.core.permissions import require_permission
-from app.models import User
+from app.models import DocumentChunk, User
 from app.services.modules.document_import_service import DocumentImportService
 from app.services.modules.document_search_service import DocumentSearchService
 from app.services.shared.embedding import embed_text
@@ -141,7 +141,7 @@ def create_document_chunk(
     payload: schemas.DocumentChunkCreate,
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.chunks-create", name="新增切块")),
-) -> schemas.DocumentChunkRead:
+) -> DocumentChunk:
     from app.services.modules.chunk_lang import resolve_lang
     from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, refresh_search_vectors
 
@@ -166,7 +166,7 @@ def create_document_chunk(
 def update_document_chunk(
     chunk_id: int, payload: schemas.DocumentChunkUpdate, db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.chunks-update", name="更新切块")),
-) -> schemas.DocumentChunkRead:
+) -> DocumentChunk:
     from app.services.modules.chunk_table_ops import GENERAL_CHUNK_TABLE, refresh_search_vectors
 
     chunk = crud.get_document_chunk_by_id(db, chunk_id)

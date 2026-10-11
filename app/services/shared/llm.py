@@ -58,6 +58,7 @@ def chat_completion(
     system_prompt: str,
     user_prompt: str,
     *,
+    history: list[dict] | None = None,
     temperature: float = 0.3,
     json_mode: bool = False,
     disable_thinking: bool = False,
@@ -67,10 +68,15 @@ def chat_completion(
     if not settings.openai_api_key:
         raise HTTPException(status_code=503, detail="未配置 OPENAI_API_KEY，无法调用大模型")
 
+    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": user_prompt})
+
     url = f"{settings.llm_api_base.rstrip('/')}/chat/completions"
     body: dict = {
         "model": settings.llm_model,
-        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "messages": messages,
         "temperature": temperature,
     }
     if json_mode:
