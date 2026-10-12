@@ -214,7 +214,7 @@ def list_complaint_categories(db: Session, *, name: str | None = None) -> list[t
     )
     if name:
         query = query.filter(models.ComplaintCategory.name.ilike(f"%{name}%"))
-    return query.all()
+    return [(category, count) for category, count in query.all()]
 
 
 def create_complaint_category(

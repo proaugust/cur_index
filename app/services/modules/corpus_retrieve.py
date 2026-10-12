@@ -190,6 +190,29 @@ def display_similarity(hit: RetrievedHit, *, use_fusion: bool) -> float:
     return round(min(0.99, 0.5 + hit.fts_rank), 4)
 
 
+def _window_contents(parts: list[str], center: int, max_chars: int) -> str:
+    """以命中块为中心向两侧扩，直到 max_chars。命中块本身始终保留。"""
+    if not parts:
+        return ""
+    center = min(max(center, 0), len(parts) - 1)
+    lo = hi = center
+    total = len(parts[center])
+    while True:
+        left = lo - 1
+        right = hi + 1
+        take_left = left >= 0 and total + 2 + len(parts[left]) <= max_chars
+        take_right = right < len(parts) and total + 2 + len(parts[right]) <= max_chars
+        if take_left and (not take_right or (center - left) <= (right - center)):
+            lo = left
+            total += 2 + len(parts[left])
+        elif take_right:
+            hi = right
+            total += 2 + len(parts[right])
+        else:
+            break
+    return "\n\n".join(parts[lo : hi + 1])
+
+
 def expand_parents(
     db: Session,
     hits: list[RetrievedHit],
@@ -199,7 +222,7 @@ def expand_parents(
     corpus_names: list[str] | None = None,
     max_chars: int = _PARENT_MAX_CHARS,
 ) -> list[RetrievedHit]:
-    """按 section_path 拼同节上下文到 expanded_content；同节只保留一条。"""
+    """按 section_path 取同节切块，以命中块为中心扩到 expanded_content；同节只保留一条。"""
     if not hits:
         return []
     model = get_chunk_model(table_name)
@@ -226,15 +249,9 @@ def expand_parents(
         if len(siblings) <= 1:
             out.append(hit)
             continue
-        parts: list[str] = []
-        total = 0
-        for sib in siblings:
-            piece = sib.content or ""
-            if total + len(piece) > max_chars and parts:
-                break
-            parts.append(piece)
-            total += len(piece) + 2
-        hit.expanded_content = "\n\n".join(parts)
+        texts = [sib.content or "" for sib in siblings]
+        center = next((i for i, sib in enumerate(siblings) if sib.id == hit.row.id), 0)
+        hit.expanded_content = _window_contents(texts, center, max_chars)
         out.append(hit)
     return out
 

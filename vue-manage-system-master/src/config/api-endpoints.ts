@@ -612,6 +612,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
             pageSize: 5,
             columns: [
                 { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'corpus_name', label: '资料名', width: 100, showOverflowTooltip: true },
                 { prop: 'source_file', label: '文件', width: 100, showOverflowTooltip: true },
                 { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'section_title', label: '章节', width: 90, showOverflowTooltip: true },
@@ -667,6 +668,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
             columns: [
                 { prop: 'snippet_index', label: '片段', width: 56 },
                 { prop: 'id', label: 'ID', width: 64 },
+                { prop: 'corpus_name', label: '资料名', width: 100, showOverflowTooltip: true },
                 { prop: 'source_label', label: '来源', width: 110, showOverflowTooltip: true },
                 { prop: 'original_import_path', label: '原始路径', minWidth: 160, showOverflowTooltip: true },
                 { prop: 'similarity', label: '相似度', width: 72 },

@@ -325,7 +325,7 @@ def row_to_dict(row: Any) -> dict[str, Any]:
     emb_preview = None
     if "embedding" not in state.unloaded:
         emb_preview = embedding_preview(getattr(row, "embedding", None))
-    return {
+    data = {
         "id": row.id,
         "source_file": row.source_file,
         "section_title": row.section_title,
@@ -336,6 +336,10 @@ def row_to_dict(row: Any) -> dict[str, Any]:
         "lang": getattr(row, "lang", None) or DEFAULT_CHUNK_LANG,
         "embedding_preview": emb_preview,
     }
+    corpus_name = getattr(row, "corpus_name", None)
+    if corpus_name:
+        data["corpus_name"] = corpus_name
+    return data
 
 def gin_preview(from_fts: bool = False, fts_rank: float = 0.0, *, sv_text: str | None = None) -> str:
     snip = (sv_text or "").strip()

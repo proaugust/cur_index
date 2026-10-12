@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import {
+    deleteCorpusChunk,
     listCorpora,
     listCorpusCategories,
     searchCorpus,
@@ -22,11 +23,13 @@ export function useCorporaBrowse() {
     const canSearch = computed(() => permiss.hasApi('82', 'corpora-search'));
     const canLlm = computed(() => permiss.hasApi('82', 'corpora-search-llm'));
     const canShow = computed(() => canSearch.value || canLlm.value);
+    const canDeleteChunk = computed(() => permiss.hasApi('82', 'corpora-chunks-delete'));
 
     const mode = ref<BrowseMode>('search');
     const loading = ref(false);
     const suggestLoading = ref(false);
     const corporaLoading = ref(false);
+    const deleting = ref(false);
     const queried = ref(false);
     const rows = ref<Row[]>([]);
     const polishedAnswer = ref('');
@@ -188,12 +191,39 @@ export function useCorporaBrowse() {
         }
     };
 
+    const removeChunks = async (targets: Row[]) => {
+        if (!targets.length || deleting.value) return;
+        const nameOf = (row: Row) =>
+            String(row.corpus_name ?? '').trim() ||
+            (form.corpus_names.length === 1 ? form.corpus_names[0] : '');
+        const missing = targets.some((row) => !nameOf(row) || row.id == null);
+        if (missing) {
+            ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
+            return;
+        }
+        deleting.value = true;
+        try {
+            for (const row of targets) {
+                await deleteCorpusChunk(Number(row.id), nameOf(row));
+            }
+            ElMessage.success(t('apiDebug.deleted'));
+            await runQuery();
+        } catch (err: unknown) {
+            ElMessage.error(errDetail(err) || t('apiDebug.deleteFailed'));
+            await runQuery();
+        } finally {
+            deleting.value = false;
+        }
+    };
+
     return {
         canShow,
         canSearch,
         canLlm,
+        canDeleteChunk,
         mode,
         loading,
+        deleting,
         suggestLoading,
         corporaLoading,
         queried,
@@ -212,5 +242,6 @@ export function useCorporaBrowse() {
         onCategoryChange,
         suggestFilters,
         runQuery,
+        removeChunks,
     };
 }

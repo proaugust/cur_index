@@ -102,8 +102,47 @@
             <div class="answer-label">{{ t('pages.rag.highlights.polished_answer') }}</div>
             <div class="answer-body">{{ polishedAnswer }}</div>
         </div>
-        <el-table v-if="rows.length" :data="pagedRows" stripe border size="small" class="result-table">
+        <div v-if="canDeleteChunk && rows.length" class="row-actions">
+            <span v-if="checkedRows.length" class="selected-hint">
+                {{ t('apiDebug.selectedCount', { n: checkedRows.length }) }}
+            </span>
+            <span v-else class="selected-hint muted">{{ t('apiDebug.selectRowsHint') }}</span>
+            <el-button
+                size="small"
+                type="danger"
+                plain
+                :disabled="!checkedRows.length"
+                :loading="deleting"
+                @click="onDeleteMany"
+            >
+                {{ t('apiDebug.deleteSelectedMany', { n: checkedRows.length }) }}
+            </el-button>
+        </div>
+        <el-table
+            v-if="rows.length"
+            :data="pagedRows"
+            stripe
+            border
+            size="small"
+            class="result-table"
+            row-key="id"
+            @selection-change="onSelectionChange"
+        >
+            <el-table-column
+                v-if="canDeleteChunk"
+                type="selection"
+                width="48"
+                class-name="col-selection"
+                label-class-name="col-selection"
+            />
             <el-table-column prop="id" label="ID" min-width="64" />
+            <el-table-column
+                v-if="showCorpus"
+                prop="corpus_name"
+                :label="t('pages.rag.corporaBrowse.corpusName')"
+                min-width="100"
+                show-overflow-tooltip
+            />
             <el-table-column prop="source_file" :label="t('pages.rag.columns.source_file')" min-width="100" show-overflow-tooltip />
             <el-table-column prop="section_title" :label="t('pages.rag.columns.section_title')" min-width="90" show-overflow-tooltip />
             <el-table-column prop="similarity" :label="t('pages.rag.columns.similarity')" min-width="72" />
@@ -111,6 +150,13 @@
             <el-table-column prop="lang" :label="t('pages.rag.columns.lang')" min-width="56" />
             <el-table-column prop="embedding_preview" :label="t('pages.rag.columns.embedding_preview')" width="88" show-overflow-tooltip class-name="col-embed" />
             <el-table-column prop="gin_preview" :label="t('pages.rag.columns.gin_preview')" min-width="88" show-overflow-tooltip />
+            <el-table-column v-if="canDeleteChunk" width="72">
+                <template #default="{ row }">
+                    <el-button link type="danger" :disabled="deleting" @click="onDeleteOne(row)">
+                        {{ t('common.delete') }}
+                    </el-button>
+                </template>
+            </el-table-column>
         </el-table>
         <el-pagination
             v-if="rows.length > pageSize"
@@ -136,7 +182,9 @@
 </template>
 
 <script setup lang="ts" name="corpora-browse-panel">
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { ElMessageBox } from 'element-plus';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
 import { useCorporaBrowse } from '@/composables/useCorporaBrowse';
@@ -148,8 +196,10 @@ const {
     canShow,
     canSearch,
     canLlm,
+    canDeleteChunk,
     mode,
     loading,
+    deleting,
     suggestLoading,
     corporaLoading,
     queried,
@@ -167,7 +217,56 @@ const {
     onCategoryChange,
     suggestFilters,
     runQuery,
+    removeChunks,
 } = useCorporaBrowse();
+
+type BrowseRow = Record<string, unknown>;
+const checkedRows = ref<BrowseRow[]>([]);
+const showCorpus = computed(() => rows.value.some((row) => String(row.corpus_name ?? '').trim()));
+
+const onSelectionChange = (selection: BrowseRow[]) => {
+    checkedRows.value = selection;
+};
+
+watch(rows, () => {
+    checkedRows.value = [];
+});
+
+const onDeleteOne = async (row: BrowseRow) => {
+    const id = row.id;
+    try {
+        await ElMessageBox.confirm(t('apiDebug.deleteConfirm', { id }), t('apiDebug.deleteConfirmTitle'), {
+            type: 'warning',
+            confirmButtonText: t('common.delete'),
+            cancelButtonText: t('common.cancel'),
+        });
+    } catch {
+        return;
+    }
+    await removeChunks([row]);
+    checkedRows.value = [];
+};
+
+const onDeleteMany = async () => {
+    const targets = checkedRows.value.slice();
+    if (!targets.length) return;
+    const ids = targets.map((row) => row.id).join(', ');
+    try {
+        await ElMessageBox.confirm(
+            t('apiDebug.deleteConfirmMany', { n: targets.length, ids }),
+            t('apiDebug.deleteConfirmTitle'),
+            {
+                type: 'warning',
+                confirmButtonText: t('common.delete'),
+                cancelButtonText: t('common.cancel'),
+            },
+        );
+    } catch {
+        return;
+    }
+    await removeChunks(targets);
+    checkedRows.value = [];
+};
 
 const onFormEnter = (e: KeyboardEvent) => {
     if (e.isComposing || e.keyCode === 229) return;
@@ -190,6 +289,15 @@ const onFormEnter = (e: KeyboardEvent) => {
 .answer-label { font-size: 13px; color: #606266; margin-bottom: 6px; }
 .answer-body { white-space: pre-wrap; word-break: break-word; line-height: 1.6; font-size: 14px; }
 .result-table { width: 100%; margin-top: 8px; }
+.row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+}
+.selected-hint { font-size: 13px; color: #606266; }
+.selected-hint.muted { color: #909399; }
 .raw-block { margin-top: 16px; }
 .raw-pre {
     margin: 0;
@@ -213,6 +321,19 @@ const onFormEnter = (e: KeyboardEvent) => {
 .result-table :deep(td) { white-space: nowrap; }
 .result-table :deep(th .cell),
 .result-table :deep(td .cell) { white-space: nowrap; }
+.result-table :deep(.el-table-column--selection .cell) {
+    overflow: visible;
+    white-space: normal;
+}
+.result-table :deep(.col-selection),
+.result-table :deep(.col-selection .cell) {
+    overflow: visible;
+    white-space: normal;
+}
+.result-table :deep(.col-selection .el-checkbox) {
+    height: auto;
+    margin-right: 0;
+}
 .result-table :deep(td.col-embed .cell),
 .result-table :deep(th.col-embed .cell) {
     max-width: 88px;

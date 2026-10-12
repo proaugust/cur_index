@@ -222,15 +222,24 @@
                         </div>
 
                         <el-table
-                            :data="pagedRows(ep)"
+                            :data="tableState[ep.id].viewRows"
                             border
                             stripe
                             size="small"
                             class="result-table"
                             table-layout="fixed"
                             highlight-current-row
+                            row-key="id"
                             @current-change="(row) => onRowSelect(ep, row)"
+                            @selection-change="(rows) => onRowsCheck(ep, rows)"
                         >
+                            <el-table-column
+                                v-if="ep.resultView.rowActions"
+                                type="selection"
+                                width="48"
+                                class-name="col-selection"
+                                label-class-name="col-selection"
+                            />
                             <el-table-column
                                 v-for="col in ep.resultView.columns"
                                 :key="col.prop"
@@ -254,10 +263,13 @@
                         />
 
                         <div v-if="ep.resultView.rowActions" class="row-actions-bar">
-                            <span v-if="selectedRow[ep.id]" class="selected-hint">
+                            <span v-if="selectedRows[ep.id]?.length" class="selected-hint">
+                                {{ t('apiDebug.selectedCount', { n: selectedRows[ep.id].length }) }}
+                            </span>
+                            <span v-else-if="selectedRow[ep.id]" class="selected-hint">
                                 {{ t('apiDebug.selectedId', { id: selectedRow[ep.id]?.[ep.resultView.rowActions.idField ?? 'id'] }) }}
                             </span>
-                            <span v-else class="selected-hint muted">{{ t('apiDebug.selectRowHint') }}</span>
+                            <span v-else class="selected-hint muted">{{ t('apiDebug.selectRowsHint') }}</span>
                             <div class="row-actions-btns">
                                 <el-button
                                     size="small"
@@ -276,6 +288,16 @@
                                     @click="deleteSelectedRow(ep)"
                                 >
                                     {{ t('apiDebug.deleteSelected') }}
+                                </el-button>
+                                <el-button
+                                    size="small"
+                                    type="danger"
+                                    plain
+                                    :disabled="!selectedRows[ep.id]?.length"
+                                    :loading="rowActionLoading[ep.id]"
+                                    @click="deleteCheckedRows(ep)"
+                                >
+                                    {{ t('apiDebug.deleteSelectedMany', { n: selectedRows[ep.id]?.length ?? 0 }) }}
                                 </el-button>
                                 <el-button
                                     size="small"
@@ -368,7 +390,7 @@ import request from '@/utils/request';
 import FeatureIntroIcon from '@/components/feature-intro-icon.vue';
 import { readDemoCache, writeDemoCache } from '@/composables/useFormCache';
 import type { FeatureIntroMap } from '@/composables/useFeatureIntros';
-import type { ApiAsyncJobConfig, ApiEndpoint, ApiParam, ApiQueryExample } from '@/config/api-endpoints';
+import type { ApiAsyncJobConfig, ApiEndpoint, ApiParam, ApiQueryExample, ApiResultRowActions } from '@/config/api-endpoints';
 
 const { t } = useI18n();
 const slots = useSlots();
@@ -404,6 +426,8 @@ interface EndpointFormState {
 
 interface TableState {
     rows: Record<string, unknown>[];
+    /** 表格 :data 必须保持同一数组引用，否则 Element Plus 会清空多选 */
+    viewRows: Record<string, unknown>[];
     highlights: Record<string, string>;
     page: number;
     total: number;
@@ -422,6 +446,7 @@ const contentState = reactive<Record<string, ContentState>>({});
 const loading = reactive<Record<string, boolean>>({});
 const statusInfo = reactive<Record<string, { ok: boolean; text: string }>>({});
 const selectedRow = reactive<Record<string, Record<string, unknown> | null>>({});
+const selectedRows = reactive<Record<string, Record<string, unknown>[]>>({});
 const rowActionLoading = reactive<Record<string, boolean>>({});
 
 const dialogVisible = ref(false);
@@ -485,10 +510,11 @@ const initEndpointState = (ep: ApiEndpoint) => {
 
     formState[ep.id] = state;
     responses[ep.id] = '';
-    tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
+    tableState[ep.id] = { rows: [], viewRows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
     contentState[ep.id] = { content: '' };
     loading[ep.id] = false;
     selectedRow[ep.id] = null;
+    selectedRows[ep.id] = [];
 };
 
 watch(
@@ -617,7 +643,7 @@ const applyContentView = (ep: ApiEndpoint, data: unknown): string => {
 
 const applyResultView = (ep: ApiEndpoint, data: unknown) => {
     if (!ep.resultView || ep.resultView.mode !== 'table') {
-        tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
+        tableState[ep.id] = { rows: [], viewRows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
         return;
     }
 
@@ -648,7 +674,15 @@ const applyResultView = (ep: ApiEndpoint, data: unknown) => {
         }
     }
 
-    tableState[ep.id] = { rows, highlights, page, total, serverPaging };
+    tableState[ep.id] = {
+        rows,
+        viewRows: [],
+        highlights,
+        page,
+        total,
+        serverPaging,
+    };
+    syncViewRows(ep);
 };
 
 const tablePageSize = (ep: ApiEndpoint) => {
@@ -675,17 +709,39 @@ const showPagination = (ep: ApiEndpoint) => {
 const pagedRows = (ep: ApiEndpoint) => {
     const state = tableState[ep.id];
     if (!state || !ep.resultView) return [];
+    if (state.viewRows.length || state.rows.length === 0) return state.viewRows;
     if (state.serverPaging) return state.rows;
     const pageSize = tablePageSize(ep);
     const start = (state.page - 1) * pageSize;
     return state.rows.slice(start, start + pageSize);
 };
 
+/** 只在翻页或重新查询时更换数组，避免勾选触发重绘后多选被清空 */
+const syncViewRows = (ep: ApiEndpoint) => {
+    const state = tableState[ep.id];
+    if (!state) return;
+    if (!ep.resultView || ep.resultView.mode !== 'table') {
+        state.viewRows = [];
+        return;
+    }
+    if (state.serverPaging) {
+        state.viewRows = state.rows;
+        return;
+    }
+    const pageSize = tablePageSize(ep);
+    const start = (state.page - 1) * pageSize;
+    state.viewRows = state.rows.slice(start, start + pageSize);
+};
+
 const onTablePageChange = (ep: ApiEndpoint, page: number) => {
     const state = tableState[ep.id];
     if (!state) return;
     state.page = page;
-    if (!state.serverPaging) return;
+    if (!state.serverPaging) {
+        syncViewRows(ep);
+        selectedRows[ep.id] = [];
+        return;
+    }
     if (formState[ep.id]?.query) {
         formState[ep.id].query.page = page;
     }
@@ -738,6 +794,23 @@ const formatJson = (data: unknown) => JSON.stringify(data, null, 2);
 
 const onRowSelect = (ep: ApiEndpoint, row: Record<string, unknown> | null | undefined) => {
     selectedRow[ep.id] = row ?? null;
+};
+
+const onRowsCheck = (ep: ApiEndpoint, rows: Record<string, unknown>[]) => {
+    selectedRows[ep.id] = rows ?? [];
+};
+
+const deleteQueryForRow = (
+    ep: ApiEndpoint,
+    actions: ApiResultRowActions,
+    row: Record<string, unknown>,
+) => {
+    const carry = buildCarryQuery(ep, actions.carryQueryParams);
+    const fromRow = row.corpus_name;
+    if (fromRow !== undefined && fromRow !== null && String(fromRow).trim()) {
+        carry.corpus_name = String(fromRow);
+    }
+    return carry;
 };
 
 const replacePathId = (path: string, id: number | string) =>
@@ -888,7 +961,7 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
 
     rowActionLoading[ep.id] = true;
     try {
-        const carry = buildCarryQuery(ep, actions.carryQueryParams);
+        const carry = deleteQueryForRow(ep, actions, row);
         if (actions.carryQueryParams?.includes('corpus_name') && !carry.corpus_name) {
             ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
             return;
@@ -896,6 +969,7 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
         const path = replacePathId(actions.deletePath, chunkId as number | string);
         await request.delete(path, { params: carry });
         selectedRow[ep.id] = null;
+        selectedRows[ep.id] = [];
         ElMessage.success(t('apiDebug.deleted'));
         await sendRequest(ep);
     } catch (err) {
@@ -904,6 +978,63 @@ const deleteSelectedRow = async (ep: ApiEndpoint) => {
         ElMessage.error(typeof detail === 'object' && detail && 'detail' in detail
             ? String((detail as { detail: unknown }).detail)
             : t('apiDebug.deleteFailed'));
+    } finally {
+        rowActionLoading[ep.id] = false;
+    }
+};
+
+const deleteCheckedRows = async (ep: ApiEndpoint) => {
+    const actions = ep.resultView?.mode === 'table' ? ep.resultView.rowActions : undefined;
+    const rows = selectedRows[ep.id] ?? [];
+    if (!actions || !rows.length) return;
+
+    const idField = actions.idField ?? 'id';
+    const ids = rows
+        .map((row) => row[idField])
+        .filter((id) => id !== undefined && id !== null);
+    if (!ids.length) return;
+
+    if (actions.carryQueryParams?.includes('corpus_name')) {
+        const missing = rows.some((row) => !deleteQueryForRow(ep, actions, row).corpus_name);
+        if (missing) {
+            ElMessage.warning(t('pages.rag.corporaBrowse.corpusRequired'));
+            return;
+        }
+    }
+
+    try {
+        await ElMessageBox.confirm(
+            t('apiDebug.deleteConfirmMany', { n: ids.length, ids: ids.join(', ') }),
+            t('apiDebug.deleteConfirmTitle'),
+            {
+                type: 'warning',
+                confirmButtonText: t('common.delete'),
+                cancelButtonText: t('common.cancel'),
+            },
+        );
+    } catch {
+        return;
+    }
+
+    rowActionLoading[ep.id] = true;
+    try {
+        for (const row of rows) {
+            const chunkId = row[idField];
+            if (chunkId === undefined || chunkId === null) continue;
+            const path = replacePathId(actions.deletePath, chunkId as number | string);
+            await request.delete(path, { params: deleteQueryForRow(ep, actions, row) });
+        }
+        selectedRow[ep.id] = null;
+        selectedRows[ep.id] = [];
+        ElMessage.success(t('apiDebug.deleted'));
+        await sendRequest(ep);
+    } catch (err) {
+        const axiosErr = err as AxiosError;
+        const detail = axiosErr.response?.data;
+        ElMessage.error(typeof detail === 'object' && detail && 'detail' in detail
+            ? String((detail as { detail: unknown }).detail)
+            : t('apiDebug.deleteFailed'));
+        await sendRequest(ep);
     } finally {
         rowActionLoading[ep.id] = false;
     }
@@ -1090,6 +1221,7 @@ const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
             : formatJson(payload);
         applyResultView(ep, payload);
         selectedRow[ep.id] = null;
+        selectedRows[ep.id] = [];
         const failed =
             payload &&
             typeof payload === 'object' &&
@@ -1113,7 +1245,7 @@ const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
         const detail = axiosErr.response?.data ?? { message: axiosErr.message || t('apiDebug.requestFailed') };
         const errMsg = formatErrorDetail(detail);
         responses[ep.id] = formatJson(detail);
-        tableState[ep.id] = { rows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
+        tableState[ep.id] = { rows: [], viewRows: [], highlights: {}, page: 1, total: 0, serverPaging: false };
         contentState[ep.id] = { content: '' };
         statusInfo[ep.id] = {
             ok: false,
@@ -1256,6 +1388,23 @@ const sendRequest = async (ep: ApiEndpoint, opts?: { keepPage?: boolean }) => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.result-table :deep(.el-table-column--selection .cell) {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+}
+
+.result-table :deep(.col-selection .cell) {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+}
+
+.result-table :deep(.col-selection .el-checkbox) {
+    height: auto;
+    margin-right: 0;
 }
 
 .result-pagination {
