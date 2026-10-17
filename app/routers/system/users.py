@@ -10,7 +10,7 @@ from app.services.system import rbac_service
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/", response_model=UserListResponse)
+@router.get("/list", response_model=UserListResponse)
 def list_users(
     name: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -21,7 +21,7 @@ def list_users(
     return rbac_service.list_users(db, current_user, name=name, page=page, page_size=page_size)
 
 
-@router.post("/", response_model=UserRead)
+@router.post("/create", response_model=UserRead)
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),

@@ -10,7 +10,7 @@ from app.services.ops.error_log_service import query_error_logs, update_error_st
 router = APIRouter(prefix="/error-logs", tags=["error-logs"])
 
 
-@router.get("", response_model=schemas.AppErrorLogListResponse)
+@router.get("/list", response_model=schemas.AppErrorLogListResponse)
 def list_error_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),

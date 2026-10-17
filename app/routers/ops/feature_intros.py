@@ -10,7 +10,7 @@ from app.models import User
 router = APIRouter(prefix="/feature-intros", tags=["feature-intros"])
 
 
-@router.get("/", response_model=list[schemas.FeatureIntroRead])
+@router.get("/list", response_model=list[schemas.FeatureIntroRead])
 def list_feature_intros(
     page_key: str | None = Query(default=None, description="按页面过滤，如 complaints、agent"),
     db: Session = Depends(get_db),

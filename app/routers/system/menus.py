@@ -10,7 +10,7 @@ from app.services.system import menu_service
 router = APIRouter(prefix="/menus", tags=["menus"])
 
 
-@router.get("/", response_model=list[MenuRead])
+@router.get("/list", response_model=list[MenuRead])
 def list_menus(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("13.list", name="菜单列表")),
@@ -18,7 +18,7 @@ def list_menus(
     return menu_service.list_menus(db, current_user)
 
 
-@router.post("/", response_model=MenuRead)
+@router.post("/create", response_model=MenuRead)
 def create_menu(
     payload: MenuCreate,
     db: Session = Depends(get_db),

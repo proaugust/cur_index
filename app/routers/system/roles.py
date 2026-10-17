@@ -10,7 +10,7 @@ from app.services.system import rbac_service
 router = APIRouter(prefix="/roles", tags=["roles"])
 
 
-@router.get("/", response_model=RoleListResponse)
+@router.get("/list", response_model=RoleListResponse)
 def list_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permission("12.list", name="角色列表")),
@@ -18,7 +18,7 @@ def list_roles(
     return rbac_service.list_roles(db, current_user)
 
 
-@router.post("/", response_model=RoleRead)
+@router.post("/create", response_model=RoleRead)
 def create_role(
     payload: RoleCreate,
     db: Session = Depends(get_db),

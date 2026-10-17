@@ -18,6 +18,7 @@ from app.services.modules.chunk_table_ops import (
 )
 from app.services.modules.corpus_search_filters import apply_corpus_name_filter, merge_corpus_names
 from app.services.shared.embedding import embed_query
+from app.services.shared.reranker import score_passages
 
 _RETRIEVE_MODES = frozenset({"vector", "hybrid", "hybrid_rerank"})
 _DEFAULT_RECALL_K = 30
@@ -33,6 +34,7 @@ class RetrievedHit:
     vector_sim: float = 0.0
     fts_rank: float = 0.0
     fusion_score: float = 0.0
+    rerank_score: float = 0.0
     from_vector: bool = False
     from_fts: bool = False
     expanded_content: str | None = None
@@ -182,7 +184,16 @@ def fusion_rerank(query: str, hits: list[RetrievedHit]) -> list[RetrievedHit]:
     return hits
 
 
+def _passage(hit: RetrievedHit) -> str:
+    title = (hit.row.section_title or "").strip()
+    body = hit.row.content or ""
+    text = f"{title}\n{body}" if title else body
+    return text[:1500]
+
+
 def display_similarity(hit: RetrievedHit, *, use_fusion: bool) -> float:
+    if hit.rerank_score > 0:
+        return round(hit.rerank_score, 4)
     if use_fusion and hit.fusion_score > 0:
         return round(hit.fusion_score, 4)
     if hit.vector_sim > 0:
@@ -241,8 +252,9 @@ def expand_parents(
             .filter(model.source_file == hit.row.source_file)
             .filter(model.section_path == hit.row.section_path)
         )
-        if row_corpus:
-            q = q.filter(model.corpus_name == row_corpus)
+        corpus_col = getattr(model, "corpus_name", None)
+        if row_corpus and corpus_col is not None:
+            q = q.filter(corpus_col == row_corpus)
         else:
             q = apply_corpus_name_filter(q, model, names)
         siblings = q.order_by(model.chunk_index, model.id).all()
@@ -277,8 +289,13 @@ def _filter_hits(
     min_similarity: float,
     use_fusion: bool,
     limit: int,
+    strict: bool = False,
 ) -> list[RetrievedHit]:
+    if any(h.rerank_score > 0 for h in hits):
+        return [h for h in hits if h.rerank_score >= min_similarity][:limit]
     filtered = [h for h in hits if _hit_passes(h, min_similarity, use_fusion)]
+    if strict:
+        return [h for h in filtered if h.vector_sim >= min_similarity][:limit]
     if filtered:
         return filtered[:limit]
     best = max((h.vector_sim for h in hits if h.from_vector), default=0.0)
@@ -308,6 +325,7 @@ def retrieve(
     recall_k: int = _DEFAULT_RECALL_K,
     expand_parent: bool = False,
     lang: str | None = None,
+    strict: bool = False,
 ) -> list[dict[str, Any]]:
     mode = (retrieve_mode or "hybrid").strip().lower()
     if mode not in _RETRIEVE_MODES:
@@ -318,15 +336,28 @@ def retrieve(
     use_fts = mode in ("hybrid", "hybrid_rerank")
     use_fusion = mode in ("hybrid", "hybrid_rerank")
     k = max(limit, min(recall_k, 50))
-    common = dict(
+    vector_hits = recall_vector(
+        db,
+        query,
         table_name=table_name,
         recall_k=k,
         source_file=source_file,
         lang=resolved_lang,
         corpus_names=names,
     )
-    vector_hits = recall_vector(db, query, **common)
-    fts_hits = recall_fts(db, query, **common) if use_fts else []
+    fts_hits = (
+        recall_fts(
+            db,
+            query,
+            table_name=table_name,
+            recall_k=k,
+            source_file=source_file,
+            lang=resolved_lang,
+            corpus_names=names,
+        )
+        if use_fts
+        else []
+    )
     hits = merge_hits(vector_hits, fts_hits) if use_fts else list(vector_hits)
 
     if use_fusion:
@@ -334,7 +365,16 @@ def retrieve(
     else:
         hits.sort(key=lambda h: h.vector_sim, reverse=True)
 
-    hits = _filter_hits(hits, min_similarity=min_similarity, use_fusion=use_fusion, limit=limit)
+    if mode == "hybrid_rerank" and hits:
+        scores = score_passages(query, [_passage(h) for h in hits])
+        if scores:
+            for hit, score in zip(hits, scores):
+                hit.rerank_score = score
+            hits.sort(key=lambda h: (h.rerank_score, h.fusion_score, h.vector_sim), reverse=True)
+
+    hits = _filter_hits(
+        hits, min_similarity=min_similarity, use_fusion=use_fusion, limit=limit, strict=strict
+    )
     if expand_parent:
         hits = expand_parents(db, hits, table_name=table_name, corpus_names=names)
 

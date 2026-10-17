@@ -240,7 +240,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         name: '导入文档',
         method: 'POST',
         path: '/documents/import',
-        description: '上传 UTF-8 文本文档并切块写入 document_chunks',
+        description: '上传 UTF-8 文本。按【标题】或 Markdown 标题分段，段内按段落合并后写入 document_chunks',
         formParams: [
             { name: 'file', label: '文档文件', type: 'file', required: true },
             { name: 'replace_existing', label: '覆盖同名文件', type: 'boolean', default: true },
@@ -269,7 +269,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 default: 10,
                 min: 5,
                 max: 200,
-                placeholder: '标点切分后合并的下限（字符）',
+                placeholder: '短段落并入上一块的下限（字符）',
             },
         ],
     },
@@ -304,7 +304,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         name: '混合检索，重排，top5',
         method: 'GET',
         path: '/documents/search',
-        description: '通用文档库 document_chunks 混合检索（向量+全文、C1 重排，默认 top 5）',
+        description: '通用文档库混合检索。hybrid_rerank 为 Cross-Encoder 精排，hybrid 为 C1 融合',
         queryParams: [
             {
                 name: 'q',
@@ -358,7 +358,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         name: '搜索+LLM',
         method: 'GET',
         path: '/documents/search_and_llm',
-        description: '通用文档库检索 + 大模型润色，返回回答与原始出处',
+        description: '先改写查询再精排。相关度低于阈值时拒答，不调用回答模型',
         queryParams: [
             { name: 'q', label: '查询文本', type: 'string' },
             { name: 'limit', label: '条数', type: 'number', default: 5, min: 1, max: 50 },
@@ -376,7 +376,7 @@ export const documentEndpoints: ApiEndpoint[] = [
                 name: 'retrieve_mode',
                 label: '检索模式',
                 type: 'string',
-                default: 'hybrid',
+                default: 'hybrid_rerank',
                 placeholder: 'vector | hybrid | hybrid_rerank',
             },
             { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: true },
@@ -409,7 +409,7 @@ export const documentEndpoints: ApiEndpoint[] = [
         id: 'clear',
         name: '清空文档库',
         method: 'DELETE',
-        path: '/documents',
+        path: '/documents/clear',
         description: '清空通用文档库 document_chunks 全部切块',
     },
 ];
@@ -510,7 +510,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
         id: 'corpora-list',
         name: '资料库列表',
         method: 'GET',
-        path: '/documents/corpora',
+        path: '/documents/corpora/list',
         description: '列出已注册业务知识库（切块均在 document_business_chunks）',
         queryParams: [
             {
@@ -631,7 +631,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
         name: '资料库检索+LLM',
         method: 'GET',
         path: '/documents/corpora/search_and_llm',
-        description: '业务资料库 document_business_chunks 检索 + 大模型润色（分类/多库可过滤）',
+        description: '先改写查询再精排。相关度低于阈值时拒答，不调用回答模型',
         queryParams: [
             { name: 'categories', label: '分类(多选)', type: 'string', placeholder: '逗号分隔' },
             { name: 'corpus_names', label: '资料库(多选)', type: 'string', placeholder: '逗号分隔资料名' },
@@ -652,7 +652,7 @@ export const corporaEndpoints: ApiEndpoint[] = [
                 name: 'retrieve_mode',
                 label: '检索模式',
                 type: 'string',
-                default: 'hybrid',
+                default: 'hybrid_rerank',
                 placeholder: 'vector | hybrid | hybrid_rerank',
             },
             { name: 'expand_parent', label: '扩 Parent', type: 'boolean', default: true },
@@ -892,7 +892,7 @@ export const itemEndpoints: ApiEndpoint[] = [
         id: 'list',
         name: '物品列表',
         method: 'GET',
-        path: '/items/',
+        path: '/items/list',
         description: '获取全部物品',
         resultView: {
             mode: 'table',
@@ -907,7 +907,7 @@ export const itemEndpoints: ApiEndpoint[] = [
         id: 'create',
         name: '新增物品',
         method: 'POST',
-        path: '/items/',
+        path: '/items/create',
         description: '创建一条物品记录',
         bodyParams: [{ name: 'title', label: '标题', type: 'string', required: true }],
         resultView: {

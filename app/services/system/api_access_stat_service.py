@@ -28,7 +28,7 @@ def should_record(method: str, path: str, user_id: int | None) -> bool:
         return False
     if path in _SKIP_EXACT or path.startswith(_SKIP_PREFIX):
         return False
-    if path.rstrip("/").endswith("/api-access-stats"):
+    if "/api-access-stats" in path.rstrip("/"):
         return False
     return True
 

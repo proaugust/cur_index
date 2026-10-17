@@ -83,7 +83,7 @@
                 <el-select v-model="form.retrieve_mode" style="width: 220px">
                     <el-option label="hybrid（向量+全文+C1）" value="hybrid" />
                     <el-option label="vector（仅向量）" value="vector" />
-                    <el-option label="hybrid_rerank（同 hybrid）" value="hybrid_rerank" />
+                    <el-option label="hybrid_rerank（Cross-Encoder 精排）" value="hybrid_rerank" />
                 </el-select>
             </el-form-item>
             <el-form-item v-if="mode === 'llm'" label="扩 Parent">

@@ -19,7 +19,7 @@ def _api_access_cache_key(*, page: int, page_size: int, username: str | None, da
     return f"stats:api-access:p={page}:s={page_size}:u={user_part}:d={days_part}"
 
 
-@router.get("", response_model=schemas.ApiAccessStatListResponse)
+@router.get("/list", response_model=schemas.ApiAccessStatListResponse)
 def list_api_access_stats(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),

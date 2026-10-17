@@ -50,7 +50,7 @@ def suggest_corpus_category(
     return schemas.CorpusCategorySuggestResult.model_validate(suggest_category(q))
 
 
-@router.get("", response_model=list[schemas.DocumentCorpusRead], summary="列出业务知识库")
+@router.get("/list", response_model=list[schemas.DocumentCorpusRead], summary="列出业务知识库")
 def list_corpora(
     category: str | None = Query(default=None, description="按分类过滤，如 policy / product"),
     db: Session = Depends(get_db),
@@ -171,7 +171,7 @@ def list_corpus_by_file(
     )
 
 
-@router.delete("", response_model=schemas.CorpusClearResult, summary="清空资料库切块数据")
+@router.delete("/clear", response_model=schemas.CorpusClearResult, summary="清空资料库切块数据")
 def clear_corpus(
     corpus_name: str = Query(..., description="资料名"),
     db: Session = Depends(get_db),
@@ -305,7 +305,7 @@ def search_corpus(
     ),
     retrieve_mode: str = Query(
         default="hybrid",
-        description="vector | hybrid | hybrid_rerank（hybrid=向量+全文+C1融合）",
+        description="vector | hybrid | hybrid_rerank（hybrid=向量+全文+C1；hybrid_rerank=Cross-Encoder 精排）",
     ),
     expand_parent: bool = Query(default=False, description="按 section_path 扩同节上下文"),
     service: CorpusSearchService = Depends(_search_service),
@@ -338,7 +338,7 @@ def search_corpus_and_llm(
     min_similarity: float = Query(default=0.35, ge=0.0, le=1.0),
     source_file: str | None = Query(default=None, description="可选文件名过滤"),
     retrieve_mode: str = Query(
-        default="hybrid",
+        default="hybrid_rerank",
         description="vector | hybrid | hybrid_rerank",
     ),
     expand_parent: bool = Query(default=True, description="LLM 路径默认扩 Parent"),

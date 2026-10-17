@@ -10,7 +10,7 @@ from app.services.system.login_log_service import query_login_logs
 router = APIRouter(prefix="/login-logs", tags=["login-logs"])
 
 
-@router.get("", response_model=schemas.LoginLogListResponse)
+@router.get("/list", response_model=schemas.LoginLogListResponse)
 def list_login_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),

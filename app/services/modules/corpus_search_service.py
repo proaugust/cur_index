@@ -14,6 +14,7 @@ from app.services.modules.chunk_table_ops import (
     row_to_dict,
 )
 from app.services.modules.corpus_retrieve import retrieve
+from app.services.modules.query_rewrite import merge_scored, rewrite_queries
 from app.services.modules.corpus_search_filters import (
     normalize_category_list,
     resolve_corpus_names,
@@ -116,6 +117,7 @@ class CorpusSearchService:
         expand_parent: bool = False,
         corpus_names: list[str] | None = None,
         categories: list[str] | None = None,
+        strict: bool = False,
     ) -> list[schemas.DocumentChunkSearchResult]:
         mode = (retrieve_mode or "hybrid").strip().lower()
         if mode not in _RETRIEVE_MODES:
@@ -148,6 +150,7 @@ class CorpusSearchService:
                 retrieve_mode=mode,
                 expand_parent=expand_parent,
                 lang=resolved_lang,
+                strict=strict,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -160,23 +163,41 @@ class CorpusSearchService:
         *,
         limit: int = 5,
         min_similarity: float = 0.35,
-        retrieve_mode: str = "hybrid",
+        retrieve_mode: str = "hybrid_rerank",
         expand_parent: bool = True,
         source_file: str | None = None,
         corpus_names: list[str] | None = None,
         categories: list[str] | None = None,
     ) -> schemas.DocumentSearchPolishedResult:
-        sources = self.search(
-            corpus_name,
-            query,
-            limit=limit,
-            min_similarity=min_similarity,
-            retrieve_mode=retrieve_mode,
-            expand_parent=expand_parent,
-            source_file=source_file,
-            corpus_names=corpus_names,
-            categories=categories,
-        )
+        if query and query.strip():
+            groups = [
+                self.search(
+                    corpus_name,
+                    item,
+                    limit=limit,
+                    min_similarity=min_similarity,
+                    retrieve_mode=retrieve_mode,
+                    expand_parent=expand_parent,
+                    source_file=source_file,
+                    corpus_names=corpus_names,
+                    categories=categories,
+                    strict=True,
+                )
+                for item in rewrite_queries(query)
+            ]
+            sources = merge_scored(groups, limit)
+        else:
+            sources = self.search(
+                corpus_name,
+                query,
+                limit=limit,
+                min_similarity=min_similarity,
+                retrieve_mode=retrieve_mode,
+                expand_parent=expand_parent,
+                source_file=source_file,
+                corpus_names=corpus_names,
+                categories=categories,
+            )
         if not query or not query.strip():
             original = [
                 schemas.DocumentSearchPolishedSource.from_search_hit(
@@ -192,7 +213,7 @@ class CorpusSearchService:
                 source_count=len(original),
                 original_sources=original,
             )
-        if not sources:
+        if not sources or max(chunk.similarity for chunk in sources) < min_similarity:
             return schemas.DocumentSearchPolishedResult(
                 query=query,
                 polished_answer="未检索到相关文档片段，无法生成回答。",

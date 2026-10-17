@@ -13,14 +13,13 @@ from app.services.shared.embedding import embed_text
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 _SEARCH_DESC = (
-    "默认 hybrid_rerank：向量+全文召回后做 C1 融合重排，返回 top 5。"
-    "retrieve_mode=vector 时仅用 BGE+pgvector。入库与查询须使用同一 embedding 模型；更换模型后需重新导入文档。"
+    "默认 hybrid_rerank：向量+全文召回约 30 条后，用 BGE Cross-Encoder 精排，低于最低相似度的丢弃，返回 top 5。"
+    "hybrid 仍是向量+全文+C1 融合。入库按【标题】或 Markdown 标题做段落切块；更换 embedding 模型后需重新导入。"
 )
 _LLM_DESC = (
-    "返回两部分：① polished_answer — 将全部检索片段交给大模型综合润色后的丰富回答；"
-    "② original_sources — 原始资料列表（文件名、章节、数据库 content、相似度），"
-    "片段编号 snippet_index 与回答中的〔片段N〕一一对应，便于前端上下对照展示。"
-    "需配置 OPENAI_API_KEY、LLM_API_BASE、LLM_MODEL。"
+    "先把问题改写成至多 3 条检索查询，再按 hybrid_rerank 取片段。"
+    "最高相关分低于最低相似度时直接拒答，不调用回答模型。"
+    "返回 polished_answer 与 original_sources。需配置 OPENAI_API_KEY、LLM_API_BASE、LLM_MODEL。"
 )
 
 
@@ -73,7 +72,7 @@ def listByFile(
     return schemas.SourceFileListPage(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.delete("", response_model=schemas.DocumentClearResult, summary="清空通用文档库切块")
+@router.delete("/clear", response_model=schemas.DocumentClearResult, summary="清空通用文档库切块")
 def clear_documents(
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("82.clear", name="清空文档库")),
@@ -94,7 +93,7 @@ def search(
     min_similarity: float = Query(default=0.35, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     retrieve_mode: str = Query(
         default="hybrid_rerank",
-        description="vector | hybrid | hybrid_rerank（hybrid_rerank=向量+全文+C1融合重排）",
+        description="vector | hybrid | hybrid_rerank（hybrid_rerank=向量+全文+Cross-Encoder 精排）",
     ),
     expand_parent: bool = Query(default=False, description="按 section_path 扩同节上下文"),
     service: DocumentSearchService = Depends(get_document_search_service),
@@ -120,7 +119,7 @@ def search_and_llm(
     limit: int = Query(default=5, ge=1, le=50),
     min_similarity: float = Query(default=0.35, ge=0.0, le=1.0, description="最低相似度，低于此值的结果丢弃"),
     retrieve_mode: str = Query(
-        default="hybrid",
+        default="hybrid_rerank",
         description="vector | hybrid | hybrid_rerank",
     ),
     expand_parent: bool = Query(default=True, description="LLM 路径默认扩 Parent"),

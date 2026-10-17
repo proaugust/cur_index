@@ -131,8 +131,9 @@ export function useCorporaBrowse() {
         },
         { immediate: true },
     );
-    watch(mode, () => {
+    watch(mode, (next) => {
         page.value = 1;
+        form.retrieve_mode = next === 'llm' ? 'hybrid_rerank' : 'hybrid';
     });
 
     const pagedRows = computed(() =>

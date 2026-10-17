@@ -250,7 +250,7 @@ export const deleteDocumentChunk = (chunkId: number) =>
     request.delete(`/documents/chunks/${chunkId}`);
 
 /** 通用文档库 document_chunks：清空全部切块 */
-export const clearDocuments = () => request.delete('/documents');
+export const clearDocuments = () => request.delete('/documents/clear');
 
 /** 业务知识库：按文件名查（仅文件路径列表，不含切块） */
 export const listCorpusChunksByFile = (params: {
@@ -286,7 +286,7 @@ export const searchCorpusAndLlm = (params: {
 }) => request.get('/documents/corpora/search_and_llm', { params });
 
 export const clearCorpus = (params: { corpus_name: string }) =>
-    request.delete('/documents/corpora', { params });
+    request.delete('/documents/corpora/clear', { params });
 
 export const deleteCorpus = (params: { corpus_name: string }) =>
     request.delete('/documents/corpora/drop', { params });
@@ -311,7 +311,7 @@ export const deleteCorpusChunk = (chunkId: number, corpus_name: string) =>
     request.delete(`/documents/corpora/chunks/${chunkId}`, { params: { corpus_name } });
 
 export const listCorpora = (params?: { category?: string }) =>
-    request.get('/documents/corpora', { params });
+    request.get('/documents/corpora/list', { params });
 
 export const listCorpusCategories = () => request.get('/documents/corpora/categories');
 
@@ -518,7 +518,7 @@ export interface FeatureIntroRow {
 }
 
 export const getFeatureIntros = (pageKey?: string) =>
-    request.get<FeatureIntroRow[]>('/feature-intros/', { params: pageKey ? { page_key: pageKey } : {} });
+    request.get<FeatureIntroRow[]>('/feature-intros/list', { params: pageKey ? { page_key: pageKey } : {} });
 
 export const upsertFeatureIntro = (
     pageKey: string,
@@ -560,9 +560,9 @@ export const putAiNewsBoard = (data: AiNewsBoardUpdate) => request.put<AiNewsBoa
 export const createAiNewsLink = (url: string) => request.post<AiNewsBoard>('/ai-news/links', { url });
 
 // --- items ---
-export const listItems = () => request.get('/items/');
+export const listItems = () => request.get('/items/list');
 
-export const createItem = (data: { title: string }) => request.post('/items/', data);
+export const createItem = (data: { title: string }) => request.post('/items/create', data);
 
 export const fetchData = () => {
     return request({
@@ -581,7 +581,7 @@ export const changePassword = (data: { old_password: string; new_password: strin
     request.put('/auth/password', data);
 
 export const fetchUserData = (params?: { name?: string; page?: number; page_size?: number }) =>
-    request.get('/users/', { params });
+    request.get('/users/list', { params });
 
 export const createUser = (data: {
     name: string;
@@ -589,7 +589,7 @@ export const createUser = (data: {
     email?: string;
     phone?: string;
     role_id: number;
-}) => request.post('/users/', data);
+}) => request.post('/users/create', data);
 
 export const updateUser = (
     id: number,
@@ -605,7 +605,7 @@ export const updateUser = (
 
 export const deleteUser = (id: number) => request.delete(`/users/${id}`);
 
-export const fetchRoleData = () => request.get('/roles/');
+export const fetchRoleData = () => request.get('/roles/list');
 
 export const createRole = (data: {
     name: string;
@@ -613,7 +613,7 @@ export const createRole = (data: {
     status?: boolean;
     level?: number;
     permiss?: string[];
-}) => request.post('/roles/', data);
+}) => request.post('/roles/create', data);
 
 export const updateRole = (
     id: number,
@@ -625,7 +625,7 @@ export const updateRolePermissions = (id: number, permiss: string[]) =>
 
 export const deleteRole = (id: number) => request.delete(`/roles/${id}`);
 
-export const fetchMenuData = () => request.get('/menus/');
+export const fetchMenuData = () => request.get('/menus/list');
 
 export const createMenu = (data: {
     code: string;
@@ -633,7 +633,7 @@ export const createMenu = (data: {
     parent_code?: string;
     route_path?: string;
     icon?: string;
-}) => request.post('/menus/', data);
+}) => request.post('/menus/create', data);
 
 export const updateMenu = (
     code: string,
@@ -680,7 +680,7 @@ export interface AppErrorLogQuery {
 }
 
 export const fetchAppErrorLogs = (params?: AppErrorLogQuery) =>
-    request.get('/error-logs', { params });
+    request.get('/error-logs/list', { params });
 
 export const patchAppErrorLogStatus = (errorId: number, status: 'open' | 'resolved') =>
     request.patch(`/error-logs/${errorId}/status`, { status });
@@ -693,7 +693,7 @@ export interface LoginLogQuery {
 }
 
 export const fetchLoginLogs = (params?: LoginLogQuery) =>
-    request.get('/login-logs', { params });
+    request.get('/login-logs/list', { params });
 
 export interface ApiAccessStatQuery {
     page?: number;
@@ -704,7 +704,7 @@ export interface ApiAccessStatQuery {
 }
 
 export const fetchApiAccessStats = (params?: ApiAccessStatQuery) =>
-    request.get('/api-access-stats', { params });
+    request.get('/api-access-stats/list', { params });
 
 export const fetchEpochStats = () =>
     request.get('/epoch/stats');

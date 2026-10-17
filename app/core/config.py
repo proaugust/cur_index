@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     embedding_model_name: str = "BAAI/bge-base-zh-v1.5"
     embedding_dim: int = 768
     embedding_query_instruction: str = "为这个句子生成表示以用于检索相关文章："
+    # hybrid_rerank 首次调用时加载。环境变量 RERANKER_MODEL_NAME
+    reranker_model_name: str = "BAAI/bge-reranker-base"
     # auto：有 CUDA 用 gpu；无 GPU 设 cpu。batch_size=0 自适应（CPU=64 / CUDA=128）
     # 环境变量：EMBEDDING_DEVICE / EMBEDDING_BATCH_SIZE（无 GPU 建议 64，可试 32~96）
     embedding_device: str = "auto"

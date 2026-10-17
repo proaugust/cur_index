@@ -135,6 +135,51 @@ def parse_sections(text: str) -> list[TextSection]:
     return sections
 
 
+def parse_sections_kept(text: str) -> list[TextSection]:
+    """与 parse_sections 相同的 ==== / 【标题】 结构，正文保留换行，供段落切块。"""
+    blocks = SECTION_SEP.split(text.replace("\r\n", "\n").replace("\r", "\n"))
+    sections: list[TextSection] = []
+    index = 0
+
+    while index < len(blocks):
+        raw_lines = blocks[index].split("\n")
+        while raw_lines and not raw_lines[0].strip():
+            raw_lines.pop(0)
+        while raw_lines and not raw_lines[-1].strip():
+            raw_lines.pop()
+        if not raw_lines:
+            index += 1
+            continue
+
+        title = ""
+        path = ""
+        line_index = 0
+        title_match = TITLE_PATTERN.match(raw_lines[0].strip())
+        if title_match:
+            title = title_match.group(1)
+            line_index = 1
+            if line_index < len(raw_lines) and raw_lines[line_index].strip().startswith("/"):
+                path = raw_lines[line_index].strip()
+                line_index += 1
+
+        rest = "\n".join(line.rstrip() for line in raw_lines[line_index:]).strip()
+        if rest:
+            sections.append(TextSection(title=title, path=path, content=rest))
+            index += 1
+            continue
+
+        content = ""
+        if index + 1 < len(blocks):
+            content = blocks[index + 1].strip("\n")
+            index += 2
+        else:
+            index += 1
+        if title or path or content.strip():
+            sections.append(TextSection(title=title, path=path, content=content.strip()))
+
+    return sections
+
+
 def _find_split_end(text: str, start: int, max_len: int, *, search_window: int = _BOUNDARY_SEARCH_WINDOW) -> int:
     """在 max_len 附近向后找标点，找不到则硬切。"""
     if start >= len(text):

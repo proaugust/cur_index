@@ -1,10 +1,10 @@
 {
   "status": "success",
-  "updated_date": "2026-09-24",
-  "updated_at": "2026-09-24 21:27:32",
+  "updated_date": "2026-10-17",
+  "updated_at": "2026-10-17 01:01:58",
   "counts": {
-    "all_models": 3608,
-    "notable_models": 1098,
+    "all_models": 3615,
+    "notable_models": 1104,
     "frontier_models": 138,
     "large_scale_models": 630
   },
@@ -537,7 +537,7 @@
     {
       "year": 2026,
       "countries": {
-        "United States": 87,
+        "United States": 94,
         "China": 55,
         "Other": 11,
         "United Kingdom": 1,
@@ -547,7 +547,7 @@
     }
   ],
   "domains": {
-    "Language": 2070,
+    "Language": 2077,
     "Vision": 617,
     "Other": 707,
     "Robotics": 46,
@@ -555,9 +555,9 @@
     "Multimodal": 5
   },
   "open_weights": {
-    "Yes": 1376,
-    "No": 1398,
-    "Unknown": 834
+    "Yes": 1378,
+    "No": 1402,
+    "Unknown": 835
   },
   "scatter_data": [
     {
@@ -615,7 +615,7 @@
       "date": "2026-09-03",
       "org": "OpenAI",
       "params": null,
-      "compute": 1.0001e+27,
+      "compute": 9.4e+26,
       "domain": "Language",
       "is_frontier": true,
       "is_notable": true
@@ -785,7 +785,7 @@
       "date": "2026-07-15",
       "org": "Thinking Machines",
       "params": 975000000000.0,
-      "compute": 1.845e+24,
+      "compute": 1.1e+25,
       "domain": "Language",
       "is_frontier": false,
       "is_notable": true
@@ -2063,6 +2063,69 @@
   ],
   "latest_releases": [
     {
+      "name": "Muse Spark Open",
+      "org": "Meta AI",
+      "date": "2026-10-15",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Open weights (restricted use)",
+      "link": "https://research.meta.ai/blog/muse-spark-open"
+    },
+    {
+      "name": "Gemini 4 Argon",
+      "org": "Google DeepMind",
+      "date": "2026-09-30",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Limited access",
+      "link": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/"
+    },
+    {
+      "name": "GPT-6.1 Sol",
+      "org": "OpenAI",
+      "date": "2026-09-29",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://openai.com/index/introducing-gpt-6-1-sol/"
+    },
+    {
+      "name": "Claude Sonnet 5.5",
+      "org": "Anthropic",
+      "date": "2026-09-28",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://www.anthropic.com/claude-sonnet-5-5"
+    },
+    {
+      "name": "Claude Opus 5.5",
+      "org": "Anthropic",
+      "date": "2026-09-22",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://www.anthropic.com/claude-opus-5-5"
+    },
+    {
+      "name": "GPT-6 Sol",
+      "org": "OpenAI",
+      "date": "2026-09-22",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://openai.com/index/introducing-gpt-6-sol-and-luna/"
+    },
+    {
+      "name": "GPT-6 Luna",
+      "org": "OpenAI",
+      "date": "2026-09-22",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://openai.com/index/introducing-gpt-6-sol-and-luna/"
+    },
+    {
       "name": "Grok 4.7",
       "org": "xAI",
       "date": "2026-09-21",
@@ -2133,69 +2196,6 @@
       "parameters": "Unknown",
       "accessibility": "API access",
       "link": "https://openai.com/index/introducing-chatgpt-images-2-5/"
-    },
-    {
-      "name": "GPT-6 Astra",
-      "org": "OpenAI",
-      "date": "2026-09-03",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": ""
-    },
-    {
-      "name": "OpenEvidence Darwin",
-      "org": "OpenEvidence",
-      "date": "2026-09-03",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://www.openevidence.com/blog/model-family"
-    },
-    {
-      "name": "OpenEvidence Osler",
-      "org": "OpenEvidence",
-      "date": "2026-09-03",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://www.openevidence.com/blog/model-family"
-    },
-    {
-      "name": "OpenEvidence Sackett",
-      "org": "OpenEvidence",
-      "date": "2026-09-03",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://www.openevidence.com/blog/model-family"
-    },
-    {
-      "name": "OpenEvidence Snow",
-      "org": "OpenEvidence",
-      "date": "2026-09-03",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://www.openevidence.com/blog/model-family"
-    },
-    {
-      "name": "WeatherNext 3",
-      "org": "Google DeepMind,Google Research",
-      "date": "2026-09-03",
-      "domain": "Other",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://arxiv.org/abs/2609.03582"
-    },
-    {
-      "name": "Gemini 3.8 Flash",
-      "org": "Google DeepMind",
-      "date": "2026-09-02",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
     }
   ]
 }
