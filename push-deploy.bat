@@ -16,14 +16,57 @@ if /I not "!CUR_BRANCH!"=="main" (
     if errorlevel 1 goto :fail
 )
 
-echo [2/5] Auto-commit if dirty...
+echo [2/5] Commit if dirty...
 git add -A
 git diff --cached --quiet
 if errorlevel 1 (
-    for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm"') do set TS=%%i
-    git commit -m "chore: auto snapshot before deploy (!TS!)"
+    echo.
+    echo Pending changes to commit:
+    git diff --cached --stat
+    echo.
+
+    rem Auto-summary from staged paths -^> %TEMP%\push-deploy-subject.txt
+    powershell -NoProfile -Command ^
+      "$lines = git diff --cached --name-status; $names=@(); $a=0; $m=0; $d=0;" ^
+      "foreach ($line in $lines) {" ^
+      "  if ($line -match '^(A|M|D)\t(.+)$') { $names += $Matches[2]; switch ($Matches[1]) { 'A'{$a++} 'M'{$m++} 'D'{$d++} } }" ^
+      "  elseif ($line -match '^R\d+\t.+\t(.+)$') { $names += $Matches[1]; $m++ }" ^
+      "};" ^
+      "$n=$names.Count; $hint=(($names | ForEach-Object { Split-Path $_ -Leaf } | Select-Object -First 3) -join ', ');" ^
+      "if ($n -gt 3) { $hint += ', +' + ($n-3) + ' more' };" ^
+      "if ($a -gt 0 -and $m -eq 0 -and $d -eq 0) { $p='feat: add' }" ^
+      "elseif ($d -gt 0 -and $a -eq 0 -and $m -eq 0) { $p='chore: remove' }" ^
+      "else { $p='chore: update' };" ^
+      "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-subject.txt', ($p + ' ' + $hint))"
     if errorlevel 1 goto :fail
-    echo Committed pending changes.
+
+    set /p COMMIT_MSG=<"%TEMP%\push-deploy-subject.txt"
+    echo Suggested commit message:
+    echo   !COMMIT_MSG!
+    echo.
+    set EDIT=
+    set /p EDIT=Edit this message? [y/N]:
+    if /I "!EDIT!"=="y" (
+        set /p COMMIT_MSG=New message:
+        if "!COMMIT_MSG!"=="" (
+            echo ERROR: empty commit message; abort deploy.
+            goto :fail
+        )
+    )
+
+    for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm"') do set TS=%%i
+    git diff --cached --stat > "%TEMP%\push-deploy-stat.txt"
+    (
+        echo !COMMIT_MSG!
+        echo.
+        echo Snapshot before deploy ^(!TS!^).
+        echo.
+        type "%TEMP%\push-deploy-stat.txt"
+    ) > "%TEMP%\push-deploy-msg.txt"
+    git commit -F "%TEMP%\push-deploy-msg.txt"
+    if errorlevel 1 goto :fail
+    del "%TEMP%\push-deploy-subject.txt" "%TEMP%\push-deploy-stat.txt" "%TEMP%\push-deploy-msg.txt" 2>nul
+    echo Committed: !COMMIT_MSG!
 ) else (
     echo Working tree clean, skip commit.
 )
