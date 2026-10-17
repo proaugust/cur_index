@@ -40,32 +40,26 @@ if errorlevel 1 (
       "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-subject.txt', ($p + ' ' + $hint))"
     if errorlevel 1 goto :fail
 
-    set /p COMMIT_MSG=<"%TEMP%\push-deploy-subject.txt"
-    echo Suggested commit message:
-    echo   !COMMIT_MSG!
-    echo.
-    set EDIT=
-    set /p EDIT=Edit this message? [y/N]:
-    if /I "!EDIT!"=="y" (
-        set /p COMMIT_MSG=New message:
-        if "!COMMIT_MSG!"=="" (
-            echo ERROR: empty commit message; abort deploy.
-            goto :fail
-        )
-    )
+    rem Prompt: Enter=accept suggested; or type Chinese/custom message directly
+    powershell -NoProfile -Command ^
+      "$suggested = [IO.File]::ReadAllText($env:TEMP + '\push-deploy-subject.txt').Trim();" ^
+      "Write-Host 'Suggested commit message:'; Write-Host ('  ' + $suggested); Write-Host '';" ^
+      "$custom = Read-Host 'Commit message (Enter = accept suggested)';" ^
+      "if ([string]::IsNullOrWhiteSpace($custom)) { $msg = $suggested } else { $msg = $custom.Trim() };" ^
+      "if ([string]::IsNullOrWhiteSpace($msg)) { Write-Host 'ERROR: empty commit message; abort deploy.'; exit 1 };" ^
+      "$ts = Get-Date -Format 'yyyy-MM-dd_HH:mm';" ^
+      "$stat = (git diff --cached --stat | Out-String).TrimEnd();" ^
+      "$nl = [Environment]::NewLine;" ^
+      "$body = $msg + $nl + $nl + ('Snapshot before deploy (' + $ts + ').') + $nl + $nl + $stat + $nl;" ^
+      "$utf8 = New-Object System.Text.UTF8Encoding $false;" ^
+      "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-msg.txt', $body, $utf8);" ^
+      "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-used.txt', $msg, $utf8)"
+    if errorlevel 1 goto :fail
 
-    for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm"') do set TS=%%i
-    git diff --cached --stat > "%TEMP%\push-deploy-stat.txt"
-    (
-        echo !COMMIT_MSG!
-        echo.
-        echo Snapshot before deploy ^(!TS!^).
-        echo.
-        type "%TEMP%\push-deploy-stat.txt"
-    ) > "%TEMP%\push-deploy-msg.txt"
     git commit -F "%TEMP%\push-deploy-msg.txt"
     if errorlevel 1 goto :fail
-    del "%TEMP%\push-deploy-subject.txt" "%TEMP%\push-deploy-stat.txt" "%TEMP%\push-deploy-msg.txt" 2>nul
+    set /p COMMIT_MSG=<"%TEMP%\push-deploy-used.txt"
+    del "%TEMP%\push-deploy-subject.txt" "%TEMP%\push-deploy-msg.txt" "%TEMP%\push-deploy-used.txt" 2>nul
     echo Committed: !COMMIT_MSG!
 ) else (
     echo Working tree clean, skip commit.
