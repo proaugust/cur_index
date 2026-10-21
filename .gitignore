@@ -23,6 +23,12 @@ build/
 .env
 .env.*
 
+# 本地脚本含部署/路径信息，不推 GitHub / HF
+*.bat
+
+# 本地部署/启动脚本，不入库（含 HF Space URL 等）
+*.bat
+
 # Database
 *.db
 data/attendance_faces/
