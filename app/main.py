@@ -56,6 +56,16 @@ def _warmup_in_background() -> None:
     except Exception:
         logger.warning("LLM 预热失败，首次大模型请求可能较慢", exc_info=True)
 
+    # HF/Docker（serve_static）：进程启动时拉一次 OWID 并刷新 AI Trends 缓存，只触发一次
+    if settings.serve_static:
+        try:
+            from app.services.modules.ai_trends_service import ai_trends_service
+
+            ai_trends_service.trigger_async_update()
+            logger.info("HF/Docker: 已触发 AI Trends 后台更新一次")
+        except Exception:
+            logger.warning("HF/Docker: AI Trends 启动更新触发失败", exc_info=True)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

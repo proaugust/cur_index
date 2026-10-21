@@ -106,6 +106,11 @@ function getYears(data: AiTrendRow[]): number[] {
     return [...new Set(data.map((row) => row.year))].sort((a, b) => a - b);
 }
 
+/** 地图等页签用：从数据推导可用年份，新增年无需改前端硬编码 */
+export function getTrendYears(customData?: AiTrendRow[]): number[] {
+    return getYears(customData ?? []);
+}
+
 function getCountries(data: AiTrendRow[]): string[] {
     const latest = data.filter((row) => row.year === LATEST_YEAR)
         .sort((a, b) => b.aiIndexScore - a.aiIndexScore)

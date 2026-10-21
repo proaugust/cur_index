@@ -25,7 +25,7 @@ if errorlevel 1 (
     git diff --cached --stat
     echo.
 
-    rem Auto-summary from staged paths -^> %TEMP%\push-deploy-subject.txt
+    rem One PowerShell: auto-summary + prompt + UTF-8 commit msg file
     powershell -NoProfile -Command ^
       "$lines = git diff --cached --name-status; $names=@(); $a=0; $m=0; $d=0;" ^
       "foreach ($line in $lines) {" ^
@@ -34,33 +34,26 @@ if errorlevel 1 (
       "};" ^
       "$n=$names.Count; $hint=(($names | ForEach-Object { Split-Path $_ -Leaf } | Select-Object -First 3) -join ', ');" ^
       "if ($n -gt 3) { $hint += ', +' + ($n-3) + ' more' };" ^
-      "if ($a -gt 0 -and $m -eq 0 -and $d -eq 0) { $p='feat: add' }" ^
-      "elseif ($d -gt 0 -and $a -eq 0 -and $m -eq 0) { $p='chore: remove' }" ^
-      "else { $p='chore: update' };" ^
-      "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-subject.txt', ($p + ' ' + $hint))"
-    if errorlevel 1 goto :fail
-
-    rem Prompt: Enter=accept suggested; or type Chinese/custom message directly
-    powershell -NoProfile -Command ^
-      "$suggested = [IO.File]::ReadAllText($env:TEMP + '\push-deploy-subject.txt').Trim();" ^
+      "if ($a -gt 0 -and $m -eq 0 -and $d -eq 0) { $p='feat: add' } elseif ($d -gt 0 -and $a -eq 0 -and $m -eq 0) { $p='chore: remove' } else { $p='chore: update' };" ^
+      "$suggested = ($p + ' ' + $hint).Trim();" ^
       "Write-Host 'Suggested commit message:'; Write-Host ('  ' + $suggested); Write-Host '';" ^
-      "$custom = Read-Host 'Commit message (Enter = accept suggested)';" ^
-      "if ([string]::IsNullOrWhiteSpace($custom)) { $msg = $suggested } else { $msg = $custom.Trim() };" ^
+      "$edit = Read-Host 'Write custom commit message? [y/N]';" ^
+      "if ($edit -eq 'y' -or $edit -eq 'Y') {" ^
+      "  $custom = Read-Host 'Commit message';" ^
+      "  if ([string]::IsNullOrWhiteSpace($custom)) { $msg = $suggested } else { $msg = $custom.Trim() }" ^
+      "} else { $msg = $suggested };" ^
       "if ([string]::IsNullOrWhiteSpace($msg)) { Write-Host 'ERROR: empty commit message; abort deploy.'; exit 1 };" ^
-      "$ts = Get-Date -Format 'yyyy-MM-dd_HH:mm';" ^
+      "$ts = Get-Date -Format 'yyyy-MM-dd_HH:mm'; $nl = [Environment]::NewLine;" ^
       "$stat = (git diff --cached --stat | Out-String).TrimEnd();" ^
-      "$nl = [Environment]::NewLine;" ^
       "$body = $msg + $nl + $nl + ('Snapshot before deploy (' + $ts + ').') + $nl + $nl + $stat + $nl;" ^
       "$utf8 = New-Object System.Text.UTF8Encoding $false;" ^
       "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-msg.txt', $body, $utf8);" ^
-      "[IO.File]::WriteAllText($env:TEMP + '\push-deploy-used.txt', $msg, $utf8)"
+      "Write-Host ('Committed: ' + $msg)"
     if errorlevel 1 goto :fail
 
     git commit -F "%TEMP%\push-deploy-msg.txt"
     if errorlevel 1 goto :fail
-    set /p COMMIT_MSG=<"%TEMP%\push-deploy-used.txt"
-    del "%TEMP%\push-deploy-subject.txt" "%TEMP%\push-deploy-msg.txt" "%TEMP%\push-deploy-used.txt" 2>nul
-    echo Committed: !COMMIT_MSG!
+    del "%TEMP%\push-deploy-msg.txt" 2>nul
 ) else (
     echo Working tree clean, skip commit.
 )

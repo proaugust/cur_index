@@ -74,9 +74,23 @@
         <el-row :gutter="20" class="mgb20">
             <el-col :span="24">
                 <el-card shadow="hover">
-                    <div class="card-header">
-                        <p class="card-header-title">{{ t('pages.dashboard.worldMapTitle') }}</p>
-                        <p class="card-header-desc">{{ t('pages.dashboard.worldMapDesc') }}</p>
+                    <div class="card-header card-header-map">
+                        <div>
+                            <p class="card-header-title">
+                                {{ t('pages.dashboard.worldMapTitle', { year: selectedMapYear }) }}
+                            </p>
+                            <p class="card-header-desc">{{ t('pages.dashboard.worldMapDesc') }}</p>
+                        </div>
+                        <el-radio-group
+                            v-if="mapYears.length"
+                            :model-value="selectedMapYear"
+                            size="small"
+                            @update:model-value="onMapYearChange"
+                        >
+                            <el-radio-button v-for="year in mapYears" :key="year" :value="year">
+                                {{ String(year).slice(-2) }}
+                            </el-radio-button>
+                        </el-radio-group>
                     </div>
                     <component :is="VChart" v-if="VChart" class="chart chart-map" :option="worldMapOption" autoresize />
                 </el-card>
@@ -171,7 +185,7 @@
 </template>
 
 <script setup lang="ts" name="dashboard">
-import { computed, onMounted, shallowRef, ref, type Component } from 'vue';
+import { computed, onMounted, shallowRef, ref, watch, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import countup from '@/components/countup.vue';
 import { fetchAiTrendsStats } from '@/api';
@@ -181,6 +195,7 @@ import {
     buildRegionRanks,
     buildSummaryCards,
     buildWorldMapOption,
+    getTrendYears,
     type DashboardChartTexts,
 } from './chart/ai-index-data';
 import {
@@ -227,6 +242,28 @@ async function ensureDashboardCharts() {
 const dynamicTrends = ref<any[] | undefined>(undefined);
 const dynamicIntelligence = ref<any[] | undefined>(undefined);
 const trendsUpdatedAt = ref<string>('');
+const selectedMapYear = ref(2026);
+
+const mapYears = computed(() => getTrendYears(dynamicTrends.value));
+
+function onMapYearChange(year: string | number | boolean | undefined) {
+    const n = Number(year);
+    if (Number.isFinite(n)) {
+        selectedMapYear.value = n;
+    }
+}
+
+watch(
+    mapYears,
+    (years) => {
+        if (!years.length) return;
+        const latest = years[years.length - 1]!;
+        if (!years.includes(selectedMapYear.value)) {
+            selectedMapYear.value = latest;
+        }
+    },
+    { immediate: true },
+);
 
 onMounted(async () => {
     void ensureDashboardCharts();
@@ -236,6 +273,10 @@ onMounted(async () => {
             dynamicTrends.value = trendsRes.data.trends;
             dynamicIntelligence.value = trendsRes.data.intelligence;
             trendsUpdatedAt.value = trendsRes.data.updated_at;
+            const years = getTrendYears(trendsRes.data.trends);
+            if (years.length) {
+                selectedMapYear.value = years[years.length - 1]!;
+            }
         }
     } catch (err) {
         console.error('加载仪表盘数据失败', err);
@@ -272,7 +313,9 @@ const barRaceOption = computed(() => buildInvestmentBarRaceOption(dynamicTrends.
 const annualBarRaceOption = computed(() =>
     buildAnnualInvestmentBarRaceOption(dynamicTrends.value, chartTexts.value),
 );
-const worldMapOption = computed(() => buildWorldMapOption(dynamicTrends.value, 2026, chartTexts.value));
+const worldMapOption = computed(() =>
+    buildWorldMapOption(dynamicTrends.value, selectedMapYear.value, chartTexts.value),
+);
 const intelligenceTrendOption = computed(() =>
     buildIntelligenceTrendOption(
         dynamicIntelligence.value,
@@ -360,6 +403,14 @@ const intelligenceTrendOption = computed(() =>
 .card-header {
     padding-left: 10px;
     margin-bottom: 20px;
+}
+
+.card-header-map {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .card-header-title {

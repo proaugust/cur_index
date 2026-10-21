@@ -1275,7 +1275,7 @@ export default {
             indexTrendDesc: 'Multi-line comparison of AI_Index_Score across 14 countries/regions from 2015 to 2026',
             investmentPieTitle: '2026 Investment Share',
             investmentPieDesc: 'Top 6 AI investment regions + other regions (USD billions)',
-            worldMapTitle: '2026 Global AI Index Distribution',
+            worldMapTitle: '{year} Global AI Index Distribution',
             worldMapDesc: 'Data is available for 14 countries/regions (colored areas); hovering over others shows "No data"',
             barRaceTitle: 'Global AI Cumulative Investment Ranking',
             barRaceDesc: 'Country-colored bars; length shows cumulative cross-year funding since each country\'s first data year (auto-play)',

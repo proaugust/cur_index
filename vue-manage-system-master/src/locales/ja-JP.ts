@@ -1222,7 +1222,7 @@ export default {
             indexTrendDesc: '2015–2026 年 14 国・地域の AI_Index_Score 比較',
             investmentPieTitle: '2026 投資シェア',
             investmentPieDesc: 'AI 投資 Top6 + その他（十億ドル）',
-            worldMapTitle: '2026 世界 AI 指数分布',
+            worldMapTitle: '{year} 世界 AI 指数分布',
             worldMapDesc: '14 国・地域にデータあり。それ以外はホバーで「データなし」',
             barRaceTitle: '世界のAI累計投資ランキング',
             barRaceDesc: '国別カラー；棒の長さは累計調達額（自動再生）',

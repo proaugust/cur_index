@@ -1224,7 +1224,7 @@ export default {
             indexTrendDesc: '2015–2026 年 14 国/地区 AI_Index_Score 多线对比',
             investmentPieTitle: '2026 投资占比',
             investmentPieDesc: 'AI 投资 Top6 + 其他地区（十亿美元）',
-            worldMapTitle: '2026 全球 AI 指数分布',
+            worldMapTitle: '{year} 全球 AI 指数分布',
             worldMapDesc: '14 国/地区有数据（有颜色的区域）；其余国家悬停显示「暂无数据」',
             barRaceTitle: '全球 AI 累计投资排行',
             barRaceDesc: '国色编码；柱长为自有数据年起的跨年累计融资（自动播放）',
