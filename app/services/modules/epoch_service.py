@@ -24,6 +24,9 @@ ONLINE_CSV_URL = "https://epoch.ai/data/all_ai_models.csv"
 REDIS_KEY = "cache:epoch_ai:stats"
 
 _update_lock = threading.Lock()
+_memory_stats: dict | None = None
+# 种子 json 仅在 Redis/内存皆空时回填一次，避免请求反复读盘
+_seed_backfill_attempted = False
 
 
 class EpochAiService:
@@ -31,11 +34,19 @@ class EpochAiService:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     def get_cached_stats(self) -> dict:
-        """Redis → 种子 json；过期则异步刷新。请求不读 CSV。"""
+        """读路径：Redis → 内存 → 种子 json（仅一次，回填 Redis）。请求不读 CSV。
+
+        写路径：下载解析后经 `_write_cache` 写 Redis + 种子 + 内存。
+        """
         stats = self._read_cache()
         if not stats or stats.get("updated_date") != date.today().isoformat():
             self.trigger_async_update()
-        return stats or self._get_empty_fallback()
+
+        if stats:
+            return stats
+        if _memory_stats and _memory_stats.get("status") == "success":
+            return _memory_stats
+        return self._get_empty_fallback()
 
     def trigger_async_update(self) -> None:
         if not _update_lock.acquire(blocking=False):
@@ -52,16 +63,28 @@ class EpochAiService:
         threading.Thread(target=_task, name="epoch-ai-updater", daemon=True).start()
 
     def _read_cache(self) -> dict | None:
+        global _memory_stats, _seed_backfill_attempted
+
         if settings.redis_enabled:
             cached = cache_get_json(REDIS_KEY)
             if isinstance(cached, dict) and cached.get("status") == "success":
+                _memory_stats = cached
                 return cached
+
+        if _memory_stats and _memory_stats.get("status") == "success":
+            self._write_redis(_memory_stats)
+            return _memory_stats
+
+        if _seed_backfill_attempted:
+            return None
+        _seed_backfill_attempted = True
 
         if not CACHE_FILE.exists():
             return None
         try:
             data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
             if isinstance(data, dict) and data.get("status") == "success":
+                _memory_stats = data
                 self._write_redis(data)
                 return data
         except Exception as exc:
@@ -74,6 +97,9 @@ class EpochAiService:
         cache_set_json(REDIS_KEY, stats, ttl=settings.epoch_ai_cache_ttl)
 
     def _write_cache(self, stats: dict) -> None:
+        """更新完成后：内存 + Redis + 本地种子一并更新。"""
+        global _memory_stats
+        _memory_stats = stats
         self._write_redis(stats)
         try:
             CACHE_FILE.write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")

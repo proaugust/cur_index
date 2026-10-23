@@ -22,7 +22,7 @@ DATA_DIR = BASE_DIR / "data" / "ai_trends"
 CACHE_FILE = DATA_DIR / "ai_trends_stats.json"
 REDIS_KEY = "cache:ai_trends:stats"
 
-# 本地底表（入库种子，不删）；OWID 下载到 DATA_DIR，解析后删除
+# 本地底表仅供后台更新建仓；请求路径不读 CSV
 LOCAL_TRENDS_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "global_ai_trends_2015_2026.csv"
 LOCAL_INTEL_CSV = BASE_DIR / "vue-manage-system-master" / "src" / "views" / "chart" / "ai_intelligence_growth.csv"
 RUNTIME_CSVS = (DATA_DIR / "investment.csv", DATA_DIR / "papers.csv")
@@ -42,11 +42,13 @@ ONLINE_SOURCES = [
 
 INVESTMENT_VALUE_COL = "Estimated funding raised by privately held AI companies - Field: All"
 PAPERS_VALUE_COL = "AI scholarly publications - Field: All"
+# 全球 AI 指数分布：接口不返回 2023 以前的 trends
+MIN_TREND_YEAR = 2023
 
 _update_lock = threading.Lock()
-# 进程内兜底：Redis/磁盘不可写时，更新后仍不必每次读底表 CSV
 _memory_stats: dict | None = None
-_cold_build_attempted = False
+# 种子 json 仅在 Redis/内存皆空时回填一次，避免请求反复读盘
+_seed_backfill_attempted = False
 
 
 class AiTrendsService:
@@ -54,28 +56,20 @@ class AiTrendsService:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     def get_cached_stats(self) -> dict:
-        """读路径：Redis → 内存 → 种子 json（回填 Redis）。不反复读底表 CSV。
+        """读路径：Redis → 内存 → 种子 json（仅一次，回填 Redis）。请求不读底表 CSV。
 
-        写路径：下载/merge 更新后经 `_write_cache` 同时写 Redis + 种子文件 + 内存。
+        写路径：下载/merge 更新后经 `_write_cache` 写 Redis + 种子 + 内存。
         """
-        global _cold_build_attempted, _memory_stats
-
         stats = self._read_cache()
         if not stats or stats.get("updated_date") != date.today().isoformat():
             self.trigger_async_update()
 
         if stats:
-            return stats
+            return self._with_min_trend_year(stats)
 
-        # 冷启动仅尝试一次：底表建仓并写入 Redis，之后请求只读缓存
-        if not _cold_build_attempted:
-            _cold_build_attempted = True
-            stats = self._build_stats()
-            if stats:
-                self._write_cache(stats)
-                return stats
-
-        return _memory_stats if _memory_stats and _memory_stats.get("status") == "success" else self._get_empty_fallback()
+        if _memory_stats and _memory_stats.get("status") == "success":
+            return self._with_min_trend_year(_memory_stats)
+        return self._get_empty_fallback()
 
     def trigger_async_update(self) -> None:
         if not _update_lock.acquire(blocking=False):
@@ -92,7 +86,7 @@ class AiTrendsService:
         threading.Thread(target=_task, name="ai-trends-updater", daemon=True).start()
 
     def _read_cache(self) -> dict | None:
-        global _memory_stats
+        global _memory_stats, _seed_backfill_attempted
 
         if settings.redis_enabled:
             cached = cache_get_json(REDIS_KEY)
@@ -101,15 +95,19 @@ class AiTrendsService:
                 return cached
 
         if _memory_stats and _memory_stats.get("status") == "success":
-            # Redis 未命中时用内存，并尽量回填 Redis
             self._write_redis(_memory_stats)
             return _memory_stats
+
+        if _seed_backfill_attempted:
+            return None
+        _seed_backfill_attempted = True
 
         if not CACHE_FILE.exists():
             return None
         try:
             data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
             if isinstance(data, dict) and data.get("status") == "success":
+                data = self._with_min_trend_year(data)
                 _memory_stats = data
                 self._write_redis(data)
                 return data
@@ -122,9 +120,24 @@ class AiTrendsService:
             return
         cache_set_json(REDIS_KEY, stats, ttl=settings.ai_trends_cache_ttl)
 
+    @staticmethod
+    def _with_min_trend_year(stats: dict) -> dict:
+        trends = stats.get("trends")
+        if not isinstance(trends, list):
+            return stats
+        filtered = [
+            row
+            for row in trends
+            if isinstance(row, dict) and int(row.get("year") or 0) >= MIN_TREND_YEAR
+        ]
+        if len(filtered) == len(trends):
+            return stats
+        return {**stats, "trends": filtered}
+
     def _write_cache(self, stats: dict) -> None:
-        """文件/merge 更新完成后：内存 + Redis + 本地种子一并更新。"""
+        """更新完成后：内存 + Redis + 本地种子一并更新。"""
         global _memory_stats
+        stats = self._with_min_trend_year(stats)
         _memory_stats = stats
         self._write_redis(stats)
         try:
@@ -168,6 +181,7 @@ class AiTrendsService:
         self._cleanup_runtime_csv()
 
     def _build_stats(self) -> dict | None:
+        """仅后台更新调用：读底表 CSV + OWID 运行时 CSV。"""
         trends = self._parse_trends_csv(LOCAL_TRENDS_CSV)
         intelligence = self._parse_intelligence_csv(LOCAL_INTEL_CSV)
         if not trends and not intelligence:
@@ -177,6 +191,7 @@ class AiTrendsService:
             inv_map = self._parse_owid_kv(RUNTIME_CSVS[0], INVESTMENT_VALUE_COL)
             papers_map = self._parse_owid_kv(RUNTIME_CSVS[1], PAPERS_VALUE_COL)
             merge_trends(trends, inv_map, papers_map)
+            trends = [row for row in trends if int(row.get("year") or 0) >= MIN_TREND_YEAR]
 
         return {
             "status": "success",

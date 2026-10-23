@@ -62,6 +62,8 @@ export const COUNTRY_COLORS = [
 ];
 
 const LATEST_YEAR = 2026;
+/** 全球 AI 指数分布页签：不展示 2023 以前 */
+const MAP_MIN_YEAR = 2023;
 
 export interface DashboardChartTexts {
     countryLabel: (country: string) => string;
@@ -106,9 +108,9 @@ function getYears(data: AiTrendRow[]): number[] {
     return [...new Set(data.map((row) => row.year))].sort((a, b) => a - b);
 }
 
-/** 地图等页签用：从数据推导可用年份，新增年无需改前端硬编码 */
+/** 地图等页签用：从数据推导可用年份（≥2023），新增年无需改前端硬编码 */
 export function getTrendYears(customData?: AiTrendRow[]): number[] {
-    return getYears(customData ?? []);
+    return getYears(customData ?? []).filter((year) => year >= MAP_MIN_YEAR);
 }
 
 function getCountries(data: AiTrendRow[]): string[] {
