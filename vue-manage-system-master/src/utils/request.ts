@@ -1,5 +1,18 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
+function currentInnerTab(): string {
+    const content = document.querySelector('.content');
+    if (!content) return '';
+    const items = content.querySelectorAll('.el-tabs__item.is-active');
+    for (const item of items) {
+        const el = item as HTMLElement;
+        if (el.offsetParent === null && el.getClientRects().length === 0) continue;
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text) return text.slice(0, 100);
+    }
+    return '';
+}
+
 const service: AxiosInstance = axios.create({
     baseURL: '/api',
     timeout: 120000,
@@ -10,6 +23,14 @@ service.interceptors.request.use(
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        }
+        const page = window.location.hash.replace(/^#/, '').split('?')[0];
+        if (page.startsWith('/')) {
+            config.headers['X-Page'] = page.slice(0, 200);
+        }
+        const tab = currentInnerTab();
+        if (tab) {
+            config.headers['X-Tab'] = encodeURIComponent(tab);
         }
         return config;
     },

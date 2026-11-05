@@ -31,7 +31,12 @@
                 <el-table-column :label="t('pages.loginLogs.time')" width="180">
                     <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
                 </el-table-column>
-                <el-table-column prop="user_agent" :label="t('pages.loginLogs.userAgent')" min-width="240" show-overflow-tooltip />
+                <el-table-column :label="t('pages.loginLogs.browser')" width="140" show-overflow-tooltip>
+                    <template #default="{ row }">
+                        <span :title="row.user_agent || ''">{{ row.browser || '—' }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="os" :label="t('pages.loginLogs.os')" width="120" show-overflow-tooltip />
             </el-table>
 
             <el-pagination
@@ -60,6 +65,8 @@ interface LoginRow {
     username: string;
     ip: string;
     user_agent?: string | null;
+    browser?: string;
+    os?: string;
     created_at: string;
 }
 

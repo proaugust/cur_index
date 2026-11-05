@@ -117,6 +117,16 @@
 
             <el-tab-pane :label="t('pages.aiNews.epoch.tabCareer')" name="career-ai" lazy>
                 <div class="pane-pad insight-image-wrap">
+                    <p class="quick-links">
+                        <el-link
+                            type="primary"
+                            href="https://www.anthropic.com/research/labor-market-impacts#introduction"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Anthropic：AI 对劳动力市场的影响
+                        </el-link>
+                    </p>
                     <el-image
                         src="/epoch-ai-insight.jpg"
                         :preview-src-list="['/epoch-ai-insight.jpg']"
@@ -441,6 +451,7 @@ onMounted(async () => {
 
 .quick-links {
     margin-top: 8px;
+    margin-bottom: 12px;
     font-size: 13px;
 }
 

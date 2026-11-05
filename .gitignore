@@ -29,6 +29,9 @@ build/
 # 本地部署/启动脚本，不入库（含 HF Space URL 等）
 *.bat
 
+# 本机蓝牙/系统修复脚本，不入库
+tools/
+
 # Database
 *.db
 data/attendance_faces/

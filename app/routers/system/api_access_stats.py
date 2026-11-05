@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import schemas
@@ -13,10 +15,19 @@ from app.services.system.api_access_stat_service import query_api_access_stats
 router = APIRouter(prefix="/api-access-stats", tags=["api-access-stats"])
 
 
-def _api_access_cache_key(*, page: int, page_size: int, username: str | None, days: int | None) -> str:
-    user_part = (username or "").strip()
-    days_part = str(days) if days is not None else "all"
-    return f"stats:api-access:p={page}:s={page_size}:u={user_part}:d={days_part}"
+def _parse_dt(value: str | None) -> datetime | None:
+    if value is None or not value.strip():
+        return None
+    raw = value.strip().replace("T", " ")[:19]
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="时间格式应为 YYYY-MM-DD HH:mm:ss") from exc
+
+
+def _api_access_cache_key(**parts: object) -> str:
+    raw = "|".join(f"{key}={'' if value is None else value}" for key, value in sorted(parts.items()))
+    return f"stats:api-access:{raw}"
 
 
 @router.get("/list", response_model=schemas.ApiAccessStatListResponse)
@@ -25,11 +36,32 @@ def list_api_access_stats(
     page_size: int = Query(50, ge=1, le=200),
     username: str | None = Query(None),
     days: int | None = Query(default=None, ge=1, le=90),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
+    page_name: str | None = Query(None),
+    path: str | None = Query(None),
+    method: str | None = Query(None),
+    hit_count: int | None = Query(None, ge=0),
+    status_code: int | None = Query(None, ge=100, le=599),
     refresh: bool = Query(default=False, description="跳过缓存重新统计，结果写回 Redis"),
     db: Session = Depends(get_db),
     _: User = Depends(require_permission("15.list", name="接口访问统计")),
 ) -> schemas.ApiAccessStatListResponse:
-    key = _api_access_cache_key(page=page, page_size=page_size, username=username, days=days)
+    start_at = _parse_dt(start)
+    end_at = _parse_dt(end)
+    key = _api_access_cache_key(
+        page=page,
+        page_size=page_size,
+        username=(username or "").strip(),
+        days=days,
+        start=start_at.isoformat(sep=" ") if start_at else "",
+        end=end_at.isoformat(sep=" ") if end_at else "",
+        page_name=(page_name or "").strip(),
+        path=(path or "").strip(),
+        method=(method or "").strip().upper(),
+        hit_count=hit_count,
+        status_code=status_code,
+    )
     ttl = settings.api_access_stats_cache_ttl
     if not refresh:
         payload = memory_get_json(key)
@@ -49,20 +81,15 @@ def list_api_access_stats(
         page_size=page_size,
         username=username,
         days=days,
+        start=start_at,
+        end=end_at,
+        page_name=page_name,
+        path=path,
+        method=method,
+        hit_count=hit_count,
+        status_code=status_code,
     )
-    items = [
-        schemas.ApiAccessStatItem(
-            id=stat.id,
-            user_id=stat.user_id,
-            username=uname,
-            method=stat.method,
-            path=stat.path,
-            hit_count=stat.hit_count,
-            last_status=stat.last_status,
-            last_at=stat.last_at,
-        )
-        for stat, uname in rows
-    ]
+    items = [schemas.ApiAccessStatItem(**row) for row in rows]
     result = schemas.ApiAccessStatListResponse(items=items, total=total, page=page, page_size=page_size)
     payload = result.model_dump(mode="json")
     memory_set_json(key, payload, ttl=ttl)

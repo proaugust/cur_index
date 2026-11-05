@@ -695,11 +695,34 @@ export interface LoginLogQuery {
 export const fetchLoginLogs = (params?: LoginLogQuery) =>
     request.get('/login-logs/list', { params });
 
+export const fetchActivity = (params?: LoginLogQuery) =>
+    request.get('/login-logs/activity', { params });
+
+let lastPageViewPath = '';
+let lastPageViewAt = 0;
+
+export const recordPageView = (data: { path: string; title?: string }) => {
+    const now = Date.now();
+    if (data.path === lastPageViewPath && now - lastPageViewAt < 8000) {
+        return Promise.resolve();
+    }
+    lastPageViewPath = data.path;
+    lastPageViewAt = now;
+    return request.post('/login-logs/page-views', data);
+};
+
 export interface ApiAccessStatQuery {
     page?: number;
     page_size?: number;
     username?: string;
     days?: number | null;
+    start?: string;
+    end?: string;
+    page_name?: string;
+    path?: string;
+    method?: string;
+    hit_count?: number;
+    status_code?: number;
     refresh?: boolean;
 }
 

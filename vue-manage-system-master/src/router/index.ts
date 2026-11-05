@@ -1,6 +1,6 @@
-﻿import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 import { usePermissStore } from '../store/permiss';
-import { fetchMe } from '../api';
+import { fetchMe, recordPageView } from '../api';
 import Home from '../views/home.vue';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
@@ -581,8 +581,17 @@ router.beforeEach(async (to, from, next) => {
     }
 });
 
-router.afterEach(() => {
+router.afterEach((to) => {
     NProgress.done();
+    if (to.meta.noAuth === true || !localStorage.getItem('access_token')) {
+        return;
+    }
+    const path = to.path;
+    if (!path || path === '/' || path === '/login') {
+        return;
+    }
+    const title = typeof to.meta.title === 'string' ? to.meta.title : undefined;
+    recordPageView({ path, title }).catch(() => undefined);
 });
 
 export default router;

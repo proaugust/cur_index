@@ -1,6 +1,6 @@
-﻿from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -72,6 +72,34 @@ class LoginLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class PageView(Base):
+    __tablename__ = "page_views"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    username: Mapped[str] = mapped_column(String(50), default="")
+    path: Mapped[str] = mapped_column(String(200), default="")
+    title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class UserAction(Base):
+    """已登录用户的写操作（POST/PUT/PATCH/DELETE），不含请求体。"""
+
+    __tablename__ = "user_actions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    username: Mapped[str] = mapped_column(String(50), default="")
+    method: Mapped[str] = mapped_column(String(16), default="")
+    path: Mapped[str] = mapped_column(String(200), default="")
+    status_code: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    page: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class ApiAccessStat(Base):
     __tablename__ = "api_access_stats"
     __table_args__ = (
@@ -84,4 +112,33 @@ class ApiAccessStat(Base):
     path: Mapped[str] = mapped_column(String(200), default="")
     hit_count: Mapped[int] = mapped_column(Integer, default=0)
     last_status: Mapped[int] = mapped_column(Integer, default=0)
+    last_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class ApiAccessDaily(Base):
+    """按用户、页面、页签、方法、接口、日期、状态码分桶，便于按时间范围汇总。"""
+
+    __tablename__ = "api_access_daily"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "page",
+            "tab",
+            "method",
+            "path",
+            "day",
+            "status_code",
+            name="uq_api_access_daily_bucket",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    page: Mapped[str] = mapped_column(String(200), default="")
+    tab: Mapped[str] = mapped_column(String(100), default="")
+    method: Mapped[str] = mapped_column(String(16), default="GET")
+    path: Mapped[str] = mapped_column(String(200), default="")
+    day: Mapped[date] = mapped_column(Date, index=True)
+    status_code: Mapped[int] = mapped_column(Integer, default=0)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
     last_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

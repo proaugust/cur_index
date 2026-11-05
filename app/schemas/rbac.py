@@ -166,6 +166,8 @@ class LoginLogItem(BaseModel):
     username: str
     ip: str
     user_agent: str | None = None
+    browser: str = ""
+    os: str = ""
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -178,17 +180,59 @@ class LoginLogListResponse(BaseModel):
     page_size: int
 
 
-class ApiAccessStatItem(BaseModel):
+class PageViewCreate(BaseModel):
+    path: str = Field(min_length=1, max_length=200)
+    title: str | None = Field(default=None, max_length=100)
+
+
+class PageViewItem(BaseModel):
     id: int
+    user_id: int | None = None
+    username: str
+    path: str
+    title: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PageViewListResponse(BaseModel):
+    items: list[PageViewItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ActivityItem(BaseModel):
+    kind: str
+    username: str
+    method: str = ""
+    path: str
+    title: str | None = None
+    status_code: int | None = None
+    error: str | None = None
+    page: str | None = None
+    request_id: str | None = None
+    created_at: datetime
+
+
+class ActivityListResponse(BaseModel):
+    items: list[ActivityItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ApiAccessStatItem(BaseModel):
     user_id: int
     username: str = ""
+    page: str = ""
+    tab: str = ""
     method: str
     path: str
     hit_count: int
-    last_status: int
+    statuses: dict[str, int] = {}
     last_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 class ApiAccessStatListResponse(BaseModel):
