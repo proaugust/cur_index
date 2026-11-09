@@ -480,6 +480,34 @@ export const runCobolMigrateStep = (step: number) =>
 
 export const runCobolMigratePipeline = () => request.post('/cobol_migrate/pipeline');
 
+export const getOracleCompatStatus = () => request.get('/oracle_compat/status');
+
+export const seedOracleCompat = (rows: number) => request.post('/oracle_compat/seed', { rows });
+
+export const clearOracleCompat = () => request.post('/oracle_compat/clear');
+
+export const listOracleCompatRows = (params: {
+    table?: 'emp' | 'emp_bench' | 'dept';
+    page?: number;
+    page_size?: number;
+}) => request.get('/oracle_compat/rows', { params });
+
+export const runOracleCompat = () => request.post('/oracle_compat/run');
+
+export const runOracleCompatCase = (data: {
+    case_id: string;
+    sample_sql: string;
+    check_sql: string;
+    plugin_bench: string;
+    native_bench: string;
+}) => request.post('/oracle_compat/run_case', data);
+
+export const runOracleCompatSql = (data: {
+    case_id: string;
+    kind: 'sample_sql' | 'check_sql' | 'plugin_bench' | 'native_bench';
+    sql: string;
+}) => request.post('/oracle_compat/run_sql', data);
+
 // --- AI chat ---
 export const askChat = (data: {
     question: string;

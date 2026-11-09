@@ -3,6 +3,7 @@
         <el-menu
             class="sidebar-el-menu"
             :default-active="onRoutes"
+            :default-openeds="defaultOpeneds"
             :collapse="sidebar.collapse"
             :background-color="sidebar.bgColor"
             :text-color="sidebar.textColor"
@@ -67,6 +68,19 @@ const menuTitle = (item: Menus) => {
 };
 
 const visibleMenu = computed(() => filterMenuByPermiss(menuData, permiss.menuKeys));
+
+/** 收集有子节点的菜单 index，启动后默认全部展开 */
+const collectOpeneds = (items: Menus[]): string[] => {
+    const ids: string[] = [];
+    for (const item of items) {
+        if (item.children?.length) {
+            ids.push(item.index);
+            ids.push(...collectOpeneds(item.children));
+        }
+    }
+    return ids;
+};
+const defaultOpeneds = computed(() => collectOpeneds(visibleMenu.value));
 
 const route = useRoute();
 const router = useRouter();

@@ -1,12 +1,12 @@
 {
   "status": "success",
-  "updated_date": "2026-11-06",
-  "updated_at": "2026-11-06 05:37:18",
+  "updated_date": "2026-11-10",
+  "updated_at": "2026-11-10 00:31:20",
   "counts": {
     "all_models": 3695,
     "notable_models": 1118,
     "frontier_models": 138,
-    "large_scale_models": 638
+    "large_scale_models": 639
   },
   "yearly_countries": [
     {
@@ -556,8 +556,8 @@
     "Multimodal": 5
   },
   "open_weights": {
-    "Yes": 1394,
-    "No": 1461,
+    "Yes": 1395,
+    "No": 1460,
     "Unknown": 840
   },
   "scatter_data": [
@@ -567,6 +567,16 @@
       "org": "Particle",
       "params": 748000000000.0,
       "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Kimi K3.1 Pro",
+      "date": "2026-10-23",
+      "org": "Moonshot",
+      "params": 2800000000000.0,
+      "compute": 2.0001e+25,
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
@@ -615,7 +625,7 @@
       "name": "Grok 4.7",
       "date": "2026-09-21",
       "org": "xAI",
-      "params": 2100000000.0,
+      "params": 2100000000000.0,
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
@@ -2050,16 +2060,6 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
-    },
-    {
-      "name": "Ling-1T",
-      "date": "2025-10-10",
-      "org": "Ant Group",
-      "params": 1000000000000.0,
-      "compute": 6.000001e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": true
     }
   ],
   "latest_releases": [
@@ -2122,9 +2122,9 @@
       "org": "Moonshot",
       "date": "2026-10-23",
       "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://platform.kimi.ai/docs/guide/kimi-k3-1-pro-quickstart"
+      "parameters": "2800000000000.0",
+      "accessibility": "Open weights (restricted use)",
+      "link": "https://huggingface.co/moonshotai/Kimi-K3.1-Pro"
     },
     {
       "name": "Boba",

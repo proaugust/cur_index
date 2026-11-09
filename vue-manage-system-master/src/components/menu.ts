@@ -193,6 +193,12 @@ export const menuData: Menus[] = [
                 index: '/modules-insight',
                 titleKey: 'menu.demoInsight',
             },
+            {
+                id: '93',
+                pid: '8',
+                index: '/demo-oracle-pg',
+                titleKey: 'menu.demoOraclePg',
+            },
         ],
     },
     {

@@ -223,6 +223,16 @@ const routes: RouteRecordRaw[] = [
                 redirect: '/demo-attendance',
             },
             {
+                path: '/demo-oracle-pg',
+                name: 'demo-oracle-pg',
+                meta: {
+                    titleKey: 'route.demoOraclePg',
+                    title: 'Oracle → PG',
+                    permiss: '93',
+                },
+                component: () => import(/* webpackChunkName: "demo-oracle-pg" */ '../views/demo/oracle-pg.vue'),
+            },
+            {
                 path: '/demo-cobol-migrate',
                 name: 'demo-cobol-migrate',
                 meta: {

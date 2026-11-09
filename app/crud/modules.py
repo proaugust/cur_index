@@ -643,6 +643,12 @@ DEFAULT_FEATURE_INTROS: list[tuple[str, str, str, str]] = [
         "炸金花 AI 对局",
         "人机炸金花对局演示：发牌、跟注/弃牌，并展示 AI 裁判与底池流水。",
     ),
+    (
+        "oracle-pg",
+        "page",
+        "Oracle → PG 函数对照",
+        "用 orafce 跑常见 Oracle 函数，造带扩展字段的样例，核对能不能用，并和同义 PG 写法比耗时。",
+    ),
 ]
 
 

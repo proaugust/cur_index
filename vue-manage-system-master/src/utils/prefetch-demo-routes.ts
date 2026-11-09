@@ -7,6 +7,7 @@ const DEMO_ROUTE_LOADERS = [
     () => import('@/views/demo/meeting.vue'),
     () => import('@/views/demo/smart-route.vue'),
     () => import('@/views/demo/cobol-migrate.vue'),
+    () => import('@/views/demo/oracle-pg.vue'),
     () => import('@/views/demo/attendance.vue'),
     () => import('@/views/demo/zha-jinhua.vue'),
 ] as const;
