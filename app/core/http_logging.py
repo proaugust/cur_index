@@ -6,6 +6,7 @@ import json
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 
 from fastapi import FastAPI, Request
@@ -18,6 +19,9 @@ from app.core.security import decode_access_token
 logger = logging.getLogger(__name__)
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+
+# 访问统计 / 操作日志写库不阻塞响应返回
+_request_log_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="req-log")
 
 
 def get_request_id() -> str:
@@ -149,23 +153,29 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             from app.services.system.api_access_stat_service import maybe_record_request
             from app.services.system.login_log_service import record_user_action
 
-            maybe_record_request(
-                request.method,
-                request.url.path,
+            method = request.method
+            path = request.url.path
+            page = _page_from_request(request)
+            tab = _tab_from_request(request)
+            _request_log_executor.submit(
+                maybe_record_request,
+                method,
+                path,
                 uid,
                 status_code,
-                page=_page_from_request(request),
-                tab=_tab_from_request(request),
+                page=page,
+                tab=tab,
             )
             if uid is not None:
-                record_user_action(
+                _request_log_executor.submit(
+                    record_user_action,
                     user_id=uid,
                     username=username,
-                    method=request.method,
-                    path=request.url.path,
+                    method=method,
+                    path=path,
                     status_code=status_code,
                     error=error_text,
-                    page=_page_from_request(request),
+                    page=page,
                     request_id=rid,
                 )
 

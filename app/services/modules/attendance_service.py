@@ -1,11 +1,12 @@
 import base64
 import json
 import math
+import threading
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import Table, func, inspect, text
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -33,27 +34,59 @@ def _next_user_id(db: Session) -> str:
 # 仅在高置信同一人时更新标准照，避免误匹配覆盖他人头像
 _REFERENCE_UPDATE_MAX_DISTANCE = 0.45
 
+# 进程内人脸向量缓存：避免每次打卡全表拉 ORM + 反复 json.loads
+_descriptor_cache_lock = threading.Lock()
+_descriptor_cache: list[tuple[int, list[float]]] | None = None
+
 
 def _is_placeholder_descriptor(descriptor: list[float]) -> bool:
     return len(descriptor) == 128 and all(v == 0.0 for v in descriptor)
 
 
+def _invalidate_descriptor_cache() -> None:
+    global _descriptor_cache
+    with _descriptor_cache_lock:
+        _descriptor_cache = None
+
+
+def _load_descriptor_cache(db: Session) -> list[tuple[int, list[float]]]:
+    global _descriptor_cache
+    with _descriptor_cache_lock:
+        if _descriptor_cache is not None:
+            return _descriptor_cache
+    rows = db.query(models.AttendancePerson.id, models.AttendancePerson.face_descriptor).all()
+    entries: list[tuple[int, list[float]]] = []
+    for person_id, raw in rows:
+        stored = _parse_descriptor(raw)
+        if _is_placeholder_descriptor(stored):
+            continue
+        entries.append((person_id, stored))
+    with _descriptor_cache_lock:
+        if _descriptor_cache is None:
+            _descriptor_cache = entries
+        return _descriptor_cache
+
+
 def _find_matching_person(
     db: Session, descriptor: list[float], threshold: float
 ) -> tuple[models.AttendancePerson | None, float | None]:
-    best_person: models.AttendancePerson | None = None
+    best_person_id: int | None = None
     best_distance: float | None = None
 
-    for person in db.query(models.AttendancePerson).all():
-        stored = _parse_descriptor(person.face_descriptor)
-        if _is_placeholder_descriptor(stored):
-            continue
+    for person_id, stored in _load_descriptor_cache(db):
         distance = _euclidean_distance(descriptor, stored)
         if distance <= threshold and (best_distance is None or distance < best_distance):
-            best_person = person
+            best_person_id = person_id
             best_distance = distance
 
-    return best_person, best_distance
+    if best_person_id is None:
+        return None, None
+
+    person = db.get(models.AttendancePerson, best_person_id)
+    if person is None:
+        _invalidate_descriptor_cache()
+        return None, None
+    return person, best_distance
 
 
 def _get_last_punch(db: Session, person_id: int) -> models.AttendancePunch | None:
@@ -63,33 +96,6 @@ def _get_last_punch(db: Session, person_id: int) -> models.AttendancePunch | Non
         .order_by(models.AttendancePunch.punched_at.desc())
         .first()
     )
-
-
-def _ensure_person_columns(bind) -> None:
-    inspector = inspect(bind)
-    if "attendance_persons" not in inspector.get_table_names():
-        return
-    columns = {column["name"] for column in inspector.get_columns("attendance_persons")}
-    statements: list[str] = []
-    if "reference_image" not in columns:
-        statements.append("ALTER TABLE attendance_persons ADD COLUMN reference_image VARCHAR(500)")
-    if "reference_score" not in columns:
-        statements.append("ALTER TABLE attendance_persons ADD COLUMN reference_score DOUBLE PRECISION")
-    if not statements:
-        return
-    with bind.connect() as conn:
-        for statement in statements:
-            conn.execute(text(statement))
-        conn.commit()
-
-
-def ensure_attendance_tables(db: Session) -> None:
-    bind = db.get_bind()
-    for table in (models.AttendancePerson.__table__, models.AttendancePunch.__table__):
-        if isinstance(table, Table):
-            table.create(bind=bind, checkfirst=True)
-    _ensure_person_columns(bind)
-    settings.attendance_faces_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _face_image_path(user_id: str) -> Path:
@@ -150,7 +156,6 @@ def _maybe_update_reference_image(
 
 
 def punch(db: Session, body: schemas.AttendancePunchRequest) -> schemas.AttendancePunchResponse:
-    ensure_attendance_tables(db)
     descriptor = body.descriptor
     threshold = body.match_threshold
     now = datetime.utcnow()
@@ -170,6 +175,7 @@ def punch(db: Session, body: schemas.AttendancePunchRequest) -> schemas.Attendan
         )
         db.add(person)
         db.flush()
+        _invalidate_descriptor_cache()
     else:
         last_punch = _get_last_punch(db, person.id)
         if (
@@ -232,7 +238,6 @@ def list_punches(
     page: int = 1,
     page_size: int = 20,
 ) -> schemas.AttendancePunchesPage:
-    ensure_attendance_tables(db)
     query = db.query(models.AttendancePunch, models.AttendancePerson.user_id).join(
         models.AttendancePerson, models.AttendancePunch.person_id == models.AttendancePerson.id
     )
@@ -254,7 +259,6 @@ def list_punches(
 
 
 def list_persons(db: Session, user_id: str | None = None) -> list[schemas.AttendancePersonRead]:
-    ensure_attendance_tables(db)
     query = db.query(models.AttendancePerson)
     if user_id:
         keyword = user_id.strip()
@@ -284,7 +288,6 @@ def get_employee_profiles(
     names: list[str] | None = None,
 ) -> list[schemas.EmployeeProfileRead]:
     """按 user_id 查询打卡员工档案（含最近打卡时间与头像状态）。"""
-    ensure_attendance_tables(db)
     query = db.query(models.AttendancePerson)
     if names:
         query = query.filter(models.AttendancePerson.user_id.in_(names))
@@ -313,7 +316,6 @@ def get_employee_profiles(
 
 
 def get_person_photo_path(db: Session, user_id: str) -> Path:
-    ensure_attendance_tables(db)
     person = db.query(models.AttendancePerson).filter(models.AttendancePerson.user_id == user_id).first()
     if not person or not person.reference_image:
         raise HTTPException(status_code=404, detail="标准照不存在")
@@ -324,7 +326,6 @@ def get_person_photo_path(db: Session, user_id: str) -> Path:
 
 
 def delete_punch(db: Session, punch_id: int) -> None:
-    ensure_attendance_tables(db)
     punch_row = db.query(models.AttendancePunch).filter(models.AttendancePunch.id == punch_id).first()
     if not punch_row:
         raise HTTPException(status_code=404, detail="打卡记录不存在")
@@ -333,7 +334,6 @@ def delete_punch(db: Session, punch_id: int) -> None:
 
 
 def delete_person(db: Session, person_id: int) -> None:
-    ensure_attendance_tables(db)
     person = db.query(models.AttendancePerson).filter(models.AttendancePerson.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="人员不存在")
@@ -341,4 +341,5 @@ def delete_person(db: Session, person_id: int) -> None:
     db.query(models.AttendancePunch).filter(models.AttendancePunch.person_id == person_id).delete(synchronize_session=False)
     db.delete(person)
     db.commit()
+    _invalidate_descriptor_cache()
     _delete_reference_image_file(reference_image)

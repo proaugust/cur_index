@@ -89,6 +89,7 @@ async def lifespan(app: FastAPI):
         migrated = run_pending_migrations(engine)
         if migrated:
             logger.info("本次已应用数据库迁移: %s", ", ".join(migrated))
+        settings.attendance_faces_dir.mkdir(parents=True, exist_ok=True)
         ensure_chunk_schemas(engine)
         db = SessionLocal()
         try:

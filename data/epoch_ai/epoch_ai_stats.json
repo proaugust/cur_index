@@ -1,12 +1,12 @@
 {
   "status": "success",
-  "updated_date": "2026-11-10",
-  "updated_at": "2026-11-10 00:31:20",
+  "updated_date": "2026-11-26",
+  "updated_at": "2026-11-26 18:07:38",
   "counts": {
-    "all_models": 3695,
-    "notable_models": 1118,
+    "all_models": 3718,
+    "notable_models": 1128,
     "frontier_models": 138,
-    "large_scale_models": 639
+    "large_scale_models": 644
   },
   "yearly_countries": [
     {
@@ -527,7 +527,7 @@
         "Other": 58,
         "China": 195,
         "United States": 289,
-        "France": 26,
+        "France": 28,
         "Germany": 5,
         "United Kingdom": 7,
         "Japan": 1,
@@ -537,9 +537,9 @@
     {
       "year": 2026,
       "countries": {
-        "United States": 143,
-        "China": 66,
-        "Other": 14,
+        "United States": 156,
+        "China": 73,
+        "Other": 15,
         "France": 3,
         "Germany": 1,
         "United Kingdom": 1,
@@ -548,19 +548,49 @@
     }
   ],
   "domains": {
-    "Language": 2135,
-    "Vision": 631,
+    "Language": 2156,
+    "Vision": 633,
     "Speech/Audio": 171,
     "Other": 707,
     "Robotics": 46,
     "Multimodal": 5
   },
   "open_weights": {
-    "Yes": 1395,
-    "No": 1460,
-    "Unknown": 840
+    "Yes": 1405,
+    "No": 1471,
+    "Unknown": 842
   },
   "scatter_data": [
+    {
+      "name": "Inkling 2 Small",
+      "date": "2026-11-05",
+      "org": "Thinking Machines",
+      "params": 594000000000.0,
+      "compute": 2.13418e+23,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "SWE-2 Flash",
+      "date": "2026-11-04",
+      "org": "Cognition",
+      "params": 276000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Ripple-65B Preview",
+      "date": "2026-11-04",
+      "org": "Ricursive Intelligence",
+      "params": 65000000000.0,
+      "compute": 4.83717e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
     {
       "name": "Particle-1",
       "date": "2026-10-28",
@@ -592,6 +622,16 @@
       "is_notable": false
     },
     {
+      "name": "Muse Spark Open",
+      "date": "2026-10-15",
+      "org": "Meta AI",
+      "params": 816000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
       "name": "MAI-Base-2",
       "date": "2026-10-15",
       "org": "Microsoft",
@@ -602,6 +642,16 @@
       "is_notable": true
     },
     {
+      "name": "Bonsai 2 9B",
+      "date": "2026-10-15",
+      "org": "PrismML",
+      "params": 9410000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
       "name": "Mistral Large 4",
       "date": "2026-10-06",
       "org": "Mistral AI",
@@ -610,6 +660,46 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": true
+    },
+    {
+      "name": "Beam 1.0",
+      "date": "2026-10-05",
+      "org": "Reflection",
+      "params": 501000000000.0,
+      "compute": 3.2844e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Nemotron 3.5 Bolt E4B",
+      "date": "2026-09-23",
+      "org": "Nvidia",
+      "params": 8000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "MiMo-V2.6 Pro",
+      "date": "2026-09-22",
+      "org": "Xiaomi Corp",
+      "params": 1020000000000.0,
+      "compute": null,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
+      "name": "MiMo-V2.6 Flash\n",
+      "date": "2026-09-22",
+      "org": "Xiaomi Corp",
+      "params": 310000000000.0,
+      "compute": 4.32e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": false
     },
     {
       "name": "FLUX 3 Action",
@@ -630,6 +720,16 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": true
+    },
+    {
+      "name": "Qwen-Image-2.1",
+      "date": "2026-09-20",
+      "org": "Alibaba",
+      "params": 7000000000.0,
+      "compute": null,
+      "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
     },
     {
       "name": "Step 5 Preview",
@@ -895,7 +995,7 @@
       "name": "Gemma 4 E4B",
       "date": "2026-07-02",
       "org": "Google DeepMind",
-      "params": 4017000000.0,
+      "params": 8000000000.0,
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
@@ -1079,7 +1179,7 @@
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
-      "is_notable": false
+      "is_notable": true
     },
     {
       "name": "Granite 4.1 30B",
@@ -1142,10 +1242,20 @@
       "is_notable": true
     },
     {
+      "name": "MiMo-V2.5",
+      "date": "2026-04-22",
+      "org": "Xiaomi Corp",
+      "params": 310000000000.0,
+      "compute": 4.32e+24,
+      "domain": "Language",
+      "is_frontier": false,
+      "is_notable": true
+    },
+    {
       "name": "Qwen3.6 27B",
       "date": "2026-04-22",
       "org": "Alibaba",
-      "params": 28000000000.0,
+      "params": 27000000000.0,
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
@@ -1198,6 +1308,16 @@
       "params": 5260000000.0,
       "compute": null,
       "domain": "Vision",
+      "is_frontier": false,
+      "is_notable": false
+    },
+    {
+      "name": "Qwen 3.6 35B-A3B",
+      "date": "2026-04-14",
+      "org": "Alibaba",
+      "params": 35000000000.0,
+      "compute": null,
+      "domain": "Language",
       "is_frontier": false,
       "is_notable": false
     },
@@ -1389,7 +1509,7 @@
       "compute": null,
       "domain": "Language",
       "is_frontier": false,
-      "is_notable": false
+      "is_notable": true
     },
     {
       "name": "Arcee Trinity Large",
@@ -1940,137 +2060,125 @@
       "domain": "Language",
       "is_frontier": false,
       "is_notable": false
-    },
-    {
-      "name": "Deepseek OCR",
-      "date": "2025-10-21",
-      "org": "DeepSeek",
-      "params": 3000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "BAPO 32B",
-      "date": "2025-10-21",
-      "org": "Fudan University,Shanghai Qiji Zhifeng",
-      "params": 32000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Ring-flash-2.0",
-      "date": "2025-10-21",
-      "org": "Ant Group",
-      "params": 100000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Qwen3-VL-32B",
-      "date": "2025-10-21",
-      "org": "Alibaba",
-      "params": 32000000000.0,
-      "compute": 7.500864e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Odyssey 102B",
-      "date": "2025-10-18",
-      "org": "Anthrogen",
-      "params": 102000000000.0,
-      "compute": 1.1e+23,
-      "domain": "Other",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Odyssey 12B",
-      "date": "2025-10-18",
-      "org": "Anthrogen",
-      "params": 12000000000.0,
-      "compute": null,
-      "domain": "Other",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Odyssey 1.2B",
-      "date": "2025-10-18",
-      "org": "Anthrogen",
-      "params": 1200000000.0,
-      "compute": null,
-      "domain": "Other",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Llama 4 Scout + ScaleRL",
-      "date": "2025-10-15",
-      "org": "Meta AI",
-      "params": 109000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Qwen3-VL-8B",
-      "date": "2025-10-15",
-      "org": "Alibaba",
-      "params": 8767123696.0,
-      "compute": 1.885190142295392e+24,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Qwen3-VL-4B",
-      "date": "2025-10-15",
-      "org": "Alibaba",
-      "params": 4437815808.0,
-      "compute": 9.2170048e+23,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "C2S-Scale",
-      "date": "2025-10-11",
-      "org": "Google Research,Yale University,Google DeepMind,Brown University,University of Southern California",
-      "params": 27000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
-    },
-    {
-      "name": "Ring-1T",
-      "date": "2025-10-10",
-      "org": "Ant Group",
-      "params": 1000000000000.0,
-      "compute": null,
-      "domain": "Language",
-      "is_frontier": false,
-      "is_notable": false
     }
   ],
   "latest_releases": [
     {
-      "name": "Gemini 4 Carbon",
-      "org": "Google DeepMind",
-      "date": "2026-10-28",
+      "name": "Inkling 2 Mini",
+      "org": "Thinking Machines",
+      "date": "2026-11-20",
       "domain": "Language",
       "parameters": "Unknown",
-      "accessibility": "Unreleased",
+      "accessibility": "Open weights (unrestricted)",
+      "link": "https://thinkingmachines.ai/news/inkling-2-mini/"
+    },
+    {
+      "name": "Gemini 4 Neon",
+      "org": "Google DeepMind",
+      "date": "2026-11-18",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://deepmind.google/models/model-cards/gemini-4-neon/"
+    },
+    {
+      "name": "GPT-6.2 Astra",
+      "org": "OpenAI",
+      "date": "2026-11-17",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://openai.com/index/introducing-gpt-6-2-astra-sol/"
+    },
+    {
+      "name": "GPT-6.2 Sol",
+      "org": "OpenAI",
+      "date": "2026-11-17",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://openai.com/index/introducing-gpt-6-2-astra-sol/"
+    },
+    {
+      "name": "Qwen4-Max",
+      "org": "Alibaba",
+      "date": "2026-11-16",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://www.qwencloud.com/models/qwen4-max"
+    },
+    {
+      "name": "Gemini 4 Hydrogen",
+      "org": "Google DeepMind",
+      "date": "2026-11-12",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://deepmind.google/models/model-cards/gemini-4-hydrogen/"
+    },
+    {
+      "name": "Gemini 4 Carbon",
+      "org": "Google DeepMind",
+      "date": "2026-11-10",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
       "link": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/"
+    },
+    {
+      "name": "Claude Fable 5.2",
+      "org": "Anthropic",
+      "date": "2026-11-09",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://www.anthropic.com/claude-fable-and-mythos-5-2"
+    },
+    {
+      "name": "Muse Ember",
+      "org": "Meta AI",
+      "date": "2026-11-09",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "API access",
+      "link": "https://research.meta.ai/blog/muse-ember"
+    },
+    {
+      "name": "Claude Mythos 5.2",
+      "org": "Anthropic",
+      "date": "2026-11-09",
+      "domain": "Language",
+      "parameters": "Unknown",
+      "accessibility": "Limited access",
+      "link": "https://www.anthropic.com/claude-fable-and-mythos-5-2"
+    },
+    {
+      "name": "Inkling 2 Small",
+      "org": "Thinking Machines",
+      "date": "2026-11-05",
+      "domain": "Language",
+      "parameters": "594000000000.0",
+      "accessibility": "Open weights (unrestricted)",
+      "link": "https://thinkingmachines.ai/news/inkling-2-small/"
+    },
+    {
+      "name": "SWE-2 Flash",
+      "org": "Cognition",
+      "date": "2026-11-04",
+      "domain": "Language",
+      "parameters": "276000000000.0",
+      "accessibility": "Hosted access (no API)",
+      "link": "https://cognition.com/blog/swe-2-flashIntroducing"
+    },
+    {
+      "name": "Ripple-65B Preview",
+      "org": "Ricursive Intelligence",
+      "date": "2026-11-04",
+      "domain": "Language",
+      "parameters": "65000000000.0",
+      "accessibility": "Open weights (unrestricted)",
+      "link": "https://www.ricursive.com/ripple"
     },
     {
       "name": "Particle-1",
@@ -2089,114 +2197,6 @@
       "parameters": "Unknown",
       "accessibility": "Hosted access (no API)",
       "link": "https://microsoft.ai/news/mai-image-2-7-debut/"
-    },
-    {
-      "name": "Genie 4",
-      "org": "Google DeepMind",
-      "date": "2026-10-27",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Limited access",
-      "link": "https://deepmind.google/blog/genie-4-a-new-generation-of-world-simulation/"
-    },
-    {
-      "name": "MAI-Cyber-1.1-Flash",
-      "org": "Microsoft",
-      "date": "2026-10-27",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://microsoft.ai/news/mai-cyber-1-1-flash/"
-    },
-    {
-      "name": "GPT-6.1 Terra",
-      "org": "OpenAI",
-      "date": "2026-10-26",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"
-    },
-    {
-      "name": "Kimi K3.1 Pro",
-      "org": "Moonshot",
-      "date": "2026-10-23",
-      "domain": "Language",
-      "parameters": "2800000000000.0",
-      "accessibility": "Open weights (restricted use)",
-      "link": "https://huggingface.co/moonshotai/Kimi-K3.1-Pro"
-    },
-    {
-      "name": "Boba",
-      "org": "Humans& (Humans and)",
-      "date": "2026-10-22",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://boba.humansand.ai/blog/"
-    },
-    {
-      "name": "Canva Craft",
-      "org": "Canva",
-      "date": "2026-10-22",
-      "domain": "Vision",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://www.canva.com/newsroom/news/canva-craft/"
-    },
-    {
-      "name": "Mirendil-Base",
-      "org": "Mirendil",
-      "date": "2026-10-21",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Unreleased",
-      "link": "https://mirendil.com/news/pretraining-at-scale-without-a-pretraining-team/"
-    },
-    {
-      "name": "Ampersand",
-      "org": "Humans& (Humans and)",
-      "date": "2026-10-20",
-      "domain": "Language",
-      "parameters": "744000000000.0",
-      "accessibility": "Unknown",
-      "link": "https://ampersand.humansand.ai/blog/model-card.html"
-    },
-    {
-      "name": "Mercury 3",
-      "org": "Inception Labs",
-      "date": "2026-10-16",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "API access",
-      "link": "https://www.inceptionlabs.ai/blog/introducing-mercury-3"
-    },
-    {
-      "name": "Muse Spark Open",
-      "org": "Meta AI",
-      "date": "2026-10-15",
-      "domain": "Language",
-      "parameters": "Unknown",
-      "accessibility": "Open weights (restricted use)",
-      "link": "https://research.meta.ai/blog/muse-spark-open"
-    },
-    {
-      "name": "MAI-Base-2",
-      "org": "Microsoft",
-      "date": "2026-10-15",
-      "domain": "Language",
-      "parameters": "2800000000000.0",
-      "accessibility": "Unreleased",
-      "link": "https://microsoft.ai/pdf/Frontier-Pre-training-at-Microsoft-AI.pdf?v=2"
-    },
-    {
-      "name": "Kling 4.0",
-      "org": "Kuaishou Technology",
-      "date": "2026-10-15",
-      "domain": "Vision",
-      "parameters": "Unknown",
-      "accessibility": "Hosted access (no API)",
-      "link": "https://kling.ai/release-note/release-notes/Kling_4"
     }
   ]
 }
